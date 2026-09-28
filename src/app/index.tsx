@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,7 +42,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.hero}>
+        <LinearGradient colors={['#254B57', '#424569', '#594969']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <Text style={styles.heroSmall}>👋 QUÉ BUENO VERTE POR AQUÍ</Text>
 
           <Text style={styles.heroTitle}>
@@ -69,12 +70,13 @@ export default function HomeScreen() {
 
           <Pressable
             accessibilityRole="button"
-            style={styles.primaryButton}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.cardPressed]}
             onPress={buscar}
           >
+            <LinearGradient pointerEvents="none" colors={['#B5D2CC', '#B4BDCF', '#CABED1']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.buttonSheen} />
             <Text style={styles.primaryButtonText}>Buscar en Nexo</Text>
           </Pressable>
-        </View>
+        </LinearGradient>
 
         <Text style={styles.sectionTitle}>Tu próximo paso empieza aquí ✨</Text>
 
@@ -84,7 +86,8 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.actionCard, styles.hireCard, pressed && styles.cardPressed]}
             onPress={() => router.push('/publicar/necesidad')}
           >
-            <Text style={styles.actionEmoji}>🔎</Text>
+            <LinearGradient pointerEvents="none" colors={["#40576C","#55516E","#3B5460"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardSheen} />
+            <View style={styles.emojiBadge}><Text style={styles.actionEmoji}>🔎</Text></View>
             <Text style={styles.actionTitle}>Necesito contratar</Text>
             <Text style={styles.actionText}>
               Publica lo que necesitas y recibe propuestas.
@@ -96,7 +99,8 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.actionCard, styles.serviceCard, pressed && styles.cardPressed]}
             onPress={() => router.push('/publicar/servicio')}
           >
-            <Text style={styles.actionEmoji}>🛠️</Text>
+            <LinearGradient pointerEvents="none" colors={["#285E61","#465A70","#4E5368"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardSheen} />
+            <View style={styles.emojiBadge}><Text style={styles.actionEmoji}>🛠️</Text></View>
             <Text style={styles.actionTitle}>Ofrezco un servicio</Text>
             <Text style={styles.actionText}>
               Muestra tus habilidades y consigue clientes.
@@ -108,7 +112,8 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.actionCard, styles.productCard, pressed && styles.cardPressed]}
             onPress={() => router.push('/publicar/producto')}
           >
-            <Text style={styles.actionEmoji}>📦</Text>
+            <LinearGradient pointerEvents="none" colors={["#675052","#60566E","#47566D"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardSheen} />
+            <View style={styles.emojiBadge}><Text style={styles.actionEmoji}>📦</Text></View>
             <Text style={styles.actionTitle}>Vendo un producto</Text>
             <Text style={styles.actionText}>
               Publica productos físicos y llega a nuevos compradores.
@@ -120,7 +125,8 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.actionCard, styles.exploreCard, pressed && styles.cardPressed]}
             onPress={() => router.push('/explorar')}
           >
-            <Text style={styles.actionEmoji}>🤝</Text>
+            <LinearGradient pointerEvents="none" colors={["#3D5474","#535777","#3F6269"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardSheen} />
+            <View style={styles.emojiBadge}><Text style={styles.actionEmoji}>🤝</Text></View>
             <Text style={styles.actionTitle}>Explorar Nexo</Text>
             <Text style={styles.actionText}>
               Descubre profesionales, negocios, servicios y productos.
@@ -185,19 +191,23 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  cardSheen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 20 },
+  buttonSheen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 15 },
+  emojiBadge: { alignSelf: 'flex-start', padding: 10, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderTopColor: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.16)', marginBottom: 16, boxShadow: '0 4px 8px rgba(10,22,38,0.18)' },
+
   brand: { flex: 1, paddingRight: 12 },
-  logoAccent: { color: '#7042CC', fontStyle: 'italic' },
-  logoDot: { color: '#C95725' },
-  heroAccent: { color: '#FFD47D', fontStyle: 'italic' },
-  hireCard: { backgroundColor: '#EEE3FF', borderColor: '#C6A9F2' },
-  serviceCard: { backgroundColor: '#D8F5E9', borderColor: '#8CCEB6' },
-  productCard: { backgroundColor: '#FFE6D3', borderColor: '#ECB58D' },
-  exploreCard: { backgroundColor: '#E0EEFF', borderColor: '#A4C5EF' },
-  cardPressed: { opacity: 0.8 },
+  logoAccent: { color: '#536181', fontStyle: 'italic' },
+  logoDot: { color: '#507B77' },
+  heroAccent: { color: '#D4E4E1', fontStyle: 'italic' },
+  hireCard: { backgroundColor: '#40576C', borderColor: '#8A9CAB' },
+  serviceCard: { backgroundColor: '#285E61', borderColor: '#7DABA8' },
+  productCard: { backgroundColor: '#675052', borderColor: '#AB929A' },
+  exploreCard: { backgroundColor: '#3D5474', borderColor: '#8B9FB9' },
+  cardPressed: { transform: [{ translateY: 2 }, { scale: 0.985 }], opacity: 0.94 },
 
   safe: {
     flex: 1,
-    backgroundColor: '#FFF8F0',
+    backgroundColor: '#ECEEED',
   },
 
   container: {
@@ -244,14 +254,18 @@ const styles = StyleSheet.create({
   },
 
   hero: {
-    backgroundColor: '#5635B5',
+    backgroundColor: '#424569',
+    borderWidth: 1,
+    borderColor: '#7E8D9C',
+    borderTopColor: '#ADBAC3',
+    boxShadow: '0 12px 26px rgba(32,44,65,0.2)',
     borderRadius: 28,
     padding: 26,
     marginBottom: 30,
   },
 
   heroSmall: {
-    color: '#FFE6A7',
+    color: '#DAE6E3',
     fontWeight: '800',
     letterSpacing: 1.5,
     fontSize: 12,
@@ -299,14 +313,19 @@ const styles = StyleSheet.create({
 
   primaryButton: {
     marginTop: 12,
-    backgroundColor: '#FFC65C',
+    backgroundColor: '#B5C7CB',
+    borderWidth: 1,
+    borderTopColor: '#EDF5F3',
+    borderColor: '#8899AD',
+    borderBottomWidth: 3,
+    boxShadow: '0 5px 10px rgba(15,25,42,0.22)',
     paddingVertical: 16,
     borderRadius: 15,
     alignItems: 'center',
   },
 
   primaryButtonText: {
-    color: '#382509',
+    color: '#202D3C',
     fontWeight: '900',
     fontSize: 16,
   },
@@ -330,7 +349,10 @@ const styles = StyleSheet.create({
   actionCard: {
     flexGrow: 1,
     flexBasis: 220,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#40576C',
+    boxShadow: '0 8px 16px rgba(29,43,62,0.18)',
+    borderBottomWidth: 3,
+    borderTopColor: '#BDC8D4',
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
@@ -339,18 +361,17 @@ const styles = StyleSheet.create({
 
   actionEmoji: {
     fontSize: 30,
-    marginBottom: 12,
   },
 
   actionTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#292344',
+    color: '#FFFFFF',
     marginBottom: 6,
   },
 
   actionText: {
-    color: '#625A73',
+    color: '#E5E8F0',
     lineHeight: 21,
   },
 
@@ -376,8 +397,8 @@ const styles = StyleSheet.create({
   },
 
   newCategory: {
-    borderColor: '#34D399',
-    backgroundColor: '#D8F5E9',
+    borderColor: '#8BAEA5',
+    backgroundColor: '#DFE8E4',
   },
 
   newCategoryText: {
@@ -386,7 +407,7 @@ const styles = StyleSheet.create({
   },
 
   infoCard: {
-    backgroundColor: '#F0E7FF',
+    backgroundColor: '#DFE4E6',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
