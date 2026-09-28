@@ -25,8 +25,8 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.logo}>Nexo</Text>
+          <View style={styles.brand}>
+            <Text style={styles.logo}>Ne<Text style={styles.logoAccent}>xo</Text><Text style={styles.logoDot}>.</Text></Text>
             <Text style={styles.logoSub}>
               Talento, servicios y productos en un solo lugar
             </Text>
@@ -42,10 +42,11 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.hero}>
-          <Text style={styles.heroSmall}>BIENVENIDO A NEXO</Text>
+          <Text style={styles.heroSmall}>👋 QUÉ BUENO VERTE POR AQUÍ</Text>
 
           <Text style={styles.heroTitle}>
-            Encuentra a la persona correcta para cada trabajo.
+            Conecta con talento.{'\n'}
+            <Text style={styles.heroAccent}>Haz que suceda.</Text>
           </Text>
 
           <Text style={styles.heroText}>
@@ -54,7 +55,7 @@ export default function HomeScreen() {
           </Text>
 
           <View style={styles.search}>
-            <Text style={styles.searchIcon}>⌕</Text>
+            <Text style={styles.searchIcon}>🔎</Text>
 
             <TextInput
               value={busqueda}
@@ -75,12 +76,12 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>¿Qué quieres hacer?</Text>
+        <Text style={styles.sectionTitle}>Tu próximo paso empieza aquí ✨</Text>
 
         <View style={styles.actionGrid}>
           <Pressable
             accessibilityRole="button"
-            style={styles.actionCard}
+            style={({ pressed }) => [styles.actionCard, styles.hireCard, pressed && styles.cardPressed]}
             onPress={() => router.push('/publicar/necesidad')}
           >
             <Text style={styles.actionEmoji}>🔎</Text>
@@ -92,7 +93,7 @@ export default function HomeScreen() {
 
           <Pressable
             accessibilityRole="button"
-            style={styles.actionCard}
+            style={({ pressed }) => [styles.actionCard, styles.serviceCard, pressed && styles.cardPressed]}
             onPress={() => router.push('/publicar/servicio')}
           >
             <Text style={styles.actionEmoji}>🛠️</Text>
@@ -104,7 +105,7 @@ export default function HomeScreen() {
 
           <Pressable
             accessibilityRole="button"
-            style={styles.actionCard}
+            style={({ pressed }) => [styles.actionCard, styles.productCard, pressed && styles.cardPressed]}
             onPress={() => router.push('/publicar/producto')}
           >
             <Text style={styles.actionEmoji}>📦</Text>
@@ -116,7 +117,7 @@ export default function HomeScreen() {
 
           <Pressable
             accessibilityRole="button"
-            style={styles.actionCard}
+            style={({ pressed }) => [styles.actionCard, styles.exploreCard, pressed && styles.cardPressed]}
             onPress={() => router.push('/explorar')}
           >
             <Text style={styles.actionEmoji}>🤝</Text>
@@ -127,7 +128,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Explora categorías</Text>
+        <Text style={styles.sectionTitle}>Encuentra lo tuyo 🧭</Text>
 
         <View style={styles.categories}>
           {categorias.map((categoria) => (
@@ -152,7 +153,7 @@ export default function HomeScreen() {
 
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>
-            ¿No encuentras tu profesión, oficio o producto?
+            💡 ¿Falta lo que tú haces?
           </Text>
 
           <Text style={styles.infoText}>
@@ -184,9 +185,19 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  brand: { flex: 1, paddingRight: 12 },
+  logoAccent: { color: '#7042CC', fontStyle: 'italic' },
+  logoDot: { color: '#C95725' },
+  heroAccent: { color: '#FFD47D', fontStyle: 'italic' },
+  hireCard: { backgroundColor: '#EEE3FF', borderColor: '#C6A9F2' },
+  serviceCard: { backgroundColor: '#D8F5E9', borderColor: '#8CCEB6' },
+  productCard: { backgroundColor: '#FFE6D3', borderColor: '#ECB58D' },
+  exploreCard: { backgroundColor: '#E0EEFF', borderColor: '#A4C5EF' },
+  cardPressed: { opacity: 0.8 },
+
   safe: {
     flex: 1,
-    backgroundColor: '#F6F7F9',
+    backgroundColor: '#FFF8F0',
   },
 
   container: {
@@ -205,13 +216,14 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    fontSize: 32,
+    fontSize: 38,
+    letterSpacing: -1.8,
     fontWeight: '900',
-    color: '#111827',
+    color: '#292344',
   },
 
   logoSub: {
-    color: '#6B7280',
+    color: '#625A73',
     fontSize: 13,
     marginTop: 2,
   },
@@ -220,7 +232,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#111827',
+    backgroundColor: '#292344',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -232,14 +244,14 @@ const styles = StyleSheet.create({
   },
 
   hero: {
-    backgroundColor: '#111827',
+    backgroundColor: '#5635B5',
     borderRadius: 28,
     padding: 26,
     marginBottom: 30,
   },
 
   heroSmall: {
-    color: '#A7F3D0',
+    color: '#FFE6A7',
     fontWeight: '800',
     letterSpacing: 1.5,
     fontSize: 12,
@@ -248,14 +260,14 @@ const styles = StyleSheet.create({
 
   heroTitle: {
     color: '#FFFFFF',
-    fontSize: 37,
-    lineHeight: 42,
+    fontSize: 34,
+    lineHeight: 40,
     fontWeight: '900',
     maxWidth: 720,
   },
 
   heroText: {
-    color: '#D1D5DB',
+    color: '#EFE7FF',
     fontSize: 17,
     lineHeight: 25,
     marginTop: 14,
@@ -275,34 +287,35 @@ const styles = StyleSheet.create({
   searchIcon: {
     fontSize: 28,
     marginRight: 10,
-    color: '#111827',
+    color: '#292344',
   },
 
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#111827',
+    color: '#292344',
     outlineStyle: 'none',
   } as any,
 
   primaryButton: {
     marginTop: 12,
-    backgroundColor: '#34D399',
+    backgroundColor: '#FFC65C',
     paddingVertical: 16,
     borderRadius: 15,
     alignItems: 'center',
   },
 
   primaryButtonText: {
-    color: '#062A21',
+    color: '#382509',
     fontWeight: '900',
     fontSize: 16,
   },
 
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 25,
+    letterSpacing: -0.6,
     fontWeight: '900',
-    color: '#111827',
+    color: '#292344',
     marginBottom: 15,
     marginTop: 4,
   },
@@ -321,7 +334,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#DACCEA',
   },
 
   actionEmoji: {
@@ -332,12 +345,12 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#111827',
+    color: '#292344',
     marginBottom: 6,
   },
 
   actionText: {
-    color: '#6B7280',
+    color: '#625A73',
     lineHeight: 21,
   },
 
@@ -351,7 +364,7 @@ const styles = StyleSheet.create({
   category: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#DDD0C3',
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 11,
@@ -364,7 +377,7 @@ const styles = StyleSheet.create({
 
   newCategory: {
     borderColor: '#34D399',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#D8F5E9',
   },
 
   newCategoryText: {
@@ -373,7 +386,7 @@ const styles = StyleSheet.create({
   },
 
   infoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F0E7FF',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
@@ -381,13 +394,13 @@ const styles = StyleSheet.create({
   },
 
   infoTitle: {
-    color: '#111827',
+    color: '#292344',
     fontSize: 21,
     fontWeight: '900',
   },
 
   infoText: {
-    color: '#6B7280',
+    color: '#625A73',
     fontSize: 15,
     lineHeight: 23,
     marginTop: 8,
@@ -396,7 +409,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     marginTop: 18,
     alignSelf: 'flex-start',
-    backgroundColor: '#111827',
+    backgroundColor: '#292344',
     paddingVertical: 13,
     paddingHorizontal: 18,
     borderRadius: 12,
@@ -415,11 +428,11 @@ const styles = StyleSheet.create({
   footerLogo: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#111827',
+    color: '#292344',
   },
 
   footerText: {
-    color: '#9CA3AF',
+    color: '#625A73',
     fontSize: 12,
     marginTop: 4,
   },
