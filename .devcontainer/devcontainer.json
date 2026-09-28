@@ -1,0 +1,16 @@
+{
+  "name": "Nexo",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "forwardPorts": [
+    8081
+  ],
+  "portsAttributes": {
+    "8081": {
+      "label": "Nexo · vista de prueba",
+      "onAutoForward": "notify",
+      "requireLocalPort": true
+    }
+  },
+  "postCreateCommand": "npm ci",
+  "postStartCommand": "bash scripts/start-preview.sh"
+}
