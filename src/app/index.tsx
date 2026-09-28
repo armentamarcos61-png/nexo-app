@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { categorias } from '@/constants/categories';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,28 +11,16 @@ import {
   View,
 } from 'react-native';
 
-const categorias = [
-  'Carpintería',
-  'Electricidad',
-  'Plomería',
-  'Tapicería',
-  'Tecnología',
-  'Construcción',
-  'Ventas',
-  'Diseño',
-];
-
 export default function HomeScreen() {
   const [busqueda, setBusqueda] = useState('');
-  const [mensaje, setMensaje] = useState('');
-
-  function accion(texto: string) {
-    setMensaje(texto);
+  function buscar() {
+    router.push({ pathname: '/explorar', params: { q: busqueda.trim() } });
   }
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
@@ -43,8 +33,9 @@ export default function HomeScreen() {
           </View>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.profile}
-            onPress={() => accion('Perfil y cuenta')}
+            onPress={() => router.push('/perfil')}
           >
             <Text style={styles.profileText}>N</Text>
           </Pressable>
@@ -71,25 +62,14 @@ export default function HomeScreen() {
               placeholder="¿Qué necesitas?"
               placeholderTextColor="#777"
               style={styles.input}
-              onSubmitEditing={() =>
-                accion(
-                  busqueda
-                    ? `Buscando: ${busqueda}`
-                    : 'Escribe algo para buscar'
-                )
-              }
+              onSubmitEditing={buscar}
             />
           </View>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.primaryButton}
-            onPress={() =>
-              accion(
-                busqueda
-                  ? `Buscando: ${busqueda}`
-                  : 'Escribe lo que necesitas encontrar'
-              )
-            }
+            onPress={buscar}
           >
             <Text style={styles.primaryButtonText}>Buscar en Nexo</Text>
           </Pressable>
@@ -99,8 +79,9 @@ export default function HomeScreen() {
 
         <View style={styles.actionGrid}>
           <Pressable
+            accessibilityRole="button"
             style={styles.actionCard}
-            onPress={() => accion('Publicar una necesidad de trabajo')}
+            onPress={() => router.push('/publicar/necesidad')}
           >
             <Text style={styles.actionEmoji}>🔎</Text>
             <Text style={styles.actionTitle}>Necesito contratar</Text>
@@ -110,8 +91,9 @@ export default function HomeScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.actionCard}
-            onPress={() => accion('Publicar un servicio')}
+            onPress={() => router.push('/publicar/servicio')}
           >
             <Text style={styles.actionEmoji}>🛠️</Text>
             <Text style={styles.actionTitle}>Ofrezco un servicio</Text>
@@ -121,8 +103,9 @@ export default function HomeScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.actionCard}
-            onPress={() => accion('Publicar un producto')}
+            onPress={() => router.push('/publicar/producto')}
           >
             <Text style={styles.actionEmoji}>📦</Text>
             <Text style={styles.actionTitle}>Vendo un producto</Text>
@@ -132,8 +115,9 @@ export default function HomeScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.actionCard}
-            onPress={() => accion('Explorar profesionales y negocios')}
+            onPress={() => router.push('/explorar')}
           >
             <Text style={styles.actionEmoji}>🤝</Text>
             <Text style={styles.actionTitle}>Explorar Nexo</Text>
@@ -148,17 +132,19 @@ export default function HomeScreen() {
         <View style={styles.categories}>
           {categorias.map((categoria) => (
             <Pressable
+              accessibilityRole="button"
               key={categoria}
               style={styles.category}
-              onPress={() => accion(`Categoría: ${categoria}`)}
+              onPress={() => router.push({ pathname: '/explorar', params: { categoria } })}
             >
               <Text style={styles.categoryText}>{categoria}</Text>
             </Pressable>
           ))}
 
           <Pressable
+            accessibilityRole="button"
             style={[styles.category, styles.newCategory]}
-            onPress={() => accion('Proponer una nueva categoría')}
+            onPress={() => router.push('/publicar/categoria')}
           >
             <Text style={styles.newCategoryText}>+ Agregar nueva opción</Text>
           </Pressable>
@@ -176,20 +162,15 @@ export default function HomeScreen() {
           </Text>
 
           <Pressable
+            accessibilityRole="button"
             style={styles.secondaryButton}
-            onPress={() => accion('Crear una propuesta de categoría')}
+            onPress={() => router.push('/publicar/categoria')}
           >
             <Text style={styles.secondaryButtonText}>
               Proponer nueva categoría
             </Text>
           </Pressable>
         </View>
-
-        {mensaje ? (
-          <View style={styles.message}>
-            <Text style={styles.messageText}>{mensaje}</Text>
-          </View>
-        ) : null}
 
         <View style={styles.footer}>
           <Text style={styles.footerLogo}>Nexo</Text>
@@ -426,20 +407,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  message: {
-    marginTop: 18,
-    padding: 15,
-    borderRadius: 14,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-
-  messageText: {
-    color: '#065F46',
-    fontWeight: '700',
-  },
-
   footer: {
     alignItems: 'center',
     paddingTop: 38,
@@ -457,3 +424,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+
