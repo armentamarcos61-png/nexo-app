@@ -32,10 +32,10 @@ const actions = [
   },
   {
     icon: '🛒',
-    title: 'Vender producto',
-    text: 'Publica productos físicos y llega a más compradores.',
+    title: 'Productos',
+    text: 'Ve el Marketplace completo, busca lo que necesitas o publica lo tuyo.',
     colors: ['#C95C55', '#C86D92', '#7D4DD1'] as const,
-    onPress: () => router.push('/publicar/producto'),
+    onPress: () => router.push('/productos'),
   },
   {
     icon: '🛠️',
