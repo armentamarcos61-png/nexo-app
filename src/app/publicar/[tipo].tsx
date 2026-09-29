@@ -6,7 +6,10 @@ import { categorias } from '@/constants/categories';
 import { storageNotice, tipos, useDrafts, type Tipo } from '@/state/drafts';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { MultiImagePicker } from '@/components/multi-image-picker';
+import { VideoPicker } from '@/components/video-picker';
+import { StoredVideo } from '@/components/stored-video';
 import { useMarketplace } from '@/state/marketplace';
+import type { StoredVideoRef } from '@/state/media-store';
 
 export function generateStaticParams() {
   return Object.keys(tipos).map(tipo => ({ tipo }));
@@ -29,6 +32,7 @@ function Formulario({ tipo }: { tipo: Tipo }) {
   const [ubicacion, setUbicacion] = useState('');
   const [importe, setImporte] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [videos, setVideos] = useState<StoredVideoRef[]>([]);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState(false);
   const id = useRef<string | null>(null);
@@ -54,8 +58,8 @@ function Formulario({ tipo }: { tipo: Tipo }) {
 
   function publicarProducto() {
     if (tipo !== 'producto') return;
-    if (!images.length) {
-      setError('Agrega al menos una foto antes de publicar el producto en el Marketplace.');
+    if (!images.length && !videos.length) {
+      setError('Agrega al menos una foto o video antes de publicar el producto en el Marketplace.');
       setPreview(false);
       return;
     }
@@ -69,6 +73,7 @@ function Formulario({ tipo }: { tipo: Tipo }) {
         location: ubicacion.trim(),
         price: importe.trim().replace(',', '.'),
         images,
+        videos,
         createdAt: new Date().toISOString(),
       });
       router.replace('/productos');
@@ -85,11 +90,27 @@ function Formulario({ tipo }: { tipo: Tipo }) {
         <Text style={[ui.title, { color: palette.title }]}>{titulo.trim()}</Text>
         <Text style={[ui.text, { color: palette.text }]}>{descripcion.trim()}</Text>
         {!proposal && <><Text style={[ui.text, { color: palette.text }]}>{categoria} · {ubicacion.trim()}</Text><Text style={[ui.label, { color: palette.title }]}>{importe.trim() ? `${importe.trim()} MXN` : 'Importe por acordar'}</Text></>}
-        {tipo === 'producto' && !!images.length && (
-          <View style={styles.previewImages}>
-            {images.slice(0, 4).map((uri, index) => (
-              <Image key={`${index}-${uri.length}`} source={{ uri }} style={styles.previewImage} resizeMode="cover" />
-            ))}
+        {tipo === 'producto' && (!!images.length || !!videos.length) && (
+          <View style={styles.previewMedia}>
+            {!!images.length && (
+              <View style={styles.previewImages}>
+                {images.slice(0, 4).map((uri, index) => (
+                  <Image key={`${index}-${uri.length}`} source={{ uri }} style={styles.previewImage} resizeMode="cover" />
+                ))}
+              </View>
+            )}
+            {!!videos.length && (
+              <View style={styles.previewVideos}>
+                {videos.slice(0, 2).map((video) => (
+                  <View key={video.id} style={styles.previewVideo}>
+                    <StoredVideo video={video} controls />
+                  </View>
+                ))}
+              </View>
+            )}
+            <Text style={[styles.mediaSummary, { color: palette.text }]}>
+              {images.length} {images.length === 1 ? 'foto' : 'fotos'} · {videos.length} {videos.length === 1 ? 'video' : 'videos'}
+            </Text>
           </View>
         )}
       </View>
@@ -105,19 +126,32 @@ function Formulario({ tipo }: { tipo: Tipo }) {
         <Field label="Ciudad o zona de atención *" value={ubicacion} onChangeText={setUbicacion} maxLength={150} placeholder="Ej. Guadalajara, Jalisco / En línea" />
         <Field label={tipo === 'necesidad' ? 'Presupuesto en MXN (opcional)' : 'Precio en MXN (opcional)'} value={importe} onChangeText={setImporte} keyboardType="decimal-pad" maxLength={12} placeholder="Por acordar" />
         {tipo === 'producto' && (
-          <MultiImagePicker
-            images={images}
-            onChange={setImages}
-            maxImages={8}
-            title="Fotos del producto"
-            hint="Sube varias vistas claras del mismo producto. La primera será la portada del Marketplace."
-          />
+          <View style={styles.mediaGroup}>
+            <Text style={[styles.mediaGroupTitle, { color: palette.title }]}>Fotos y videos del producto</Text>
+            <Text style={[styles.mediaGroupText, { color: palette.text }]}>
+              Puedes combinar imágenes y videos. Los videos deben durar máximo 5 minutos.
+            </Text>
+            <MultiImagePicker
+              images={images}
+              onChange={setImages}
+              maxImages={8}
+              title="Fotos"
+              hint="Sube varias vistas claras del mismo producto. La primera foto será la portada cuando exista."
+            />
+            <VideoPicker
+              videos={videos}
+              onChange={setVideos}
+              maxVideos={4}
+              title="Videos"
+              hint="Muestra funcionamiento, tamaño, detalles o una demostración. Máximo 5 minutos por video."
+            />
+          </View>
         )}
         {tipo === 'servicio' && (
           <View style={[styles.portfolioHint, { borderColor: palette.cardBorder }]}>
             <Text style={[styles.portfolioTitle, { color: palette.title }]}>Portafolios de trabajos</Text>
             <Text style={[styles.portfolioText, { color: palette.text }]}>
-              Las fotos de trabajos se organizan en galerías separadas: Cocinas, Clósets, Sillones, etc. No mezcles todo en una sola galería.
+              Las fotos y videos de trabajos se organizan en galerías separadas: Cocinas, Clósets, Sillones, etc. No mezcles todo en una sola galería.
             </Text>
             <Action label="Crear o administrar portafolios" secondary onPress={() => router.push('/portafolios')} />
           </View>
@@ -131,6 +165,9 @@ function Formulario({ tipo }: { tipo: Tipo }) {
 
 
 const styles = StyleSheet.create({
+  previewMedia: {
+    gap: 10,
+  },
   previewImages: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -142,6 +179,33 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 10,
     backgroundColor: '#172944',
+  },
+  previewVideos: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  previewVideo: {
+    width: 140,
+    height: 88,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#172944',
+  },
+  mediaSummary: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  mediaGroup: {
+    gap: 12,
+  },
+  mediaGroupTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  mediaGroupText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
   portfolioHint: {
     gap: 9,
