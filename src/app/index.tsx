@@ -18,14 +18,14 @@ const actions = [
     title: 'Buscar empleo',
     text: 'Explora oportunidades y encuentra dónde encaja tu talento.',
     colors: ['#1067D8', '#3C78FF', '#6F59E8'] as const,
-    onPress: () => router.push('/explorar'),
+    onPress: () => router.push({ pathname: '/explorar', params: { intencion: 'empleo' } }),
   },
   {
     icon: '🤝',
     title: 'Contratar un servicio',
-    text: 'Publica lo que necesitas y recibe propuestas de profesionales.',
+    text: 'Cuéntale a Nexo qué necesitas y deja que organice opciones, precio y coordinación.',
     colors: ['#7D3BE8', '#B84DE2', '#6B48E8'] as const,
-    onPress: () => router.push('/publicar/necesidad'),
+    onPress: () => router.push({ pathname: '/explorar', params: { intencion: 'contratar' } }),
   },
   {
     icon: '🛒',
