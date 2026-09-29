@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
 import { storageNotice, tipos, useDrafts, type Tipo } from '@/state/drafts';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
+import { MultiImagePicker } from '@/components/multi-image-picker';
+import { useMarketplace } from '@/state/marketplace';
 
 export function generateStaticParams() {
   return Object.keys(tipos).map(tipo => ({ tipo }));
@@ -18,6 +20,7 @@ export default function PublicarScreen() {
 
 function Formulario({ tipo }: { tipo: Tipo }) {
   const { ready, save } = useDrafts();
+  const { publish } = useMarketplace();
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const [titulo, setTitulo] = useState('');
@@ -25,6 +28,7 @@ function Formulario({ tipo }: { tipo: Tipo }) {
   const [categoria, setCategoria] = useState('');
   const [ubicacion, setUbicacion] = useState('');
   const [importe, setImporte] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState(false);
   const id = useRef<string | null>(null);
@@ -48,6 +52,31 @@ function Formulario({ tipo }: { tipo: Tipo }) {
     } catch { setError('No se pudo guardar. Revisa que tu navegador permita el almacenamiento y vuelve a intentarlo. Tus datos siguen en el formulario.'); }
   }
 
+  function publicarProducto() {
+    if (tipo !== 'producto') return;
+    if (!images.length) {
+      setError('Agrega al menos una foto antes de publicar el producto en el Marketplace.');
+      setPreview(false);
+      return;
+    }
+    try {
+      id.current ??= `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      publish({
+        id: id.current,
+        title: titulo.trim(),
+        description: descripcion.trim(),
+        category: categoria,
+        location: ubicacion.trim(),
+        price: importe.trim().replace(',', '.'),
+        images,
+        createdAt: new Date().toISOString(),
+      });
+      router.replace('/productos');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo publicar el producto.');
+    }
+  }
+
   return <NexoScreen title={preview ? 'Vista previa' : tipos[tipo]}>
     <Text style={[ui.text, { color: palette.text }]}>{storageNotice}</Text>
     {preview ? <>
@@ -55,8 +84,16 @@ function Formulario({ tipo }: { tipo: Tipo }) {
         <Text style={ui.link}>{tipos[tipo]} · Borrador</Text>
         <Text style={[ui.title, { color: palette.title }]}>{titulo.trim()}</Text>
         <Text style={[ui.text, { color: palette.text }]}>{descripcion.trim()}</Text>
-        {!proposal && <><Text style={[ui.text, { color: palette.text }]}>{categoria} · {ubicacion.trim()}</Text><Text style={[ui.label, { color: palette.title }]}>{importe.trim() ? `$${importe.trim()} MXN` : 'Importe por acordar'}</Text></>}
+        {!proposal && <><Text style={[ui.text, { color: palette.text }]}>{categoria} · {ubicacion.trim()}</Text><Text style={[ui.label, { color: palette.title }]}>{importe.trim() ? `${importe.trim()} MXN` : 'Importe por acordar'}</Text></>}
+        {tipo === 'producto' && !!images.length && (
+          <View style={styles.previewImages}>
+            {images.slice(0, 4).map((uri, index) => (
+              <Image key={`${index}-${uri.length}`} source={{ uri }} style={styles.previewImage} resizeMode="cover" />
+            ))}
+          </View>
+        )}
       </View>
+      {tipo === 'producto' && <Action label="Publicar en Marketplace" onPress={publicarProducto} />}
       <Action label="Guardar borrador" disabled={!ready} onPress={guardar} />
       <Action label="Seguir editando" secondary onPress={() => { setPreview(false); setError(''); }} />
     </> : <>
@@ -67,9 +104,58 @@ function Formulario({ tipo }: { tipo: Tipo }) {
         <View style={ui.row}>{[...categorias, 'Otra'].map(item => <Action key={item} label={`${categoria === item ? '✓ ' : ''}${item}`} secondary={categoria !== item} onPress={() => setCategoria(item)} />)}</View>
         <Field label="Ciudad o zona de atención *" value={ubicacion} onChangeText={setUbicacion} maxLength={150} placeholder="Ej. Guadalajara, Jalisco / En línea" />
         <Field label={tipo === 'necesidad' ? 'Presupuesto en MXN (opcional)' : 'Precio en MXN (opcional)'} value={importe} onChangeText={setImporte} keyboardType="decimal-pad" maxLength={12} placeholder="Por acordar" />
+        {tipo === 'producto' && (
+          <MultiImagePicker
+            images={images}
+            onChange={setImages}
+            maxImages={8}
+            title="Fotos del producto"
+            hint="Sube varias vistas claras del mismo producto. La primera será la portada del Marketplace."
+          />
+        )}
+        {tipo === 'servicio' && (
+          <View style={[styles.portfolioHint, { borderColor: palette.cardBorder }]}>
+            <Text style={[styles.portfolioTitle, { color: palette.title }]}>Portafolios de trabajos</Text>
+            <Text style={[styles.portfolioText, { color: palette.text }]}>
+              Las fotos de trabajos se organizan en galerías separadas: Cocinas, Clósets, Sillones, etc. No mezcles todo en una sola galería.
+            </Text>
+            <Action label="Crear o administrar portafolios" secondary onPress={() => router.push('/portafolios')} />
+          </View>
+        )}
       </>}
       <Action label="Revisar borrador" onPress={revisar} />
     </>}
     {!!error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={ui.error}>{error}</Text>}
   </NexoScreen>;
 }
+
+
+const styles = StyleSheet.create({
+  previewImages: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  previewImage: {
+    width: 76,
+    height: 64,
+    borderRadius: 10,
+    backgroundColor: '#172944',
+  },
+  portfolioHint: {
+    gap: 9,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    backgroundColor: 'rgba(18,35,60,0.45)',
+  },
+  portfolioTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  portfolioText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+});
