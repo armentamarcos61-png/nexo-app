@@ -139,8 +139,8 @@ export default function HomeScreen() {
           <View style={styles.heroOrbOne} />
           <View style={styles.heroOrbTwo} />
           <Text style={styles.heroEyebrow}>NEXO · OPORTUNIDADES REALES</Text>
-          <Text style={styles.heroTitle}>Tu talento{'
-'}<Text style={styles.heroAccent}>sin límites.</Text></Text>
+          <Text style={styles.heroTitle}>Tu talento</Text>
+          <Text style={[styles.heroTitle, styles.heroAccent]}>sin límites.</Text>
           <Text style={styles.heroText}>
             Empleos, servicios y productos en un solo lugar, con una experiencia clara y profesional.
           </Text>
