@@ -4,6 +4,7 @@ import { Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
 import { storageNotice, tipos, useDrafts, type Tipo } from '@/state/drafts';
+import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 export function generateStaticParams() {
   return Object.keys(tipos).map(tipo => ({ tipo }));
@@ -17,6 +18,8 @@ export default function PublicarScreen() {
 
 function Formulario({ tipo }: { tipo: Tipo }) {
   const { ready, save } = useDrafts();
+  const { mode } = useAppearance();
+  const palette = getAppearancePalette(mode);
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState('');
@@ -46,13 +49,13 @@ function Formulario({ tipo }: { tipo: Tipo }) {
   }
 
   return <NexoScreen title={preview ? 'Vista previa' : tipos[tipo]}>
-    <Text style={ui.text}>{storageNotice}</Text>
+    <Text style={[ui.text, { color: palette.text }]}>{storageNotice}</Text>
     {preview ? <>
       <View style={ui.card}>
         <Text style={ui.link}>{tipos[tipo]} · Borrador</Text>
-        <Text style={ui.title}>{titulo.trim()}</Text>
-        <Text style={ui.text}>{descripcion.trim()}</Text>
-        {!proposal && <><Text style={ui.text}>{categoria} · {ubicacion.trim()}</Text><Text style={ui.label}>{importe.trim() ? `$${importe.trim()} MXN` : 'Importe por acordar'}</Text></>}
+        <Text style={[ui.title, { color: palette.title }]}>{titulo.trim()}</Text>
+        <Text style={[ui.text, { color: palette.text }]}>{descripcion.trim()}</Text>
+        {!proposal && <><Text style={[ui.text, { color: palette.text }]}>{categoria} · {ubicacion.trim()}</Text><Text style={[ui.label, { color: palette.title }]}>{importe.trim() ? `$${importe.trim()} MXN` : 'Importe por acordar'}</Text></>}
       </View>
       <Action label="Guardar borrador" disabled={!ready} onPress={guardar} />
       <Action label="Seguir editando" secondary onPress={() => { setPreview(false); setError(''); }} />
@@ -60,7 +63,7 @@ function Formulario({ tipo }: { tipo: Tipo }) {
       <Field label={proposal ? 'Nombre de la nueva categoría *' : 'Título *'} value={titulo} onChangeText={setTitulo} maxLength={100} placeholder={tipo === 'necesidad' ? 'Ej. Necesito reparar un sillón' : tipo === 'servicio' ? 'Ej. Fabricación de muebles a medida' : tipo === 'producto' ? 'Ej. Mesa de comedor de madera' : 'Ej. Edición de video'} />
       <Field label={proposal ? '¿Qué significa o qué actividad realiza? *' : 'Descripción *'} value={descripcion} onChangeText={setDescripcion} multiline maxLength={3000} placeholder="Describe los detalles" />
       {!proposal && <>
-        <Text style={ui.label}>Categoría *</Text>
+        <Text style={[ui.label, { color: palette.title }]}>Categoría *</Text>
         <View style={ui.row}>{[...categorias, 'Otra'].map(item => <Action key={item} label={`${categoria === item ? '✓ ' : ''}${item}`} secondary={categoria !== item} onPress={() => setCategoria(item)} />)}</View>
         <Field label="Ciudad o zona de atención *" value={ubicacion} onChangeText={setUbicacion} maxLength={150} placeholder="Ej. Guadalajara, Jalisco / En línea" />
         <Field label={tipo === 'necesidad' ? 'Presupuesto en MXN (opcional)' : 'Precio en MXN (opcional)'} value={importe} onChangeText={setImporte} keyboardType="decimal-pad" maxLength={12} placeholder="Por acordar" />
