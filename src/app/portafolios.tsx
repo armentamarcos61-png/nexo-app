@@ -3,7 +3,10 @@ import { useRef, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { MultiImagePicker } from '@/components/multi-image-picker';
+import { VideoPicker } from '@/components/video-picker';
+import { StoredVideo } from '@/components/stored-video';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
+import { deleteVideoBlob, type StoredVideoRef } from '@/state/media-store';
 import { usePortfolios } from '@/state/portfolios';
 
 export default function PortafoliosScreen() {
@@ -15,10 +18,12 @@ export default function PortafoliosScreen() {
   const [service, setService] = useState('');
   const [description, setDescription] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [videos, setVideos] = useState<StoredVideoRef[]>([]);
   const [error, setError] = useState('');
   const [viewer, setViewer] = useState<{ portfolioId: string; imageIndex: number } | null>(null);
   const [viewerMenuOpen, setViewerMenuOpen] = useState(false);
   const [viewerMessage, setViewerMessage] = useState('');
+  const [videoMenu, setVideoMenu] = useState<{ portfolioId: string; videoIndex: number } | null>(null);
   const idRef = useRef<string | null>(null);
 
   const activePortfolio = viewer
@@ -34,6 +39,7 @@ export default function PortafoliosScreen() {
     setService('');
     setDescription('');
     setImages([]);
+    setVideos([]);
     setError('');
     setCreating(false);
   }
@@ -53,8 +59,8 @@ export default function PortafoliosScreen() {
   function deleteActiveImage() {
     if (!activePortfolio || !viewer) return;
 
-    if (activePortfolio.images.length <= 1) {
-      setViewerMessage('Este portafolio necesita al menos una foto. Agrega otra antes de eliminar ésta.');
+    if (activePortfolio.images.length + activePortfolio.videos.length <= 1) {
+      setViewerMessage('Este portafolio necesita al menos una foto o video. Agrega otro archivo antes de eliminar éste.');
       setViewerMenuOpen(false);
       return;
     }
@@ -64,13 +70,37 @@ export default function PortafoliosScreen() {
     closeViewer();
   }
 
+  async function deleteSavedVideo(portfolioId: string, videoIndex: number) {
+    const portfolio = portfolios.find((item) => item.id === portfolioId);
+    const video = portfolio?.videos[videoIndex];
+    if (!portfolio || !video) return;
+
+    if (portfolio.images.length + portfolio.videos.length <= 1) {
+      setError('Ese portafolio necesita al menos una foto o video.');
+      setVideoMenu(null);
+      return;
+    }
+
+    try {
+      await deleteVideoBlob(video.id);
+    } catch {
+      // If browser cleanup fails, remove the video reference from the portfolio anyway.
+    }
+
+    save({
+      ...portfolio,
+      videos: portfolio.videos.filter((_, index) => index !== videoIndex),
+    });
+    setVideoMenu(null);
+  }
+
   function guardar() {
     if (!title.trim() || !service.trim()) {
       setError('Escribe el nombre del portafolio y el tipo de servicio.');
       return;
     }
-    if (!images.length) {
-      setError('Agrega al menos una foto para que este portafolio tenga sentido visual.');
+    if (!images.length && !videos.length) {
+      setError('Agrega al menos una foto o video para que este portafolio tenga contenido visual.');
       return;
     }
 
@@ -82,6 +112,7 @@ export default function PortafoliosScreen() {
         service: service.trim(),
         description: description.trim(),
         images,
+        videos,
         createdAt: new Date().toISOString(),
       });
       resetForm();
@@ -96,13 +127,16 @@ export default function PortafoliosScreen() {
         <View style={styles.introCopy}>
           <Text style={[styles.title, { color: palette.title }]}>Galerías separadas por tipo de trabajo</Text>
           <Text style={[styles.text, { color: palette.text }]}>
-            Crea un portafolio para Cocinas, otro para Clósets, otro para Sillones, etc. Así el cliente abre justo lo que le interesa.
+            Crea un portafolio para Cocinas, otro para Clósets, otro para Sillones, etc. Cada galería puede tener fotos y videos de ese mismo tipo de trabajo.
           </Text>
         </View>
         {!creating && (
           <Pressable
             accessibilityRole="button"
-            onPress={() => setCreating(true)}
+            onPress={() => {
+              setError('');
+              setCreating(true);
+            }}
             style={({ pressed }) => [styles.newButton, pressed && styles.pressed]}
           >
             <LinearGradient colors={['#3FD9F1', '#6E79F1', '#B158D7']} style={styles.fill} />
@@ -115,7 +149,7 @@ export default function PortafoliosScreen() {
         <View style={[styles.formCard, { borderColor: palette.cardBorder, backgroundColor: mode === 'claro' ? 'rgba(255,255,255,0.94)' : 'rgba(15,29,51,0.90)' }]}>
           <Text style={[styles.formTitle, { color: palette.title }]}>Crear una galería</Text>
           <Text style={[styles.formHelp, { color: palette.text }]}>
-            Mantén cada portafolio enfocado en un solo tipo de trabajo. Ejemplo: “Cocinas integrales” con puras cocinas que tú hiciste.
+            Mantén cada portafolio enfocado en un solo tipo de trabajo. Ejemplo: “Cocinas integrales” con puras cocinas que tú hiciste, ya sean fotos o videos.
           </Text>
 
           <Field
@@ -143,13 +177,28 @@ export default function PortafoliosScreen() {
             maxLength={500}
           />
 
-          <MultiImagePicker
-            images={images}
-            onChange={setImages}
-            maxImages={10}
-            title="Fotos de este portafolio"
-            hint="Sube sólo fotos de esta misma categoría de trabajo. Si este portafolio es de cocinas, aquí van puras cocinas."
-          />
+          <View style={styles.mediaGroup}>
+            <Text style={[styles.mediaGroupTitle, { color: palette.title }]}>Fotos y videos</Text>
+            <Text style={[styles.mediaGroupText, { color: palette.text }]}>
+              Todo lo que subas aquí debe pertenecer a este mismo portafolio.
+            </Text>
+
+            <MultiImagePicker
+              images={images}
+              onChange={setImages}
+              maxImages={10}
+              title="Fotos"
+              hint="Si este portafolio es de cocinas, aquí van puras fotos de cocinas que hayas realizado."
+            />
+
+            <VideoPicker
+              videos={videos}
+              onChange={setVideos}
+              maxVideos={4}
+              title="Videos"
+              hint="Puedes mostrar recorridos, funcionamiento o detalles del trabajo. Máximo 5 minutos por video."
+            />
+          </View>
 
           {!!error && <Text style={styles.error}>{error}</Text>}
           <Action label="Guardar portafolio" onPress={guardar} />
@@ -164,66 +213,125 @@ export default function PortafoliosScreen() {
         </Text>
       </View>
 
+      {!!error && !creating && <Text style={styles.error}>{error}</Text>}
+
       {!portfolios.length ? (
         <View style={[styles.empty, { borderColor: palette.cardBorder, backgroundColor: mode === 'claro' ? 'rgba(255,255,255,0.88)' : 'rgba(18,31,53,0.78)' }]}>
           <Text style={styles.emptyIcon}>🖼️</Text>
           <Text style={[styles.emptyTitle, { color: palette.title }]}>Todavía no tienes portafolios</Text>
           <Text style={[styles.emptyText, { color: palette.text }]}>
-            Crea uno para cada tipo de trabajo que quieras mostrar. Tus galerías quedarán separadas y ordenadas.
+            Crea uno para cada tipo de trabajo que quieras mostrar. Cada galería puede combinar fotos y videos.
           </Text>
         </View>
       ) : (
         <View style={styles.grid}>
-          {portfolios.map((portfolio) => (
-            <View
-              key={portfolio.id}
-              style={[
-                styles.card,
-                {
-                  borderColor: palette.cardBorder,
-                  backgroundColor: mode === 'claro' ? 'rgba(255,255,255,0.94)' : 'rgba(15,29,50,0.90)',
-                },
-              ]}
-            >
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Abrir portada de ${portfolio.title}`}
-                onPress={() => openImage(portfolio.id, 0)}
-                style={({ pressed }) => [styles.coverShell, pressed && styles.pressed]}
+          {portfolios.map((portfolio) => {
+            const mediaCount = portfolio.images.length + portfolio.videos.length;
+            return (
+              <View
+                key={portfolio.id}
+                style={[
+                  styles.card,
+                  {
+                    borderColor: palette.cardBorder,
+                    backgroundColor: mode === 'claro' ? 'rgba(255,255,255,0.94)' : 'rgba(15,29,50,0.90)',
+                  },
+                ]}
               >
-                <Image source={{ uri: portfolio.images[0] }} style={styles.cover} resizeMode="cover" />
-                <View pointerEvents="none" style={styles.countBubble}>
-                  <Text style={styles.countText}>{portfolio.images.length} fotos</Text>
+                {portfolio.images[0] ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Abrir portada de ${portfolio.title}`}
+                    onPress={() => openImage(portfolio.id, 0)}
+                    style={({ pressed }) => [styles.coverShell, pressed && styles.pressed]}
+                  >
+                    <Image source={{ uri: portfolio.images[0] }} style={styles.cover} resizeMode="cover" />
+                    <View pointerEvents="none" style={styles.countBubble}>
+                      <Text style={styles.countText}>{mediaCount} archivos</Text>
+                    </View>
+                  </Pressable>
+                ) : portfolio.videos[0] ? (
+                  <View style={styles.coverShell}>
+                    <StoredVideo video={portfolio.videos[0]} controls />
+                    <View pointerEvents="none" style={styles.countBubble}>
+                      <Text style={styles.countText}>{mediaCount} archivos</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                <View style={styles.body}>
+                  <Text style={styles.serviceBadge}>{portfolio.service}</Text>
+                  <Text style={[styles.cardTitle, { color: palette.title }]}>{portfolio.title}</Text>
+                  {!!portfolio.description && (
+                    <Text style={[styles.cardText, { color: palette.text }]} numberOfLines={3}>{portfolio.description}</Text>
+                  )}
+
+                  {!!portfolio.images.length && (
+                    <View style={styles.thumbRow}>
+                      {portfolio.images.slice(0, 4).map((uri, index) => (
+                        <Pressable
+                          key={`${portfolio.id}-image-${index}`}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Abrir imagen ${index + 1} de ${portfolio.title}`}
+                          onPress={() => openImage(portfolio.id, index)}
+                          style={({ pressed }) => [styles.thumbButton, pressed && styles.pressed]}
+                        >
+                          <Image source={{ uri }} style={styles.thumb} resizeMode="cover" />
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+
+                  {!!portfolio.videos.length && (
+                    <View style={styles.savedVideos}>
+                      <Text style={[styles.savedVideosTitle, { color: palette.title }]}>
+                        Videos · {portfolio.videos.length}
+                      </Text>
+                      {portfolio.videos.map((video, index) => (
+                        <View key={video.id} style={styles.savedVideoCard}>
+                          <View style={styles.savedVideoPlayer}>
+                            <StoredVideo video={video} controls />
+                          </View>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Opciones del video ${index + 1}`}
+                            onPress={() => setVideoMenu((current) =>
+                              current?.portfolioId === portfolio.id && current.videoIndex === index
+                                ? null
+                                : { portfolioId: portfolio.id, videoIndex: index }
+                            )}
+                            style={styles.videoDotsButton}
+                          >
+                            <Text style={styles.videoDots}>⋯</Text>
+                          </Pressable>
+
+                          {videoMenu?.portfolioId === portfolio.id && videoMenu.videoIndex === index && (
+                            <View style={styles.videoMenuCard}>
+                              <Pressable
+                                accessibilityRole="button"
+                                onPress={() => void deleteSavedVideo(portfolio.id, index)}
+                                style={({ pressed }) => [styles.videoMenuItem, pressed && styles.pressed]}
+                              >
+                                <Text style={styles.viewerDeleteText}>Eliminar video</Text>
+                              </Pressable>
+                            </View>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  <Text style={[styles.mediaCountText, { color: palette.muted }]}>
+                    {portfolio.images.length} {portfolio.images.length === 1 ? 'foto' : 'fotos'} · {portfolio.videos.length} {portfolio.videos.length === 1 ? 'video' : 'videos'}
+                  </Text>
+
+                  <Pressable onPress={() => remove(portfolio.id)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                    <Text style={styles.deleteText}>Eliminar portafolio</Text>
+                  </Pressable>
                 </View>
-              </Pressable>
-
-              <View style={styles.body}>
-                <Text style={styles.serviceBadge}>{portfolio.service}</Text>
-                <Text style={[styles.cardTitle, { color: palette.title }]}>{portfolio.title}</Text>
-                {!!portfolio.description && (
-                  <Text style={[styles.cardText, { color: palette.text }]} numberOfLines={3}>{portfolio.description}</Text>
-                )}
-
-                <View style={styles.thumbRow}>
-                  {portfolio.images.slice(0, 4).map((uri, index) => (
-                    <Pressable
-                      key={`${portfolio.id}-${index}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Abrir imagen ${index + 1} de ${portfolio.title}`}
-                      onPress={() => openImage(portfolio.id, index)}
-                      style={({ pressed }) => [styles.thumbButton, pressed && styles.pressed]}
-                    >
-                      <Image source={{ uri }} style={styles.thumb} resizeMode="cover" />
-                    </Pressable>
-                  ))}
-                </View>
-
-                <Pressable onPress={() => remove(portfolio.id)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
-                  <Text style={styles.deleteText}>Eliminar portafolio</Text>
-                </Pressable>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
@@ -302,6 +410,9 @@ const styles = StyleSheet.create({
   formCard: { gap: 14, padding: 17, borderRadius: 22, borderWidth: 1 },
   formTitle: { fontSize: 19, fontWeight: '900' },
   formHelp: { fontSize: 12, lineHeight: 18 },
+  mediaGroup: { gap: 12 },
+  mediaGroupTitle: { fontSize: 17, fontWeight: '900' },
+  mediaGroupText: { fontSize: 12, lineHeight: 18 },
   error: { color: '#FF9CAF', fontSize: 12, lineHeight: 18, fontWeight: '800' },
   headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '900' },
@@ -312,7 +423,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, lineHeight: 19, textAlign: 'center', maxWidth: 450 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   card: { flexGrow: 1, flexBasis: 230, minWidth: 200, maxWidth: 390, overflow: 'hidden', borderRadius: 21, borderWidth: 1, boxShadow: '0 10px 24px rgba(0,0,0,0.18)' },
-  coverShell: { height: 190, position: 'relative', backgroundColor: '#172944' },
+  coverShell: { height: 190, position: 'relative', backgroundColor: '#172944', overflow: 'hidden' },
   cover: { width: '100%', height: '100%' },
   countBubble: { position: 'absolute', right: 9, bottom: 9, paddingHorizontal: 9, height: 29, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(5,14,28,0.80)' },
   countText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
@@ -320,100 +431,32 @@ const styles = StyleSheet.create({
   serviceBadge: { alignSelf: 'flex-start', color: '#94F0FF', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(42,130,155,0.23)', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999 },
   cardTitle: { fontSize: 18, lineHeight: 23, fontWeight: '900' },
   cardText: { fontSize: 12, lineHeight: 18 },
-  thumbRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  thumbRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   thumbButton: { borderRadius: 8, overflow: 'hidden' },
   thumb: { width: 50, height: 42, borderRadius: 8, backgroundColor: '#162640' },
+  savedVideos: { gap: 8, marginTop: 2 },
+  savedVideosTitle: { fontSize: 12, fontWeight: '900' },
+  savedVideoCard: { position: 'relative', height: 150, borderRadius: 14, overflow: 'visible', backgroundColor: '#111F36' },
+  savedVideoPlayer: { height: 150, borderRadius: 14, overflow: 'hidden' },
+  videoDotsButton: { position: 'absolute', top: 7, right: 7, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(5,14,28,0.78)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', zIndex: 3 },
+  videoDots: { color: '#FFFFFF', fontSize: 20, lineHeight: 20, fontWeight: '900', marginTop: -4 },
+  videoMenuCard: { position: 'absolute', top: 43, right: 7, zIndex: 4, minWidth: 140, padding: 6, borderRadius: 12, backgroundColor: 'rgba(20,30,46,0.98)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  videoMenuItem: { paddingHorizontal: 10, paddingVertical: 9, borderRadius: 9 },
+  mediaCountText: { fontSize: 10, lineHeight: 15, fontWeight: '800' },
   deleteButton: { alignSelf: 'flex-start', marginTop: 4, paddingVertical: 7 },
   deleteText: { color: '#F3A1B2', fontSize: 11, fontWeight: '900' },
-  viewerBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(2,7,14,0.96)',
-  },
-  viewerTopBar: {
-    position: 'absolute',
-    top: 18,
-    left: 18,
-    right: 18,
-    zIndex: 5,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  viewerRoundButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(17,27,42,0.86)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.20)',
-  },
-  viewerClose: {
-    color: '#FFFFFF',
-    fontSize: 27,
-    lineHeight: 29,
-    fontWeight: '500',
-  },
-  viewerDots: {
-    color: '#FFFFFF',
-    fontSize: 25,
-    lineHeight: 25,
-    fontWeight: '900',
-    marginTop: -5,
-  },
-  viewerMenuWrap: {
-    alignItems: 'flex-end',
-    gap: 7,
-  },
-  viewerMenu: {
-    minWidth: 150,
-    padding: 6,
-    borderRadius: 14,
-    backgroundColor: 'rgba(20,30,46,0.98)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.34)',
-  },
-  viewerMenuItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    borderRadius: 10,
-  },
-  viewerDeleteText: {
-    color: '#FF9FB1',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  viewerImageArea: {
-    flex: 1,
-    paddingHorizontal: 18,
-    paddingTop: 74,
-    paddingBottom: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  viewerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  viewerMessage: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
-    bottom: 22,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(106,35,54,0.92)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,150,172,0.35)',
-  },
-  viewerMessageText: {
-    color: '#FFE6EC',
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
+  viewerBackdrop: { flex: 1, backgroundColor: 'rgba(2,7,14,0.96)' },
+  viewerTopBar: { position: 'absolute', top: 18, left: 18, right: 18, zIndex: 5, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  viewerRoundButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(17,27,42,0.86)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.20)' },
+  viewerClose: { color: '#FFFFFF', fontSize: 27, lineHeight: 29, fontWeight: '500' },
+  viewerDots: { color: '#FFFFFF', fontSize: 25, lineHeight: 25, fontWeight: '900', marginTop: -5 },
+  viewerMenuWrap: { alignItems: 'flex-end', gap: 7 },
+  viewerMenu: { minWidth: 150, padding: 6, borderRadius: 14, backgroundColor: 'rgba(20,30,46,0.98)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', boxShadow: '0 8px 24px rgba(0,0,0,0.34)' },
+  viewerMenuItem: { paddingHorizontal: 12, paddingVertical: 11, borderRadius: 10 },
+  viewerDeleteText: { color: '#FF9FB1', fontSize: 13, fontWeight: '900' },
+  viewerImageArea: { flex: 1, paddingHorizontal: 18, paddingTop: 74, paddingBottom: 28, alignItems: 'center', justifyContent: 'center' },
+  viewerImage: { width: '100%', height: '100%' },
+  viewerMessage: { position: 'absolute', left: 18, right: 18, bottom: 22, padding: 12, borderRadius: 14, backgroundColor: 'rgba(106,35,54,0.92)', borderWidth: 1, borderColor: 'rgba(255,150,172,0.35)' },
+  viewerMessageText: { color: '#FFE6EC', fontSize: 12, lineHeight: 18, fontWeight: '800', textAlign: 'center' },
   pressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
 });
