@@ -4,7 +4,9 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { categorias } from '@/constants/categories';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
+import { useProfessionalProfile } from '@/state/professional-profile';
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,6 +50,9 @@ export default function HomeScreen() {
   const [busqueda, setBusqueda] = useState('');
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
+  const { profile } = useProfessionalProfile();
+  const greetingName = profile.firstName.trim();
+  const profileInitial = greetingName ? greetingName.charAt(0).toUpperCase() : 'N';
 
   function buscar() {
     router.push({ pathname: '/explorar', params: { q: busqueda.trim() } });
@@ -88,13 +93,19 @@ export default function HomeScreen() {
               colors={['#287EEB', '#8C54F6', '#E25BCE']}
               style={styles.profileGradient}
             />
-            <Text style={styles.profileText}>N</Text>
+            {profile.photoDataUrl ? (
+              <Image source={{ uri: profile.photoDataUrl }} style={styles.profileImage} resizeMode="cover" />
+            ) : (
+              <Text style={styles.profileText}>{profileInitial}</Text>
+            )}
           </Pressable>
         </View>
 
         <View style={styles.welcomeRow}>
           <View style={styles.welcomeCopy}>
-            <Text style={[styles.hello, { color: palette.muted }]}>¡Hola! 👋</Text>
+            <Text style={[styles.hello, { color: palette.muted }]}>
+              {greetingName ? `¡Hola, ${greetingName}! 👋` : '¡Hola! 👋'}
+            </Text>
             <Text style={[styles.welcomeTitle, { color: palette.title }]}>¿Qué quieres hacer hoy?</Text>
           </View>
           <View style={styles.statusPill}>
@@ -346,6 +357,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 18,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
   },
   welcomeRow: {
     flexDirection: 'row',
