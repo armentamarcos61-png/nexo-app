@@ -13,6 +13,7 @@ export type MarketplaceProduct = {
 };
 
 const key = 'nexo.marketplace-products.v1';
+const emptyProducts: MarketplaceProduct[] = [];
 let products: MarketplaceProduct[] = [];
 let initialized = false;
 const listeners = new Set<() => void>();
@@ -56,7 +57,7 @@ function getSnapshot() {
 }
 
 function getServerSnapshot(): MarketplaceProduct[] {
-  return [];
+  return emptyProducts;
 }
 
 function persist(next: MarketplaceProduct[]) {
