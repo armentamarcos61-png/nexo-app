@@ -2,6 +2,8 @@ import { createContext, useContext, useSyncExternalStore, type PropsWithChildren
 import { Platform } from 'react-native';
 
 export type ProfessionalProfile = {
+  firstName: string;
+  firstSurname: string;
   role: string;
   education: string;
   specialty: string;
@@ -14,6 +16,8 @@ export type ProfessionalProfile = {
 };
 
 const emptyProfile: ProfessionalProfile = {
+  firstName: '',
+  firstSurname: '',
   role: '',
   education: '',
   specialty: '',
@@ -47,6 +51,8 @@ function normalizeProfile(value: unknown): ProfessionalProfile | null {
   if (!requiredLegacyFields.every((key) => typeof record[key] === 'string')) return null;
 
   return {
+    firstName: typeof record.firstName === 'string' ? record.firstName : '',
+    firstSurname: typeof record.firstSurname === 'string' ? record.firstSurname : '',
     role: record.role as string,
     education: record.education as string,
     specialty: record.specialty as string,
@@ -133,6 +139,10 @@ export function useProfessionalProfile() {
   const context = useContext(ProfessionalProfileContext);
   if (!context) throw new Error('ProfessionalProfileProvider is required');
   return context;
+}
+
+export function getDisplayName(profile: Pick<ProfessionalProfile, 'firstName' | 'firstSurname'>) {
+  return [profile.firstName.trim(), profile.firstSurname.trim()].filter(Boolean).join(' ');
 }
 
 export const educationOptions = [
