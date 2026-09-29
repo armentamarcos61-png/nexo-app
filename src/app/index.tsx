@@ -57,7 +57,7 @@ export default function HomeScreen() {
         colors={['#061225', '#0B1730', '#140E2D']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View pointerEvents="none" style={styles.glowOne} />
       <View pointerEvents="none" style={styles.glowTwo} />
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 8px 18px rgba(89,74,255,0.28)',
   },
   profileGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 24,
   },
   profileText: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   searchGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 20,
   },
   searchIcon: {
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 16px 34px rgba(0,0,0,0.34)',
   },
   heroGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 30,
   },
   heroOrbOne: {
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 10px 20px rgba(45,97,255,0.26)',
   },
   heroButtonGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 16,
   },
   heroButtonText: {
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 12px 25px rgba(0,0,0,0.30)',
   },
   actionGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 24,
   },
   actionGlowOne: {
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 10px 24px rgba(0,0,0,0.25)',
   },
   infoGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 23,
   },
   infoIcon: {
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(33,38,76,0.94)',
   },
   categoryGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 999,
   },
   categoryText: {
