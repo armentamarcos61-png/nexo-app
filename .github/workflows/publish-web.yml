@@ -1,0 +1,58 @@
+name: Publicar Nexo Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nexo-web
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Preparar ruta estable de GitHub Pages
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const file = 'app.json';
+          const app = JSON.parse(fs.readFileSync(file, 'utf8'));
+          app.expo.experiments = {
+            ...(app.expo.experiments || {}),
+            baseUrl: '/nexo-app'
+          };
+          fs.writeFileSync(file, JSON.stringify(app, null, 2) + '\n');
+          NODE
+
+      - name: Compilar Nexo web
+        run: npm run build:web
+
+      - name: Evitar procesamiento Jekyll
+        run: touch dist/.nojekyll
+
+      - name: Publicar rama web
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true
+          enable_jekyll: false
