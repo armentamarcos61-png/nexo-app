@@ -11,6 +11,7 @@ export type ServicePortfolio = {
 };
 
 const key = 'nexo.service-portfolios.v1';
+const emptyPortfolios: ServicePortfolio[] = [];
 let portfolios: ServicePortfolio[] = [];
 let initialized = false;
 const listeners = new Set<() => void>();
@@ -52,7 +53,7 @@ function getSnapshot() {
 }
 
 function getServerSnapshot(): ServicePortfolio[] {
-  return [];
+  return emptyPortfolios;
 }
 
 function persist(next: ServicePortfolio[]) {
