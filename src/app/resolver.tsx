@@ -14,7 +14,20 @@ const money = (value: number) =>
   }).format(value);
 
 export default function ResolverScreen() {
-  const params = useLocalSearchParams<{ q?: string; tipo?: string; categoria?: string }>();
+  const params = useLocalSearchParams<{
+    q?: string;
+    tipo?: string;
+    categoria?: string;
+    experiencia?: string;
+    disponibilidad?: string;
+    horas?: string;
+    capacidad?: string;
+    formaPago?: string;
+    rangoMin?: string;
+    rangoMax?: string;
+    escala?: string;
+    cantidad?: string;
+  }>();
   const tipo = params.tipo || 'contratar';
   const initialNeed = params.q?.trim() || 'Necesito resolver esta solicitud';
   const [need, setNeed] = useState(initialNeed);
@@ -64,6 +77,31 @@ export default function ResolverScreen() {
   }, [tipo]);
 
   const total = demo.lines.reduce((sum, item) => sum + item.value, 0);
+  const capabilityLabel: Record<string, string> = {
+    apoyo: 'Apoyo',
+    operativo: 'Operativo',
+    especializado: 'Especializado',
+    encargado: 'Encargado',
+  };
+  const scaleLabel: Record<string, string> = {
+    chico: 'Proyecto chico',
+    mediano: 'Proyecto mediano',
+    grande: 'Proyecto grande',
+    flexible: 'Escala por definir',
+  };
+  const rangeText = params.rangoMin || params.rangoMax
+    ? `${params.rangoMin ? `${params.rangoMin}` : 'Sin mínimo'} – ${params.rangoMax ? `${params.rangoMax}` : 'Sin máximo'} MXN`
+    : '';
+  const criteria = [
+    params.escala ? scaleLabel[params.escala] ?? params.escala : '',
+    params.capacidad ? `Nivel: ${capabilityLabel[params.capacidad] ?? params.capacidad}` : '',
+    params.experiencia ? `Experiencia: ${params.experiencia}` : '',
+    params.disponibilidad ? `Modalidad: ${params.disponibilidad}` : '',
+    params.horas ? `Carga: ${params.horas}` : '',
+    params.cantidad ? `Cantidad: ${params.cantidad}` : '',
+    rangeText ? `Rango: ${rangeText}` : '',
+    params.formaPago ? `Referencia de pago: ${params.formaPago}` : '',
+  ].filter(Boolean);
 
   function startMatching() {
     if (!need.trim()) return;
@@ -123,6 +161,22 @@ export default function ResolverScreen() {
         placeholder="Cantidad, medidas, marca, acceso, presupuesto, etc."
         multiline
       />
+
+      {criteria.length > 0 && (
+        <View style={styles.criteriaCard}>
+          <Text style={styles.criteriaEyebrow}>CRITERIOS QUE NEXO TOMARÁ EN CUENTA</Text>
+          <View style={styles.criteriaWrap}>
+            {criteria.map((item) => (
+              <View key={item} style={styles.criteriaChip}>
+                <Text style={styles.criteriaText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.criteriaHelp}>
+            Son referencias para ordenar coincidencias, no límites rígidos. Puedes negociar o ajustar después.
+          </Text>
+        </View>
+      )}
 
       {stage === 'brief' && (
         <Action label="Buscar y organizar opciones" onPress={startMatching} />
@@ -284,6 +338,43 @@ const styles = StyleSheet.create({
     color: '#C4D0E7',
     fontSize: 14,
     lineHeight: 21,
+  },
+  criteriaCard: {
+    padding: 16,
+    gap: 10,
+    borderRadius: 18,
+    backgroundColor: 'rgba(19,40,70,0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(126,198,231,0.34)',
+  },
+  criteriaEyebrow: {
+    color: '#8DEBFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.9,
+  },
+  criteriaWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  criteriaChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(72,79,146,0.44)',
+    borderWidth: 1,
+    borderColor: 'rgba(157,192,239,0.28)',
+  },
+  criteriaText: {
+    color: '#EDF5FF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  criteriaHelp: {
+    color: '#AEBED9',
+    fontSize: 12,
+    lineHeight: 18,
   },
   card: {
     position: 'relative',
