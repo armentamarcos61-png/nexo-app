@@ -113,6 +113,12 @@ export default function ExplorarScreen() {
   const filteredWorkers = workerOptions.filter((item) =>
     item.toLowerCase().includes(roleQuery.trim().toLowerCase())
   );
+  const activeRangeMin = selectedIntent === 'comprar' || selectedIntent === 'contratar' ? budgetMin : payMin;
+  const activeRangeMax = selectedIntent === 'comprar' || selectedIntent === 'contratar' ? budgetMax : payMax;
+  const parsedMin = Number(activeRangeMin.replace(',', '.'));
+  const parsedMax = Number(activeRangeMax.replace(',', '.'));
+  const rangeInvalid = !!activeRangeMin.trim() && !!activeRangeMax.trim()
+    && Number.isFinite(parsedMin) && Number.isFinite(parsedMax) && parsedMin > parsedMax;
 
   function buscar() {
     router.setParams({ q: query.trim() });
@@ -598,9 +604,16 @@ export default function ExplorarScreen() {
             : 'Selecciona una de las opciones de arriba para que Nexo sepa exactamente qué mostrarte.'}
         </Text>
 
+        {rangeInvalid && (
+          <Text style={styles.rangeError}>
+            El mínimo no puede ser mayor que el máximo. Ajusta el rango o deja uno de los dos campos vacío.
+          </Text>
+        )}
+
         {(selectedIntent === 'trabajadores' || selectedIntent === 'contratar' || selectedIntent === 'comprar') && (
           <Action
             label="Continuar y dejar que Nexo lo organice"
+            disabled={rangeInvalid}
             onPress={() =>
               router.push({
                 pathname: '/resolver',
@@ -1024,6 +1037,17 @@ const styles = StyleSheet.create({
     color: '#BCC9E4',
     fontSize: 14,
     lineHeight: 21,
+  },
+  rangeError: {
+    color: '#FFB0BE',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '800',
+    padding: 11,
+    borderRadius: 13,
+    backgroundColor: 'rgba(122,27,52,0.24)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,120,151,0.30)',
   },
   pressed: {
     transform: [{ translateY: 2 }, { scale: 0.988 }],
