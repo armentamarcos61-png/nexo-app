@@ -675,6 +675,9 @@ export default function ExplorarScreen() {
           />
         )}
 
+        {selectedIntent === 'comprar' && (
+          <Action label="Ver Marketplace de productos" onPress={() => router.push('/productos')} />
+        )}
         {selectedIntent === 'contratar' && (
           <Action label="Publicar lo que necesito" onPress={() => router.push('/publicar/necesidad')} />
         )}
