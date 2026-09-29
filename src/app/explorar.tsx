@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
+import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 const intents = [
   {
@@ -86,6 +87,8 @@ function isIntent(value?: string): value is IntentKey {
 
 export default function ExplorarScreen() {
   const params = useLocalSearchParams<{ q?: string; categoria?: string; intencion?: string }>();
+  const { mode } = useAppearance();
+  const palette = getAppearancePalette(mode);
   const [query, setQuery] = useState(params.q ?? '');
   const [showIntents, setShowIntents] = useState(false);
   const [roleQuery, setRoleQuery] = useState('');
@@ -149,8 +152,8 @@ export default function ExplorarScreen() {
       <Action label="Buscar" onPress={buscar} />
 
       <View style={styles.filterBlock}>
-        <Text style={styles.filterTitle}>Categoría</Text>
-        <Text style={styles.filterText}>Puedes elegir una antes o después de escribir tu búsqueda.</Text>
+        <Text style={[styles.filterTitle, { color: palette.title }]}>Categoría</Text>
+        <Text style={[styles.filterText, { color: palette.muted }]}>Puedes elegir una antes o después de escribir tu búsqueda.</Text>
         <View style={ui.row}>
           {['Todas', ...categorias].map((item) => (
             <Action
@@ -166,8 +169,8 @@ export default function ExplorarScreen() {
       {shouldShowIntents ? (
         <View style={styles.intentSection}>
           <View style={styles.intentHeading}>
-            <Text style={styles.intentTitle}>¿Qué quieres encontrar?</Text>
-            <Text style={styles.intentSub}>
+            <Text style={[styles.intentTitle, { color: palette.title }]}>¿Qué quieres encontrar?</Text>
+            <Text style={[styles.intentSub, { color: palette.muted }]}>
               {activeCategory === 'Todas'
                 ? 'Dile a Nexo qué tipo de resultado buscas.'
                 : `Elige qué quieres buscar dentro de ${activeCategory}.`}
