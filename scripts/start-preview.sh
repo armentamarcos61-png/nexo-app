@@ -16,7 +16,7 @@ else
       echo "Faltan dependencias. Ejecuta npm ci y vuelve a iniciar."
       exit 1
     fi
-    nohup env CI=1 node node_modules/expo/bin/cli start --web --port 8081 >.expo/nexo-preview.log 2>&1 < /dev/null 9>&- &
+    nohup env CI=1 node node_modules/expo/bin/cli start --web --host lan --port 8081 >.expo/nexo-preview.log 2>&1 < /dev/null 9>&- &
     preview_pid=$!
     ready=0
     for attempt in $(seq 1 60); do
