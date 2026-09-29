@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
+import { useProfessionalProfile } from '@/state/professional-profile';
 
 const intents = [
   {
@@ -59,8 +60,16 @@ const workerOptions = [
   'Supervisor', 'Tapicero', 'Técnico', 'Tornero', 'Vendedor', 'Velador', 'Yesero',
 ] as const;
 
-const experienceOptions = ['Sin experiencia', '1+ año', '3+ años', '5+ años'];
-const availabilityOptions = ['Tiempo completo', 'Medio tiempo', 'Por proyecto', 'Fines de semana'];
+const experienceOptions = [
+  'Sin experiencia',
+  'Estoy empezando',
+  'Menos de 1 año',
+  '1–3 años',
+  '3–5 años',
+  '5–10 años',
+  '10+ años',
+];
+const availabilityOptions = ['Tiempo completo', 'Medio tiempo', 'Por proyecto', 'Fines de semana', 'Flexible'];
 const workHoursOptions = ['Hasta 20 h/semana', '21–30 h/semana', '31–40 h/semana', '40+ h/semana', 'Flexible'];
 const payBasisOptions = ['Por hora', 'Por día', 'Por semana', 'Por mes', 'Por proyecto', 'Por acordar'];
 const servicePayOptions = ['Por visita', 'Por hora', 'Por día', 'Por proyecto', 'Por acordar'];
@@ -89,12 +98,14 @@ export default function ExplorarScreen() {
   const params = useLocalSearchParams<{ q?: string; categoria?: string; intencion?: string }>();
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
+  const { profile } = useProfessionalProfile();
+  const employmentSeed = params.intencion === 'empleo';
   const [query, setQuery] = useState(params.q ?? '');
   const [showIntents, setShowIntents] = useState(false);
-  const [roleQuery, setRoleQuery] = useState('');
+  const [roleQuery, setRoleQuery] = useState(employmentSeed ? profile.role : '');
   const [requirements, setRequirements] = useState('');
-  const [experience, setExperience] = useState('');
-  const [availability, setAvailability] = useState('');
+  const [experience, setExperience] = useState(employmentSeed ? profile.experience : '');
+  const [availability, setAvailability] = useState(employmentSeed ? profile.availability : '');
   const [workHours, setWorkHours] = useState('');
   const [payBasis, setPayBasis] = useState('');
   const [payMin, setPayMin] = useState('');
@@ -253,6 +264,20 @@ export default function ExplorarScreen() {
           <Text style={styles.smartText}>
             Entre más claro seas, mejores coincidencias podrá mostrar Nexo.
           </Text>
+
+          {selectedIntent === 'empleo' && (profile.role || profile.specialty || profile.education || profile.workMode) && (
+            <View style={styles.profileContext}>
+              <Text style={styles.profileContextEyebrow}>DATOS DE MI ESPACIO</Text>
+              <Text style={styles.profileContextText}>
+                {[profile.role, profile.specialty, profile.experience, profile.workMode]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+              <Text style={styles.profileContextHint}>
+                Nexo puede usar este contexto para afinar oportunidades. Puedes cambiar los filtros de esta búsqueda sin modificar tu perfil.
+              </Text>
+            </View>
+          )}
 
           <Field
             label={selectedIntent === 'trabajadores' ? 'Puesto, oficio o habilidad' : 'Puesto o área'}
@@ -829,6 +854,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginTop: 4,
+  },
+  profileContext: {
+    gap: 5,
+    padding: 12,
+    borderRadius: 15,
+    backgroundColor: 'rgba(9,25,47,0.52)',
+    borderWidth: 1,
+    borderColor: 'rgba(126,207,238,0.30)',
+  },
+  profileContextEyebrow: {
+    color: '#83E8FF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  profileContextText: {
+    color: '#F3F7FF',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  profileContextHint: {
+    color: '#AABAD5',
+    fontSize: 11,
+    lineHeight: 17,
   },
   smartPanel: {
     position: 'relative',
