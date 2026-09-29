@@ -1,5 +1,6 @@
 import { createContext, useContext, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { Platform } from 'react-native';
+import type { StoredVideoRef } from '@/state/media-store';
 
 export type ServicePortfolio = {
   id: string;
@@ -7,6 +8,7 @@ export type ServicePortfolio = {
   service: string;
   description: string;
   images: string[];
+  videos: StoredVideoRef[];
   createdAt: string;
 };
 
@@ -21,12 +23,23 @@ function normalizePortfolio(value: unknown): ServicePortfolio | null {
   const item = value as Record<string, unknown>;
   if (!['id','title','service','description','createdAt'].every(k => typeof item[k] === 'string')) return null;
   const images = Array.isArray(item.images) ? item.images.filter((x): x is string => typeof x === 'string') : [];
+  const videos = Array.isArray(item.videos)
+    ? item.videos.filter((video): video is StoredVideoRef => {
+        if (!video || typeof video !== 'object') return false;
+        const ref = video as Record<string, unknown>;
+        return typeof ref.id === 'string'
+          && typeof ref.name === 'string'
+          && typeof ref.type === 'string'
+          && typeof ref.duration === 'number';
+      })
+    : [];
   return {
     id: item.id as string,
     title: item.title as string,
     service: item.service as string,
     description: item.description as string,
     images,
+    videos,
     createdAt: item.createdAt as string,
   };
 }
