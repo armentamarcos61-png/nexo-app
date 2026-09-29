@@ -60,7 +60,23 @@ const workerOptions = [
 
 const experienceOptions = ['Sin experiencia', '1+ año', '3+ años', '5+ años'];
 const availabilityOptions = ['Tiempo completo', 'Medio tiempo', 'Por proyecto', 'Fines de semana'];
+const workHoursOptions = ['Hasta 20 h/semana', '21–30 h/semana', '31–40 h/semana', '40+ h/semana', 'Flexible'];
+const payBasisOptions = ['Por hora', 'Por día', 'Por semana', 'Por mes', 'Por proyecto', 'Por acordar'];
+const servicePayOptions = ['Por visita', 'Por hora', 'Por día', 'Por proyecto', 'Por acordar'];
+const capabilityOptions = [
+  { key: 'apoyo', label: 'Apoyo', text: 'Tareas sencillas o con supervisión.' },
+  { key: 'operativo', label: 'Operativo', text: 'Trabaja de forma autónoma en tareas habituales.' },
+  { key: 'especializado', label: 'Especializado', text: 'Domina técnica, herramienta o equipo específico.' },
+  { key: 'encargado', label: 'Encargado', text: 'Puede coordinar personas, tiempos o un frente de trabajo.' },
+] as const;
+const projectScaleOptions = [
+  { key: 'chico', label: 'Chico', text: 'Trabajo puntual, una tarea o pocas piezas.' },
+  { key: 'mediano', label: 'Mediano', text: 'Varias tareas, varios días o coordinación moderada.' },
+  { key: 'grande', label: 'Grande', text: 'Proyecto amplio, varias etapas o varias personas.' },
+  { key: 'flexible', label: 'No estoy seguro', text: 'Nexo puede ayudarte a estimarlo.' },
+] as const;
 const productModes = ['Cualquiera', 'Nuevo', 'Usado', 'Hecho a medida', 'Mayoreo'];
+const quantityOptions = ['1 unidad', '2–5 unidades', '6–20 unidades', '21–100 unidades', '100+ unidades', 'Por definir'];
 
 type IntentKey = (typeof intents)[number]['key'];
 
@@ -76,7 +92,17 @@ export default function ExplorarScreen() {
   const [requirements, setRequirements] = useState('');
   const [experience, setExperience] = useState('');
   const [availability, setAvailability] = useState('');
+  const [workHours, setWorkHours] = useState('');
+  const [payBasis, setPayBasis] = useState('');
+  const [payMin, setPayMin] = useState('');
+  const [payMax, setPayMax] = useState('');
+  const [capability, setCapability] = useState('');
+  const [projectScale, setProjectScale] = useState('');
+  const [servicePayBasis, setServicePayBasis] = useState('');
+  const [budgetMin, setBudgetMin] = useState('');
+  const [budgetMax, setBudgetMax] = useState('');
   const [productMode, setProductMode] = useState('Cualquiera');
+  const [quantityRange, setQuantityRange] = useState('');
   const [productHow, setProductHow] = useState('');
   const [productPurpose, setProductPurpose] = useState('');
 
@@ -262,6 +288,122 @@ export default function ExplorarScreen() {
             ))}
           </View>
 
+          {selectedIntent === 'empleo' ? (
+            <>
+              <Text style={styles.choiceLabel}>¿Cuántas horas buscas trabajar?</Text>
+              <View style={styles.chipWrap}>
+                {workHoursOptions.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => setWorkHours(item)}
+                    style={[styles.chip, workHours === item && styles.chipSelected]}
+                  >
+                    <Text style={[styles.chipText, workHours === item && styles.chipTextSelected]}>{item}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.choiceLabel}>Rango de ingreso que buscas</Text>
+              <View style={styles.rangeRow}>
+                <View style={styles.rangeCol}>
+                  <Field
+                    label="Desde MXN"
+                    value={payMin}
+                    onChangeText={setPayMin}
+                    keyboardType="decimal-pad"
+                    placeholder="Ej. 3000"
+                  />
+                </View>
+                <View style={styles.rangeCol}>
+                  <Field
+                    label="Hasta MXN"
+                    value={payMax}
+                    onChangeText={setPayMax}
+                    keyboardType="decimal-pad"
+                    placeholder="Ej. 5000"
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.choiceLabel}>¿Ese ingreso es...?</Text>
+              <View style={styles.chipWrap}>
+                {payBasisOptions.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => setPayBasis(item)}
+                    style={[styles.chip, payBasis === item && styles.chipSelected]}
+                  >
+                    <Text style={[styles.chipText, payBasis === item && styles.chipTextSelected]}>{item}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.choiceLabel}>Nivel de autonomía que necesitas</Text>
+              <View style={styles.scaleGrid}>
+                {capabilityOptions.map((item) => (
+                  <Pressable
+                    key={item.key}
+                    onPress={() => setCapability(item.key)}
+                    style={[styles.scaleCard, capability === item.key && styles.scaleCardSelected]}
+                  >
+                    <Text style={styles.scaleTitle}>{item.label}</Text>
+                    <Text style={styles.scaleText}>{item.text}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.choiceLabel}>Horas aproximadas</Text>
+              <View style={styles.chipWrap}>
+                {workHoursOptions.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => setWorkHours(item)}
+                    style={[styles.chip, workHours === item && styles.chipSelected]}
+                  >
+                    <Text style={[styles.chipText, workHours === item && styles.chipTextSelected]}>{item}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.choiceLabel}>Rango que ofreces</Text>
+              <View style={styles.rangeRow}>
+                <View style={styles.rangeCol}>
+                  <Field
+                    label="Desde MXN"
+                    value={payMin}
+                    onChangeText={setPayMin}
+                    keyboardType="decimal-pad"
+                    placeholder="Ej. 2500"
+                  />
+                </View>
+                <View style={styles.rangeCol}>
+                  <Field
+                    label="Hasta MXN"
+                    value={payMax}
+                    onChangeText={setPayMax}
+                    keyboardType="decimal-pad"
+                    placeholder="Ej. 4000"
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.choiceLabel}>Forma de pago</Text>
+              <View style={styles.chipWrap}>
+                {payBasisOptions.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => setPayBasis(item)}
+                    style={[styles.chip, payBasis === item && styles.chipSelected]}
+                  >
+                    <Text style={[styles.chipText, payBasis === item && styles.chipTextSelected]}>{item}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
+
           <View style={styles.directoryHeading}>
             <Text style={styles.choiceLabel}>Directorio A–Z</Text>
             <Text style={styles.directoryHint}>Toca una opción o escribe arriba para filtrar.</Text>
@@ -277,6 +419,69 @@ export default function ExplorarScreen() {
                 style={styles.rolePill}
               >
                 <Text style={styles.rolePillText}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {selectedIntent === 'contratar' && (
+        <View style={styles.smartPanel}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={['rgba(61,39,96,0.98)', 'rgba(42,49,103,0.98)', 'rgba(15,79,87,0.96)']}
+            style={styles.smartPanelGradient}
+          />
+          <Text style={styles.smartEyebrow}>ESCALA DEL PROYECTO</Text>
+          <Text style={styles.smartTitle}>Que el tamaño y el presupuesto sí tengan sentido</Text>
+          <Text style={styles.smartText}>
+            Elige una escala aproximada. No cambia el precio automáticamente: sirve para comparar profesionales y propuestas equivalentes.
+          </Text>
+
+          <View style={styles.scaleGrid}>
+            {projectScaleOptions.map((item) => (
+              <Pressable
+                key={item.key}
+                onPress={() => setProjectScale(item.key)}
+                style={[styles.scaleCard, projectScale === item.key && styles.scaleCardSelected]}
+              >
+                <Text style={styles.scaleTitle}>{item.label}</Text>
+                <Text style={styles.scaleText}>{item.text}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.choiceLabel}>Rango de presupuesto</Text>
+          <View style={styles.rangeRow}>
+            <View style={styles.rangeCol}>
+              <Field
+                label="Desde MXN"
+                value={budgetMin}
+                onChangeText={setBudgetMin}
+                keyboardType="decimal-pad"
+                placeholder="Ej. 1500"
+              />
+            </View>
+            <View style={styles.rangeCol}>
+              <Field
+                label="Hasta MXN"
+                value={budgetMax}
+                onChangeText={setBudgetMax}
+                keyboardType="decimal-pad"
+                placeholder="Ej. 5000"
+              />
+            </View>
+          </View>
+
+          <Text style={styles.choiceLabel}>¿Cómo esperas que se cotice?</Text>
+          <View style={styles.chipWrap}>
+            {servicePayOptions.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setServicePayBasis(item)}
+                style={[styles.chip, servicePayBasis === item && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, servicePayBasis === item && styles.chipTextSelected]}>{item}</Text>
               </Pressable>
             ))}
           </View>
@@ -307,6 +512,41 @@ export default function ExplorarScreen() {
                 <Text style={[styles.chipText, productMode === item && styles.chipTextSelected]}>{item}</Text>
               </Pressable>
             ))}
+          </View>
+
+          <Text style={styles.choiceLabel}>Cantidad aproximada</Text>
+          <View style={styles.chipWrap}>
+            {quantityOptions.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setQuantityRange(item)}
+                style={[styles.chip, quantityRange === item && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, quantityRange === item && styles.chipTextSelected]}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.choiceLabel}>Presupuesto total aproximado</Text>
+          <View style={styles.rangeRow}>
+            <View style={styles.rangeCol}>
+              <Field
+                label="Desde MXN"
+                value={budgetMin}
+                onChangeText={setBudgetMin}
+                keyboardType="decimal-pad"
+                placeholder="Ej. 500"
+              />
+            </View>
+            <View style={styles.rangeCol}>
+              <Field
+                label="Hasta MXN"
+                value={budgetMax}
+                onChangeText={setBudgetMax}
+                keyboardType="decimal-pad"
+                placeholder="Ej. 3000"
+              />
+            </View>
           </View>
 
           <Field
@@ -368,6 +608,15 @@ export default function ExplorarScreen() {
                   q: query.trim(),
                   tipo: selectedIntent,
                   categoria: activeCategory === 'Todas' ? '' : activeCategory,
+                  experiencia: experience,
+                  disponibilidad: availability,
+                  horas: workHours,
+                  capacidad: capability,
+                  formaPago: selectedIntent === 'contratar' ? servicePayBasis : payBasis,
+                  rangoMin: selectedIntent === 'comprar' || selectedIntent === 'contratar' ? budgetMin : payMin,
+                  rangoMax: selectedIntent === 'comprar' || selectedIntent === 'contratar' ? budgetMax : payMax,
+                  escala: projectScale,
+                  cantidad: quantityRange,
                 },
               })
             }
@@ -609,6 +858,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  rangeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  rangeCol: {
+    flexGrow: 1,
+    flexBasis: 150,
+    minWidth: 140,
+  },
+  scaleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  scaleCard: {
+    flexGrow: 1,
+    flexBasis: 150,
+    minWidth: 145,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(20,36,67,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(140,174,220,0.34)',
+  },
+  scaleCardSelected: {
+    backgroundColor: 'rgba(76,132,183,0.45)',
+    borderColor: 'rgba(142,236,255,0.86)',
+  },
+  scaleTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  scaleText: {
+    color: '#B9C8E2',
+    fontSize: 12,
+    lineHeight: 17,
   },
   chip: {
     maxWidth: '100%',
