@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
@@ -267,12 +267,19 @@ export default function ExplorarScreen() {
 
           {selectedIntent === 'empleo' && (profile.role || profile.specialty || profile.education || profile.workMode) && (
             <View style={styles.profileContext}>
-              <Text style={styles.profileContextEyebrow}>DATOS DE MI ESPACIO</Text>
-              <Text style={styles.profileContextText}>
-                {[profile.role, profile.specialty, profile.experience, profile.workMode]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </Text>
+              <View style={styles.profileContextTop}>
+                {profile.photoDataUrl ? (
+                  <Image source={{ uri: profile.photoDataUrl }} style={styles.profileContextAvatar} resizeMode="cover" />
+                ) : null}
+                <View style={styles.profileContextCopy}>
+                  <Text style={styles.profileContextEyebrow}>DATOS DE MI ESPACIO</Text>
+                  <Text style={styles.profileContextText}>
+                    {[profile.role, profile.specialty, profile.experience, profile.workMode]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+              </View>
               <Text style={styles.profileContextHint}>
                 Nexo puede usar este contexto para afinar oportunidades. Puedes cambiar los filtros de esta búsqueda sin modificar tu perfil.
               </Text>
@@ -856,12 +863,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   profileContext: {
-    gap: 5,
+    gap: 7,
     padding: 12,
     borderRadius: 15,
     backgroundColor: 'rgba(9,25,47,0.52)',
     borderWidth: 1,
     borderColor: 'rgba(126,207,238,0.30)',
+  },
+  profileContextTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  profileContextAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(126,233,255,0.60)',
+  },
+  profileContextCopy: {
+    flex: 1,
+    gap: 3,
   },
   profileContextEyebrow: {
     color: '#83E8FF',
