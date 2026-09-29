@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { categorias } from '@/constants/categories';
+import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import {
   Pressable,
   ScrollView,
@@ -45,33 +46,35 @@ const actions = [
 
 export default function HomeScreen() {
   const [busqueda, setBusqueda] = useState('');
+  const { mode } = useAppearance();
+  const palette = getAppearancePalette(mode);
 
   function buscar() {
     router.push({ pathname: '/explorar', params: { q: busqueda.trim() } });
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
       <LinearGradient
         pointerEvents="none"
-        colors={['#061225', '#0B1730', '#140E2D']}
+        colors={palette.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <View pointerEvents="none" style={styles.glowOne} />
-      <View pointerEvents="none" style={styles.glowTwo} />
+      <View pointerEvents="none" style={[styles.glowOne, { backgroundColor: palette.glowOne }]} />
+      <View pointerEvents="none" style={[styles.glowTwo, { backgroundColor: palette.glowTwo }]} />
 
       <ScrollView
-        style={styles.scroll}
+        style={[styles.scroll, { backgroundColor: palette.scroll }]}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
           <View style={styles.brand}>
-            <Text style={styles.logo}>Ne<Text style={styles.logoAccent}>xo</Text></Text>
-            <Text style={styles.logoSub}>Conecta. Trabaja. Crece.</Text>
+            <Text style={[styles.logo, { color: palette.title }]}>Ne<Text style={styles.logoAccent}>xo</Text></Text>
+            <Text style={[styles.logoSub, { color: palette.muted }]}>Conecta. Trabaja. Crece.</Text>
           </View>
 
           <Pressable
@@ -91,8 +94,8 @@ export default function HomeScreen() {
 
         <View style={styles.welcomeRow}>
           <View style={styles.welcomeCopy}>
-            <Text style={styles.hello}>¡Hola! 👋</Text>
-            <Text style={styles.welcomeTitle}>¿Qué quieres hacer hoy?</Text>
+            <Text style={[styles.hello, { color: palette.muted }]}>¡Hola! 👋</Text>
+            <Text style={[styles.welcomeTitle, { color: palette.title }]}>¿Qué quieres hacer hoy?</Text>
           </View>
           <View style={styles.statusPill}>
             <Text style={styles.statusDot}>●</Text>
@@ -103,18 +106,18 @@ export default function HomeScreen() {
         <View style={styles.searchShell}>
           <LinearGradient
             pointerEvents="none"
-            colors={['rgba(40,72,114,0.94)', 'rgba(59,48,108,0.94)']}
+            colors={palette.input}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.searchGradient}
           />
-          <Text style={styles.searchIcon}>⌕</Text>
+          <Text style={[styles.searchIcon, { color: palette.inputText }]}>⌕</Text>
           <TextInput
             value={busqueda}
             onChangeText={setBusqueda}
             placeholder="Buscar empleos, servicios, productos..."
-            placeholderTextColor="#A7B7D8"
-            style={styles.input}
+            placeholderTextColor={palette.placeholder}
+            style={[styles.input, { color: palette.inputText }]}
             returnKeyType="search"
             onSubmitEditing={buscar}
           />
@@ -160,8 +163,8 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Elige tu siguiente paso</Text>
-        <Text style={styles.sectionSub}>Todo conectado dentro de Nexo.</Text>
+        <Text style={[styles.sectionTitle, { color: palette.title }]}>Elige tu siguiente paso</Text>
+        <Text style={[styles.sectionSub, { color: palette.muted }]}>Todo conectado dentro de Nexo.</Text>
 
         <View style={styles.actionGrid}>
           {actions.map((action) => (
@@ -215,8 +218,8 @@ export default function HomeScreen() {
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={styles.sectionTitle}>Explora por categoría</Text>
-            <Text style={styles.sectionSub}>Encuentra más rápido lo que necesitas.</Text>
+            <Text style={[styles.sectionTitle, { color: palette.title }]}>Explora por categoría</Text>
+            <Text style={[styles.sectionSub, { color: palette.muted }]}>Encuentra más rápido lo que necesitas.</Text>
           </View>
         </View>
 
@@ -230,10 +233,10 @@ export default function HomeScreen() {
             >
               <LinearGradient
                 pointerEvents="none"
-                colors={['rgba(34,58,92,0.94)', 'rgba(48,40,86,0.94)']}
+                colors={palette.secondary}
                 style={styles.categoryGradient}
               />
-              <Text style={styles.categoryText}>{categoria}</Text>
+              <Text style={[styles.categoryText, { color: palette.secondaryText }]}>{categoria}</Text>
             </Pressable>
           ))}
 
@@ -252,8 +255,8 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerLogo}>Nexo</Text>
-          <Text style={styles.footerText}>Conectando personas, trabajo y oportunidades.</Text>
+          <Text style={[styles.footerLogo, { color: palette.title }]}>Nexo</Text>
+          <Text style={[styles.footerText, { color: palette.muted }]}>Conectando personas, trabajo y oportunidades.</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
