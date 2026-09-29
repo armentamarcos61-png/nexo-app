@@ -354,9 +354,25 @@ export default function ExplorarScreen() {
 
         <Text style={styles.resultText}>
           {selectedIntentData
-            ? 'La búsqueda ya queda organizada por intención y categoría. En esta versión de prueba todavía no hay publicaciones públicas conectadas; cuando se conecte el catálogo, aquí aparecerán resultados reales.'
+            ? 'Nexo ya puede usar esta intención para organizar la necesidad, comparar opciones y preparar una solución completa de prueba.'
             : 'Selecciona una de las opciones de arriba para que Nexo sepa exactamente qué mostrarte.'}
         </Text>
+
+        {(selectedIntent === 'trabajadores' || selectedIntent === 'contratar' || selectedIntent === 'comprar') && (
+          <Action
+            label="Continuar y dejar que Nexo lo organice"
+            onPress={() =>
+              router.push({
+                pathname: '/resolver',
+                params: {
+                  q: query.trim(),
+                  tipo: selectedIntent,
+                  categoria: activeCategory === 'Todas' ? '' : activeCategory,
+                },
+              })
+            }
+          />
+        )}
 
         {selectedIntent === 'contratar' && (
           <Action label="Publicar lo que necesito" onPress={() => router.push('/publicar/necesidad')} />
