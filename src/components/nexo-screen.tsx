@@ -140,10 +140,16 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
 export const ui = StyleSheet.create({
   safe: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
     backgroundColor: '#071426',
   },
   scroll: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
     backgroundColor: '#071426',
   },
   glowCyan: {
@@ -165,9 +171,11 @@ export const ui = StyleSheet.create({
     backgroundColor: 'rgba(190, 72, 255, 0.13)',
   },
   container: {
+    flexGrow: 1,
     width: '100%',
     maxWidth: 820,
     alignSelf: 'center',
+    overflow: 'hidden',
     paddingHorizontal: 18,
     paddingTop: 10,
     paddingBottom: 70,
@@ -269,6 +277,9 @@ export const ui = StyleSheet.create({
     marginTop: 7,
   },
   content: {
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
     gap: 16,
   },
   text: {
@@ -288,6 +299,8 @@ export const ui = StyleSheet.create({
     textAlign: 'center',
   },
   field: {
+    width: '100%',
+    maxWidth: '100%',
     gap: 8,
   },
   inputShell: {
@@ -320,6 +333,8 @@ export const ui = StyleSheet.create({
   },
   button: {
     position: 'relative',
+    maxWidth: '100%',
+    flexShrink: 1,
     overflow: 'hidden',
     minHeight: 54,
     justifyContent: 'center',
@@ -356,6 +371,8 @@ export const ui = StyleSheet.create({
     color: '#061426',
     fontWeight: '900',
     fontSize: 16,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   pressed: {
     transform: [{ translateY: 2 }, { scale: 0.988 }],
