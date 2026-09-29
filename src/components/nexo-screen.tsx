@@ -26,6 +26,7 @@ export function NexoScreen({ title, children }: PropsWithChildren<{ title: strin
       <View pointerEvents="none" style={ui.glowViolet} />
 
       <ScrollView
+        style={ui.scroll}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={ui.container}
         showsVerticalScrollIndicator={false}
@@ -127,7 +128,7 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
         />
         <TextInput
           accessibilityLabel={label}
-          placeholderTextColor="#9EADD0"
+          placeholderTextColor="#C2CDE6"
           {...props}
           style={[ui.input, props.multiline && ui.multiline, props.style]}
         />
@@ -138,6 +139,10 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
 
 export const ui = StyleSheet.create({
   safe: {
+    flex: 1,
+    backgroundColor: '#071426',
+  },
+  scroll: {
     flex: 1,
     backgroundColor: '#071426',
   },
