@@ -311,8 +311,10 @@ export default function PerfilScreen() {
 
       <Action label="Busco trabajo" onPress={buscarTrabajo} />
       <Action label="Mis borradores" secondary onPress={() => router.push('/borradores')} />
+      <Action label="Mis portafolios de trabajo" secondary onPress={() => router.push('/portafolios')} />
       <Action label="Ofrezco un servicio" secondary onPress={() => router.push('/publicar/servicio')} />
-      <Action label="Vendo un producto" secondary onPress={() => router.push('/publicar/producto')} />
+      <Action label="Productos / Marketplace" secondary onPress={() => router.push('/productos')} />
+      <Action label="Publicar producto" secondary onPress={() => router.push('/publicar/producto')} />
     </NexoScreen>
   );
 }
