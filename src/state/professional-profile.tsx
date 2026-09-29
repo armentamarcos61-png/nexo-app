@@ -10,6 +10,7 @@ export type ProfessionalProfile = {
   workMode: string;
   skills: string;
   bio: string;
+  photoDataUrl: string;
 };
 
 const emptyProfile: ProfessionalProfile = {
@@ -21,6 +22,7 @@ const emptyProfile: ProfessionalProfile = {
   workMode: '',
   skills: '',
   bio: '',
+  photoDataUrl: '',
 };
 
 const storageKey = 'nexo.professional-profile.v1';
@@ -28,10 +30,33 @@ let profile = { ...emptyProfile };
 let initialized = false;
 const listeners = new Set<() => void>();
 
-function isProfile(value: unknown): value is ProfessionalProfile {
-  if (!value || typeof value !== 'object') return false;
+function normalizeProfile(value: unknown): ProfessionalProfile | null {
+  if (!value || typeof value !== 'object') return null;
   const record = value as Record<string, unknown>;
-  return Object.keys(emptyProfile).every((key) => typeof record[key] === 'string');
+  const requiredLegacyFields = [
+    'role',
+    'education',
+    'specialty',
+    'experience',
+    'availability',
+    'workMode',
+    'skills',
+    'bio',
+  ] as const;
+
+  if (!requiredLegacyFields.every((key) => typeof record[key] === 'string')) return null;
+
+  return {
+    role: record.role as string,
+    education: record.education as string,
+    specialty: record.specialty as string,
+    experience: record.experience as string,
+    availability: record.availability as string,
+    workMode: record.workMode as string,
+    skills: record.skills as string,
+    bio: record.bio as string,
+    photoDataUrl: typeof record.photoDataUrl === 'string' ? record.photoDataUrl : '',
+  };
 }
 
 function loadProfile() {
@@ -42,7 +67,8 @@ function loadProfile() {
       const raw = window.localStorage.getItem(storageKey);
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
-        if (isProfile(parsed)) profile = parsed;
+        const normalized = normalizeProfile(parsed);
+        if (normalized) profile = normalized;
       }
     } catch {
       // Storage may be blocked; keep the in-memory profile instead.
