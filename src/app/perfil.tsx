@@ -13,6 +13,7 @@ import {
   availabilityOptions,
   educationOptions,
   experienceOptions,
+  getDisplayName,
   useProfessionalProfile,
   workModeOptions,
 } from '@/state/professional-profile';
@@ -22,6 +23,7 @@ export default function PerfilScreen() {
   const palette = getAppearancePalette(mode);
   const { profile, updateField } = useProfessionalProfile();
 
+  const displayName = getDisplayName(profile);
   const completedFields = Object.values(profile).filter((value) => value.trim()).length;
   const totalFields = Object.keys(profile).length;
   const completion = Math.round((completedFields / totalFields) * 100);
@@ -149,6 +151,38 @@ export default function PerfilScreen() {
           value={profile.photoDataUrl}
           onChange={(value) => updateField('photoDataUrl', value)}
         />
+
+        <View style={styles.nameCard}>
+          <Text style={[styles.optionTitle, { color: palette.title }]}>Nombre visible</Text>
+          <Text style={[styles.optionHint, { color: palette.text }]}>
+            Usa sólo tu primer nombre y tu primer apellido. Ejemplo: Juan Arriola.
+          </Text>
+          <View style={styles.nameRow}>
+            <View style={styles.nameCol}>
+              <Field
+                label="Primer nombre"
+                value={profile.firstName}
+                onChangeText={(value) => updateField('firstName', value)}
+                placeholder="Ej. Juan"
+                maxLength={40}
+              />
+            </View>
+            <View style={styles.nameCol}>
+              <Field
+                label="Primer apellido"
+                value={profile.firstSurname}
+                onChangeText={(value) => updateField('firstSurname', value)}
+                placeholder="Ej. Arriola"
+                maxLength={50}
+              />
+            </View>
+          </View>
+          {!!displayName && (
+            <Text style={[styles.namePreview, { color: palette.title }]}>
+              Así te verán: {displayName}
+            </Text>
+          )}
+        </View>
 
         <Field
           label="Profesión, oficio o puesto que buscas"
@@ -481,6 +515,23 @@ const styles = StyleSheet.create({
   },
   profileForm: {
     gap: 16,
+  },
+  nameCard: {
+    gap: 9,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  nameCol: {
+    flexGrow: 1,
+    flexBasis: 150,
+    minWidth: 140,
+  },
+  namePreview: {
+    fontSize: 13,
+    fontWeight: '900',
   },
   optionBlock: {
     gap: 8,
