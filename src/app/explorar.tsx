@@ -5,7 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
-import { useProfessionalProfile } from '@/state/professional-profile';
+import { getDisplayName, useProfessionalProfile } from '@/state/professional-profile';
 
 const intents = [
   {
@@ -99,6 +99,7 @@ export default function ExplorarScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { profile } = useProfessionalProfile();
+  const displayName = getDisplayName(profile);
   const employmentSeed = params.intencion === 'empleo';
   const [query, setQuery] = useState(params.q ?? '');
   const [showIntents, setShowIntents] = useState(false);
@@ -280,6 +281,9 @@ export default function ExplorarScreen() {
                   </Text>
                 </View>
               </View>
+              {!!displayName && (
+                <Text style={styles.profileContextName}>Perfil: {displayName}</Text>
+              )}
               <Text style={styles.profileContextHint}>
                 Nexo puede usar este contexto para afinar oportunidades. Puedes cambiar los filtros de esta búsqueda sin modificar tu perfil.
               </Text>
@@ -897,6 +901,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '800',
+  },
+  profileContextName: {
+    color: '#DFF8FF',
+    fontSize: 12,
+    fontWeight: '900',
   },
   profileContextHint: {
     color: '#AABAD5',
