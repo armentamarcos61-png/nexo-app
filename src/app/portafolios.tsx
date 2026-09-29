@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { MultiImagePicker } from '@/components/multi-image-picker';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
@@ -16,7 +16,17 @@ export default function PortafoliosScreen() {
   const [description, setDescription] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [viewer, setViewer] = useState<{ portfolioId: string; imageIndex: number } | null>(null);
+  const [viewerMenuOpen, setViewerMenuOpen] = useState(false);
+  const [viewerMessage, setViewerMessage] = useState('');
   const idRef = useRef<string | null>(null);
+
+  const activePortfolio = viewer
+    ? portfolios.find((portfolio) => portfolio.id === viewer.portfolioId)
+    : undefined;
+  const activeImage = activePortfolio && viewer
+    ? activePortfolio.images[viewer.imageIndex]
+    : undefined;
 
   function resetForm() {
     idRef.current = null;
@@ -26,6 +36,32 @@ export default function PortafoliosScreen() {
     setImages([]);
     setError('');
     setCreating(false);
+  }
+
+  function openImage(portfolioId: string, imageIndex: number) {
+    setViewer({ portfolioId, imageIndex });
+    setViewerMenuOpen(false);
+    setViewerMessage('');
+  }
+
+  function closeViewer() {
+    setViewer(null);
+    setViewerMenuOpen(false);
+    setViewerMessage('');
+  }
+
+  function deleteActiveImage() {
+    if (!activePortfolio || !viewer) return;
+
+    if (activePortfolio.images.length <= 1) {
+      setViewerMessage('Este portafolio necesita al menos una foto. Agrega otra antes de eliminar ésta.');
+      setViewerMenuOpen(false);
+      return;
+    }
+
+    const nextImages = activePortfolio.images.filter((_, index) => index !== viewer.imageIndex);
+    save({ ...activePortfolio, images: nextImages });
+    closeViewer();
   }
 
   function guardar() {
@@ -149,12 +185,17 @@ export default function PortafoliosScreen() {
                 },
               ]}
             >
-              <View style={styles.coverShell}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir portada de ${portfolio.title}`}
+                onPress={() => openImage(portfolio.id, 0)}
+                style={({ pressed }) => [styles.coverShell, pressed && styles.pressed]}
+              >
                 <Image source={{ uri: portfolio.images[0] }} style={styles.cover} resizeMode="cover" />
-                <View style={styles.countBubble}>
+                <View pointerEvents="none" style={styles.countBubble}>
                   <Text style={styles.countText}>{portfolio.images.length} fotos</Text>
                 </View>
-              </View>
+              </Pressable>
 
               <View style={styles.body}>
                 <Text style={styles.serviceBadge}>{portfolio.service}</Text>
@@ -165,7 +206,15 @@ export default function PortafoliosScreen() {
 
                 <View style={styles.thumbRow}>
                   {portfolio.images.slice(0, 4).map((uri, index) => (
-                    <Image key={`${portfolio.id}-${index}`} source={{ uri }} style={styles.thumb} resizeMode="cover" />
+                    <Pressable
+                      key={`${portfolio.id}-${index}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Abrir imagen ${index + 1} de ${portfolio.title}`}
+                      onPress={() => openImage(portfolio.id, index)}
+                      style={({ pressed }) => [styles.thumbButton, pressed && styles.pressed]}
+                    >
+                      <Image source={{ uri }} style={styles.thumb} resizeMode="cover" />
+                    </Pressable>
                   ))}
                 </View>
 
@@ -177,6 +226,67 @@ export default function PortafoliosScreen() {
           ))}
         </View>
       )}
+
+      <Modal
+        visible={!!viewer && !!activeImage}
+        transparent
+        animationType="fade"
+        onRequestClose={closeViewer}
+      >
+        <View style={styles.viewerBackdrop}>
+          <View style={styles.viewerTopBar}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar imagen"
+              onPress={closeViewer}
+              style={styles.viewerRoundButton}
+            >
+              <Text style={styles.viewerClose}>×</Text>
+            </Pressable>
+
+            <View style={styles.viewerMenuWrap}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Opciones de imagen"
+                onPress={() => {
+                  setViewerMenuOpen((current) => !current);
+                  setViewerMessage('');
+                }}
+                style={styles.viewerRoundButton}
+              >
+                <Text style={styles.viewerDots}>⋯</Text>
+              </Pressable>
+
+              {viewerMenuOpen && (
+                <View style={styles.viewerMenu}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={deleteActiveImage}
+                    style={({ pressed }) => [styles.viewerMenuItem, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.viewerDeleteText}>Eliminar foto</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <Pressable
+            style={styles.viewerImageArea}
+            onPress={() => setViewerMenuOpen(false)}
+          >
+            {activeImage ? (
+              <Image source={{ uri: activeImage }} style={styles.viewerImage} resizeMode="contain" />
+            ) : null}
+          </Pressable>
+
+          {!!viewerMessage && (
+            <View style={styles.viewerMessage}>
+              <Text style={styles.viewerMessageText}>{viewerMessage}</Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </NexoScreen>
   );
 }
@@ -211,8 +321,99 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 18, lineHeight: 23, fontWeight: '900' },
   cardText: { fontSize: 12, lineHeight: 18 },
   thumbRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  thumbButton: { borderRadius: 8, overflow: 'hidden' },
   thumb: { width: 50, height: 42, borderRadius: 8, backgroundColor: '#162640' },
   deleteButton: { alignSelf: 'flex-start', marginTop: 4, paddingVertical: 7 },
   deleteText: { color: '#F3A1B2', fontSize: 11, fontWeight: '900' },
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(2,7,14,0.96)',
+  },
+  viewerTopBar: {
+    position: 'absolute',
+    top: 18,
+    left: 18,
+    right: 18,
+    zIndex: 5,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  viewerRoundButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,27,42,0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.20)',
+  },
+  viewerClose: {
+    color: '#FFFFFF',
+    fontSize: 27,
+    lineHeight: 29,
+    fontWeight: '500',
+  },
+  viewerDots: {
+    color: '#FFFFFF',
+    fontSize: 25,
+    lineHeight: 25,
+    fontWeight: '900',
+    marginTop: -5,
+  },
+  viewerMenuWrap: {
+    alignItems: 'flex-end',
+    gap: 7,
+  },
+  viewerMenu: {
+    minWidth: 150,
+    padding: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(20,30,46,0.98)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.34)',
+  },
+  viewerMenuItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: 10,
+  },
+  viewerDeleteText: {
+    color: '#FF9FB1',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  viewerImageArea: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 74,
+    paddingBottom: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  viewerMessage: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    bottom: 22,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(106,35,54,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,150,172,0.35)',
+  },
+  viewerMessageText: {
+    color: '#FFE6EC',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   pressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
 });
