@@ -7,8 +7,7 @@
   "portsAttributes": {
     "8081": {
       "label": "Nexo · vista de prueba",
-      "onAutoForward": "notify",
-      "requireLocalPort": true
+      "onAutoForward": "notify"
     }
   },
   "postCreateCommand": "npm ci",
