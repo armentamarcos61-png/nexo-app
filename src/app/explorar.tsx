@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 12px 28px rgba(82,142,255,0.34)',
   },
   intentGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 23,
   },
   intentGlowOne: {
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(42,42,88,0.95)',
   },
   helperGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 22,
   },
   helperIcon: {
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 12px 28px rgba(0,0,0,0.28)',
   },
   smartPanelGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 24,
   },
   smartEyebrow: {
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 12px 28px rgba(0,0,0,0.28)',
   },
   resultGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 24,
   },
   resultGlow: {
