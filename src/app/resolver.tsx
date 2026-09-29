@@ -254,7 +254,7 @@ function Step({ label, done }: { label: string; done?: boolean }) {
 
 const styles = StyleSheet.create({
   fill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 22,
   },
   banner: {
