@@ -50,6 +50,18 @@ const intents = [
   },
 ] as const;
 
+const workerOptions = [
+  'Abogado', 'Administrador', 'Albañil', 'Arquitecto', 'Barbero', 'Bodeguero', 'Carpintero', 'Cargador',
+  'Chofer', 'Cocinero', 'Contador', 'Costurero', 'Diseñador', 'Electricista', 'Enfermero', 'Fotógrafo',
+  'Herrero', 'Ingeniero', 'Instalador', 'Jardinero', 'Lavador', 'Mecánico', 'Mensajero', 'Mesero',
+  'Montacarguista', 'Operador', 'Pintor', 'Plomero', 'Programador', 'Repartidor', 'Soldador',
+  'Supervisor', 'Tapicero', 'Técnico', 'Tornero', 'Vendedor', 'Velador', 'Yesero',
+] as const;
+
+const experienceOptions = ['Sin experiencia', '1+ año', '3+ años', '5+ años'];
+const availabilityOptions = ['Tiempo completo', 'Medio tiempo', 'Por proyecto', 'Fines de semana'];
+const productModes = ['Cualquiera', 'Nuevo', 'Usado', 'Hecho a medida', 'Mayoreo'];
+
 type IntentKey = (typeof intents)[number]['key'];
 
 function isIntent(value?: string): value is IntentKey {
@@ -60,11 +72,21 @@ export default function ExplorarScreen() {
   const params = useLocalSearchParams<{ q?: string; categoria?: string; intencion?: string }>();
   const [query, setQuery] = useState(params.q ?? '');
   const [showIntents, setShowIntents] = useState(false);
+  const [roleQuery, setRoleQuery] = useState('');
+  const [requirements, setRequirements] = useState('');
+  const [experience, setExperience] = useState('');
+  const [availability, setAvailability] = useState('');
+  const [productMode, setProductMode] = useState('Cualquiera');
+  const [productHow, setProductHow] = useState('');
+  const [productPurpose, setProductPurpose] = useState('');
 
   const selectedIntent = isIntent(params.intencion) ? params.intencion : undefined;
   const selectedIntentData = intents.find((item) => item.key === selectedIntent);
   const activeCategory = params.categoria || 'Todas';
   const shouldShowIntents = showIntents || !!params.q || !!params.categoria || !!selectedIntent;
+  const filteredWorkers = workerOptions.filter((item) =>
+    item.toLowerCase().includes(roleQuery.trim().toLowerCase())
+  );
 
   function buscar() {
     router.setParams({ q: query.trim() });
@@ -173,6 +195,139 @@ export default function ExplorarScreen() {
             <Text style={styles.helperTitle}>Busca primero, Nexo organiza después</Text>
             <Text style={styles.helperText}>
               Escribe lo que necesitas y al tocar Buscar podrás elegir si buscas empleo, trabajadores, servicios o productos.
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {(selectedIntent === 'trabajadores' || selectedIntent === 'empleo') && (
+        <View style={styles.smartPanel}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={['rgba(22,51,90,0.98)', 'rgba(54,42,96,0.98)', 'rgba(15,82,88,0.96)']}
+            style={styles.smartPanelGradient}
+          />
+          <Text style={styles.smartEyebrow}>
+            {selectedIntent === 'trabajadores' ? 'PERFIL DEL TRABAJADOR' : 'TIPO DE EMPLEO'}
+          </Text>
+          <Text style={styles.smartTitle}>
+            {selectedIntent === 'trabajadores'
+              ? 'Dile a Nexo exactamente a quién necesitas'
+              : 'Dile a Nexo qué trabajo estás buscando'}
+          </Text>
+          <Text style={styles.smartText}>
+            Entre más claro seas, mejores coincidencias podrá mostrar Nexo.
+          </Text>
+
+          <Field
+            label={selectedIntent === 'trabajadores' ? 'Puesto, oficio o habilidad' : 'Puesto o área'}
+            value={roleQuery}
+            onChangeText={setRoleQuery}
+            placeholder="Ej. Carpintero, chofer, contador..."
+          />
+
+          {selectedIntent === 'trabajadores' && (
+            <Field
+              label="Requisitos indispensables"
+              value={requirements}
+              onChangeText={setRequirements}
+              placeholder="Ej. licencia vigente, manejo de herramienta, disponibilidad..."
+              multiline
+            />
+          )}
+
+          <Text style={styles.choiceLabel}>Experiencia</Text>
+          <View style={styles.chipWrap}>
+            {experienceOptions.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setExperience(item)}
+                style={[styles.chip, experience === item && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, experience === item && styles.chipTextSelected]}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.choiceLabel}>Disponibilidad</Text>
+          <View style={styles.chipWrap}>
+            {availabilityOptions.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setAvailability(item)}
+                style={[styles.chip, availability === item && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, availability === item && styles.chipTextSelected]}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.directoryHeading}>
+            <Text style={styles.choiceLabel}>Directorio A–Z</Text>
+            <Text style={styles.directoryHint}>Toca una opción o escribe arriba para filtrar.</Text>
+          </View>
+          <View style={styles.roleGrid}>
+            {filteredWorkers.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => {
+                  setRoleQuery(item);
+                  setQuery(item);
+                }}
+                style={styles.rolePill}
+              >
+                <Text style={styles.rolePillText}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {selectedIntent === 'comprar' && (
+        <View style={styles.smartPanel}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={['rgba(70,39,91,0.98)', 'rgba(37,53,101,0.98)', 'rgba(18,81,88,0.96)']}
+            style={styles.smartPanelGradient}
+          />
+          <Text style={styles.smartEyebrow}>BÚSQUEDA DE PRODUCTO</Text>
+          <Text style={styles.smartTitle}>Qué buscas, cómo lo quieres y para qué lo necesitas</Text>
+          <Text style={styles.smartText}>
+            Así Nexo podrá sugerirte el producto principal y también complementos, alternativas o proveedores relacionados.
+          </Text>
+
+          <Text style={styles.choiceLabel}>¿Cómo lo buscas?</Text>
+          <View style={styles.chipWrap}>
+            {productModes.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setProductMode(item)}
+                style={[styles.chip, productMode === item && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, productMode === item && styles.chipTextSelected]}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Field
+            label="Detalles de cómo lo necesitas"
+            value={productHow}
+            onChangeText={setProductHow}
+            placeholder="Ej. medidas, material, color, cantidad, presupuesto..."
+          />
+
+          <Field
+            label="¿Para qué lo necesitas?"
+            value={productPurpose}
+            onChangeText={setProductPurpose}
+            placeholder="Ej. para una cocina, negocio, regalo, reparación..."
+            multiline
+          />
+
+          <View style={styles.complementCard}>
+            <Text style={styles.complementIcon}>✦</Text>
+            <Text style={styles.complementText}>
+              Nexo podrá usar este contexto para complementar la búsqueda en vez de mostrarte solamente coincidencias por palabra.
             </Text>
           </View>
         </View>
@@ -393,6 +548,120 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginTop: 4,
+  },
+  smartPanel: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 24,
+    padding: 20,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(133,183,229,0.42)',
+    borderTopColor: 'rgba(232,245,255,0.64)',
+    borderBottomWidth: 4,
+    borderBottomColor: 'rgba(47,43,101,0.97)',
+    boxShadow: '0 12px 28px rgba(0,0,0,0.28)',
+  },
+  smartPanelGradient: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+  },
+  smartEyebrow: {
+    color: '#8EEBFF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  smartTitle: {
+    color: '#FFFFFF',
+    fontSize: 21,
+    lineHeight: 27,
+    fontWeight: '900',
+  },
+  smartText: {
+    color: '#BCC9E4',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  choiceLabel: {
+    color: '#F4F8FF',
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    maxWidth: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(151,181,224,0.42)',
+    backgroundColor: 'rgba(22,35,64,0.72)',
+  },
+  chipSelected: {
+    backgroundColor: 'rgba(122,225,255,0.92)',
+    borderColor: 'rgba(219,250,255,0.96)',
+  },
+  chipText: {
+    color: '#D6E1F5',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  chipTextSelected: {
+    color: '#09213B',
+  },
+  directoryHeading: {
+    gap: 2,
+    marginTop: 2,
+  },
+  directoryHint: {
+    color: '#98AACC',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  roleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  rolePill: {
+    maxWidth: '100%',
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(37,55,91,0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(124,159,209,0.34)',
+  },
+  rolePillText: {
+    color: '#E8F0FF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  complementCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 13,
+    borderRadius: 16,
+    backgroundColor: 'rgba(14,31,57,0.60)',
+    borderWidth: 1,
+    borderColor: 'rgba(111,212,232,0.26)',
+  },
+  complementIcon: {
+    color: '#8EEBFF',
+    fontSize: 18,
+  },
+  complementText: {
+    flex: 1,
+    color: '#C1D0E8',
+    fontSize: 13,
+    lineHeight: 19,
   },
   resultCard: {
     position: 'relative',
