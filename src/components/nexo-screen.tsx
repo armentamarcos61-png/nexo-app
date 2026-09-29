@@ -20,7 +20,7 @@ export function NexoScreen({ title, children }: PropsWithChildren<{ title: strin
         colors={['#071426', '#0B1830', '#130F2D']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View pointerEvents="none" style={ui.glowCyan} />
       <View pointerEvents="none" style={ui.glowViolet} />
@@ -201,7 +201,7 @@ export const ui = StyleSheet.create({
     boxShadow: '0 7px 16px rgba(0,0,0,0.28)',
   },
   backGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 23,
   },
   backText: {
@@ -260,7 +260,7 @@ export const ui = StyleSheet.create({
     marginBottom: 18,
   },
   cardGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 28,
   },
   title: {
@@ -315,7 +315,7 @@ export const ui = StyleSheet.create({
     boxShadow: '0 7px 18px rgba(1,8,24,0.24)',
   },
   inputGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 16,
   },
   input: {
@@ -356,7 +356,7 @@ export const ui = StyleSheet.create({
     boxShadow: '0 7px 17px rgba(0,0,0,0.22)',
   },
   buttonGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 16,
   },
   buttonHighlight: {
