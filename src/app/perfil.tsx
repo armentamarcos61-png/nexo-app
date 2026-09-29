@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
+import { ProfilePhotoPicker } from '@/components/profile-photo-picker';
 import {
   appearanceOptions,
   getAppearancePalette,
@@ -144,6 +145,11 @@ export default function PerfilScreen() {
       </View>
 
       <View style={styles.profileForm}>
+        <ProfilePhotoPicker
+          value={profile.photoDataUrl}
+          onChange={(value) => updateField('photoDataUrl', value)}
+        />
+
         <Field
           label="Profesión, oficio o puesto que buscas"
           value={profile.role}
