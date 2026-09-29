@@ -11,22 +11,26 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 export function NexoScreen({ title, children }: PropsWithChildren<{ title: string }>) {
+  const { mode } = useAppearance();
+  const palette = getAppearancePalette(mode);
+
   return (
-    <SafeAreaView style={ui.safe}>
+    <SafeAreaView style={[ui.safe, { backgroundColor: palette.background }]}>
       <LinearGradient
         pointerEvents="none"
-        colors={['#071426', '#0B1830', '#130F2D']}
+        colors={palette.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <View pointerEvents="none" style={ui.glowCyan} />
-      <View pointerEvents="none" style={ui.glowViolet} />
+      <View pointerEvents="none" style={[ui.glowCyan, { backgroundColor: palette.glowOne }]} />
+      <View pointerEvents="none" style={[ui.glowViolet, { backgroundColor: palette.glowTwo }]} />
 
       <ScrollView
-        style={ui.scroll}
+        style={[ui.scroll, { backgroundColor: palette.scroll }]}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={ui.container}
         showsVerticalScrollIndicator={false}
@@ -43,12 +47,12 @@ export function NexoScreen({ title, children }: PropsWithChildren<{ title: strin
               colors={['rgba(105,181,255,0.30)', 'rgba(142,91,255,0.22)']}
               style={ui.backGradient}
             />
-            <Text style={ui.backText}>‹</Text>
+            <Text style={[ui.backText, { color: palette.title }]}>‹</Text>
           </Pressable>
 
           <View style={ui.brandWrap}>
-            <Text style={ui.brand}>Ne<Text style={ui.brandAccent}>xo</Text></Text>
-            <Text style={ui.brandSub}>Conecta · Trabaja · Crece</Text>
+            <Text style={[ui.brand, { color: palette.title }]}>Ne<Text style={ui.brandAccent}>xo</Text></Text>
+            <Text style={[ui.brandSub, { color: palette.muted }]}>Conecta · Trabaja · Crece</Text>
           </View>
 
           <View style={ui.spark}>
@@ -59,13 +63,13 @@ export function NexoScreen({ title, children }: PropsWithChildren<{ title: strin
         <View style={ui.headingCard}>
           <LinearGradient
             pointerEvents="none"
-            colors={['rgba(42,83,132,0.72)', 'rgba(88,54,137,0.58)', 'rgba(22,103,118,0.55)']}
+            colors={palette.card}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={ui.cardGradient}
           />
-          <Text accessibilityRole="header" style={ui.title}>{title}</Text>
-          <Text style={ui.headingText}>Todo lo que necesitas, con el mismo estilo Nexo.</Text>
+          <Text accessibilityRole="header" style={[ui.title, { color: palette.title }]}>{title}</Text>
+          <Text style={[ui.headingText, { color: palette.text }]}>Todo lo que necesitas, con el mismo estilo Nexo.</Text>
         </View>
 
         <View style={ui.content}>{children}</View>
@@ -85,6 +89,9 @@ export function Action({
   secondary?: boolean;
   disabled?: boolean;
 }) {
+  const { mode } = useAppearance();
+  const palette = getAppearancePalette(mode);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -101,7 +108,7 @@ export function Action({
         pointerEvents="none"
         colors={
           secondary
-            ? ['rgba(30,52,84,0.92)', 'rgba(52,42,92,0.88)']
+            ? palette.secondary
             : ['#27D8FF', '#617BFF', '#D05CFF']
         }
         start={{ x: 0, y: 0.25 }}
@@ -109,28 +116,31 @@ export function Action({
         style={ui.buttonGradient}
       />
       <View pointerEvents="none" style={ui.buttonHighlight} />
-      <Text style={secondary ? ui.link : ui.buttonText}>{label}</Text>
+      <Text style={secondary ? [ui.link, { color: palette.secondaryText }] : ui.buttonText}>{label}</Text>
     </Pressable>
   );
 }
 
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
+  const { mode } = useAppearance();
+  const palette = getAppearancePalette(mode);
+
   return (
     <View style={ui.field}>
-      <Text style={ui.label}>{label}</Text>
+      <Text style={[ui.label, { color: palette.title }]}>{label}</Text>
       <View style={ui.inputShell}>
         <LinearGradient
           pointerEvents="none"
-          colors={['rgba(35,60,96,0.95)', 'rgba(42,38,79,0.95)']}
+          colors={palette.input}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={ui.inputGradient}
         />
         <TextInput
           accessibilityLabel={label}
-          placeholderTextColor="#C2CDE6"
+          placeholderTextColor={palette.placeholder}
           {...props}
-          style={[ui.input, props.multiline && ui.multiline, props.style]}
+          style={[ui.input, { color: palette.inputText }, props.multiline && ui.multiline, props.style]}
         />
       </View>
     </View>
