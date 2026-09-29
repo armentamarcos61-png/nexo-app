@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NexoScreen } from '@/components/nexo-screen';
+import { StoredVideo } from '@/components/stored-video';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useMarketplace } from '@/state/marketplace';
 
@@ -79,7 +80,7 @@ export default function ProductosScreen() {
           <Text style={[styles.emptyText, { color: palette.text }]}>
             {products.length
               ? 'Prueba otra palabra o categoría.'
-              : 'El primer producto que publiques aparecerá aquí automáticamente con sus fotos.'}
+              : 'El primer producto que publiques aparecerá aquí automáticamente con sus fotos o videos.'}
           </Text>
         </View>
       ) : (
@@ -98,15 +99,19 @@ export default function ProductosScreen() {
               <View style={styles.photoShell}>
                 {item.images[0] ? (
                   <Image source={{ uri: item.images[0] }} style={styles.photo} resizeMode="cover" />
+                ) : item.videos[0] ? (
+                  <StoredVideo video={item.videos[0]} controls />
                 ) : (
                   <LinearGradient colors={['#214F72', '#553E8A', '#80406D']} style={styles.placeholder}>
                     <Text style={styles.placeholderIcon}>📦</Text>
-                    <Text style={styles.placeholderText}>Sin foto</Text>
+                    <Text style={styles.placeholderText}>Sin multimedia</Text>
                   </LinearGradient>
                 )}
-                {item.images.length > 1 && (
+                {item.images.length + item.videos.length > 1 && (
                   <View style={styles.photoCount}>
-                    <Text style={styles.photoCountText}>＋{item.images.length - 1}</Text>
+                    <Text style={styles.photoCountText}>
+                      {item.images.length} 📷 · {item.videos.length} 🎬
+                    </Text>
                   </View>
                 )}
               </View>
@@ -118,7 +123,12 @@ export default function ProductosScreen() {
                 </View>
                 <Text style={[styles.cardTitle, { color: palette.title }]} numberOfLines={2}>{item.title}</Text>
                 <Text style={[styles.cardText, { color: palette.text }]} numberOfLines={3}>{item.description}</Text>
-                <Text style={styles.price}>{item.price ? `$${item.price} MXN` : 'Precio por acordar'}</Text>
+                {!!item.videos.length && item.images[0] && (
+                  <View style={styles.videoPreview}>
+                    <StoredVideo video={item.videos[0]} controls />
+                  </View>
+                )}
+                <Text style={styles.price}>{item.price ? `${item.price} MXN` : 'Precio por acordar'}</Text>
               </View>
             </View>
           ))}
@@ -162,6 +172,7 @@ const styles = StyleSheet.create({
   location: { fontSize: 10, fontWeight: '700', flexShrink: 1 },
   cardTitle: { fontSize: 17, lineHeight: 21, fontWeight: '900' },
   cardText: { fontSize: 12, lineHeight: 18 },
+  videoPreview: { height: 120, borderRadius: 12, overflow: 'hidden', backgroundColor: '#111F36', marginTop: 3 },
   price: { color: '#76E9FF', fontSize: 16, fontWeight: '900', marginTop: 2 },
   pressed: { opacity: 0.9, transform: [{ translateY: 1 }, { scale: 0.99 }] },
 });
