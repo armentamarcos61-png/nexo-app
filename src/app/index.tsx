@@ -63,6 +63,7 @@ export default function HomeScreen() {
       <View pointerEvents="none" style={styles.glowTwo} />
 
       <ScrollView
+        style={styles.scroll}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
@@ -177,7 +178,12 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.actionGradient}
               />
-              <View style={styles.actionGloss} />
+              <View pointerEvents="none" style={styles.actionGlowOne} />
+              <View pointerEvents="none" style={styles.actionGlowTwo} />
+              <View pointerEvents="none" style={styles.actionGloss} />
+              <View pointerEvents="none" style={styles.actionWatermark}>
+                <Text style={styles.actionWatermarkText}>✦</Text>
+              </View>
               <View style={styles.iconOrb}>
                 <Text style={styles.actionEmoji}>{action.icon}</Text>
               </View>
@@ -256,6 +262,10 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   safe: {
+    flex: 1,
+    backgroundColor: '#061225',
+  },
+  scroll: {
     flex: 1,
     backgroundColor: '#061225',
   },
@@ -562,6 +572,24 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 24,
   },
+  actionGlowOne: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 999,
+    top: -72,
+    right: -46,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  actionGlowTwo: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 999,
+    bottom: -74,
+    left: -32,
+    backgroundColor: 'rgba(9,19,54,0.16)',
+  },
   actionGloss: {
     position: 'absolute',
     left: 14,
@@ -569,6 +597,18 @@ const styles = StyleSheet.create({
     top: 2,
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.65)',
+  },
+  actionWatermark: {
+    position: 'absolute',
+    right: 18,
+    bottom: 10,
+    opacity: 0.12,
+  },
+  actionWatermarkText: {
+    color: '#FFFFFF',
+    fontSize: 72,
+    lineHeight: 74,
+    fontWeight: '900',
   },
   iconOrb: {
     width: 54,
