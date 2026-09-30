@@ -334,9 +334,8 @@ export const ui = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     fontWeight: '700',
-    color: '#000000',
-    backgroundColor: 'rgba(241,244,249,0.94)',
-    borderRadius: 12,
+    color: '#F3F5F8',
+    backgroundColor: 'transparent',
     outlineStyle: 'none',
   } as any,
   multiline: {
