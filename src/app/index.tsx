@@ -435,6 +435,7 @@ const styles = StyleSheet.create({
     minHeight: 58,
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '700',
     backgroundColor: 'transparent',
     outlineStyle: 'none',
   } as any,
