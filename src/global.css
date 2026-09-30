@@ -17,5 +17,11 @@ textarea::placeholder {
 input,
 textarea {
   opacity: 1 !important;
-  -webkit-text-fill-color: currentColor;
+}
+
+input:not(:placeholder-shown),
+textarea:not(:placeholder-shown) {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  opacity: 1 !important;
 }
