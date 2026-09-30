@@ -145,7 +145,7 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.searchGradient}
           />
-          <Text style={[styles.searchIcon, { color: palette.inputText }]}>⌕</Text>
+          <Text style={[styles.searchIcon, { color: '#66E6FF' }]}>⌕</Text>
           <TextInput
             value={busqueda}
             onChangeText={setBusqueda}
@@ -499,10 +499,12 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 58,
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 15,
     fontWeight: '700',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(241,244,249,0.94)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
     outlineStyle: 'none',
   } as any,
   searchButton: {
