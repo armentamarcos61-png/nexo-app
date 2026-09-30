@@ -7,3 +7,15 @@
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
 }
+
+
+input::placeholder,
+textarea::placeholder {
+  opacity: 1 !important;
+}
+
+input,
+textarea {
+  opacity: 1 !important;
+  -webkit-text-fill-color: currentColor;
+}
