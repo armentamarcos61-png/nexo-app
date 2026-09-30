@@ -15,16 +15,14 @@ textarea {
   -webkit-text-fill-color: #000000 !important;
   opacity: 1 !important;
   font-weight: 700 !important;
-  text-shadow:
-    0 0 1px rgba(255,255,255,0.95),
-    0 0 3px rgba(255,255,255,0.72) !important;
+  text-shadow: none !important;
   caret-color: #000000 !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #D7DCE7 !important;
-  -webkit-text-fill-color: #D7DCE7 !important;
+  color: #5F6878 !important;
+  -webkit-text-fill-color: #5F6878 !important;
   opacity: 1 !important;
   text-shadow: none !important;
 }
