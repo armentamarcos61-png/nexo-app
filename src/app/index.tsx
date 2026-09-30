@@ -101,6 +101,29 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.authRow}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/iniciar-sesion')}
+            style={({ pressed }) => [styles.loginButton, pressed && styles.pressed]}
+          >
+            <Text style={[styles.loginButtonText, { color: palette.title }]}>Iniciar sesión</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/registrarse')}
+            style={({ pressed }) => [styles.registerButton, pressed && styles.pressed]}
+          >
+            <LinearGradient
+              pointerEvents="none"
+              colors={['#56ECFF', '#7E8BFF', '#F17BE4']}
+              style={styles.registerGradient}
+            />
+            <Text style={styles.registerButtonText}>Registrarse</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.welcomeRow}>
           <View style={styles.welcomeCopy}>
             <Text style={[styles.hello, { color: palette.muted }]}>
@@ -361,6 +384,49 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
+  },
+  authRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 14,
+  },
+  loginButton: {
+    minHeight: 39,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(20,39,65,0.54)',
+    borderWidth: 1,
+    borderColor: 'rgba(136,177,226,0.34)',
+  },
+  loginButtonText: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  registerButton: {
+    position: 'relative',
+    overflow: 'hidden',
+    minHeight: 39,
+    paddingHorizontal: 14,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(224,247,255,0.72)',
+    borderBottomWidth: 3,
+    borderBottomColor: 'rgba(68,54,139,0.88)',
+  },
+  registerGradient: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 13,
+  },
+  registerButtonText: {
+    color: '#081522',
+    fontSize: 12,
+    fontWeight: '900',
   },
   welcomeRow: {
     flexDirection: 'row',
