@@ -8,17 +8,27 @@
   --font-serif: Georgia, 'Times New Roman', serif;
 }
 
-
 input,
 textarea {
   opacity: 1 !important;
-  font-weight: 700 !important;
-  text-shadow: none !important;
-  caret-color: currentColor;
+  -webkit-text-fill-color: currentColor !important;
 }
 
 input::placeholder,
 textarea::placeholder {
   opacity: 1 !important;
-  text-shadow: none !important;
+}
+
+[data-testid='nexo-home-search'],
+[data-testid='nexo-home-search']:focus {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-text-fill-color: currentColor !important;
 }
