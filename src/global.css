@@ -9,19 +9,22 @@
 }
 
 
-input::placeholder,
-textarea::placeholder {
-  opacity: 1 !important;
-}
-
 input,
 textarea {
-  opacity: 1 !important;
-}
-
-input:not(:placeholder-shown),
-textarea:not(:placeholder-shown) {
   color: #000000 !important;
   -webkit-text-fill-color: #000000 !important;
   opacity: 1 !important;
+  font-weight: 700 !important;
+  text-shadow:
+    0 0 1px rgba(255,255,255,0.95),
+    0 0 3px rgba(255,255,255,0.72) !important;
+  caret-color: #000000 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #D7DCE7 !important;
+  -webkit-text-fill-color: #D7DCE7 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
 }
