@@ -152,9 +152,9 @@ export function getAppearancePalette(mode: AppearanceMode) {
     muted: '#9EADD0',
     card: ['rgba(42,83,132,0.72)', 'rgba(88,54,137,0.58)', 'rgba(22,103,118,0.55)'] as const,
     cardBorder: 'rgba(151,196,255,0.34)',
-    input: ['rgba(205,218,236,0.98)', 'rgba(190,187,220,0.98)'] as const,
-    inputText: '#182033',
-    placeholder: '#5E687C',
+    input: ['rgba(35,60,96,0.95)', 'rgba(42,38,79,0.95)'] as const,
+    inputText: '#F2F4F8',
+    placeholder: '#AEB9D2',
     secondary: ['rgba(30,52,84,0.92)', 'rgba(52,42,92,0.88)'] as const,
     secondaryText: '#EAF1FF',
   };
