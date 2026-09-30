@@ -333,6 +333,7 @@ export const ui = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 14,
     fontSize: 16,
+    fontWeight: '700',
     color: '#FFFFFF',
     backgroundColor: 'transparent',
     outlineStyle: 'none',
