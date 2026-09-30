@@ -147,11 +147,13 @@ export default function HomeScreen() {
           />
           <Text style={[styles.searchIcon, { color: '#66E6FF' }]}>⌕</Text>
           <TextInput
+            testID="nexo-home-search"
             value={busqueda}
             onChangeText={setBusqueda}
             placeholder="Buscar empleos, servicios, productos..."
             placeholderTextColor={palette.placeholder}
             style={[styles.input, { color: palette.inputText }]}
+            autoComplete="off"
             returnKeyType="search"
             onSubmitEditing={buscar}
           />
