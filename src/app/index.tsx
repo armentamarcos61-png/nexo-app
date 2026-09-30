@@ -499,12 +499,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 58,
-    color: '#000000',
+    color: '#F3F5F8',
     fontSize: 15,
     fontWeight: '700',
-    backgroundColor: 'rgba(241,244,249,0.94)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
     outlineStyle: 'none',
   } as any,
   searchButton: {
