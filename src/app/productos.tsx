@@ -50,7 +50,7 @@ export default function ProductosScreen() {
 
       <View style={[styles.searchShell, { borderColor: palette.cardBorder }]}>
         <LinearGradient pointerEvents="none" colors={palette.input} style={styles.searchFill} />
-        <Text style={[styles.searchIcon, { color: palette.inputText }]}>⌕</Text>
+        <Text style={[styles.searchIcon, { color: '#66E6FF' }]}>⌕</Text>
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   searchShell: { position: 'relative', overflow: 'hidden', minHeight: 54, borderRadius: 17, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
   searchFill: { ...StyleSheet.absoluteFill, borderRadius: 17 },
   searchIcon: { fontSize: 26, marginLeft: 15, marginRight: 9 },
-  searchInput: { flex: 1, minHeight: 54, paddingRight: 14, fontSize: 15, backgroundColor: 'transparent', outlineStyle: 'none' } as any,
+  searchInput: { flex: 1, minHeight: 44, marginVertical: 5, marginRight: 8, paddingHorizontal: 12, fontSize: 15, fontWeight: '700', color: '#000000', backgroundColor: 'rgba(241,244,249,0.94)', borderRadius: 12, outlineStyle: 'none' } as any,
   resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   resultCount: { fontSize: 15, fontWeight: '900' },
   clear: { color: '#78E8FF', fontSize: 12, fontWeight: '900' },
