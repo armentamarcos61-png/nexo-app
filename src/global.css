@@ -11,18 +11,14 @@
 
 input,
 textarea {
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
   opacity: 1 !important;
   font-weight: 700 !important;
   text-shadow: none !important;
-  caret-color: #000000 !important;
+  caret-color: currentColor;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #5F6878 !important;
-  -webkit-text-fill-color: #5F6878 !important;
   opacity: 1 !important;
   text-shadow: none !important;
 }
