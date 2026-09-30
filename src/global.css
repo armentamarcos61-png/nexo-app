@@ -21,6 +21,9 @@ textarea::placeholder {
 
 [data-testid='nexo-home-search'],
 [data-testid='nexo-home-search']:focus {
+  color: #F3F5F8 !important;
+  -webkit-text-fill-color: #F3F5F8 !important;
+  caret-color: #66E6FF !important;
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -30,5 +33,4 @@ textarea::placeholder {
   outline: none !important;
   -webkit-appearance: none;
   appearance: none;
-  -webkit-text-fill-color: currentColor !important;
 }
