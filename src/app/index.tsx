@@ -53,7 +53,7 @@ export default function HomeScreen() {
   const palette = getAppearancePalette(mode);
   const { profile } = useProfessionalProfile();
   const { user, signOut } = useAuth();
-  const greetingName = (user?.firstName || profile.firstName).trim();
+  const greetingName = user?.firstName.trim() ?? '';
   const profileInitial = greetingName ? greetingName.charAt(0).toUpperCase() : 'N';
 
   function buscar() {
@@ -94,14 +94,14 @@ export default function HomeScreen() {
               accessibilityRole="button"
               accessibilityLabel="Abrir perfil"
               style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
-              onPress={() => router.push('/perfil')}
+              onPress={() => router.push(user ? '/perfil' : '/iniciar-sesion')}
             >
               <LinearGradient
                 pointerEvents="none"
                 colors={['#287EEB', '#8C54F6', '#E25BCE']}
                 style={styles.profileGradient}
               />
-              {profile.photoDataUrl ? (
+              {user && profile.photoDataUrl ? (
                 <Image source={{ uri: profile.photoDataUrl }} style={styles.profileImage} resizeMode="cover" />
               ) : (
                 <Text style={styles.profileText}>{profileInitial}</Text>
