@@ -124,6 +124,9 @@ export function Action({
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
+  const visiblePlaceholder =
+    typeof props.placeholder === 'string' &&
+    !String(props.value ?? '').length;
 
   return (
     <View style={ui.field}>
@@ -136,11 +139,20 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
           end={{ x: 1, y: 1 }}
           style={ui.inputGradient}
         />
+        {visiblePlaceholder ? (
+          <Text
+            pointerEvents="none"
+            numberOfLines={props.multiline ? undefined : 1}
+            style={[ui.inputPlaceholder, props.multiline && ui.inputPlaceholderMultiline]}
+          >
+            {props.placeholder}
+          </Text>
+        ) : null}
         <TextInput
           accessibilityLabel={label}
-          placeholderTextColor={palette.placeholder}
           {...props}
-          style={[ui.input, { color: palette.inputText }, props.multiline && ui.multiline, props.style]}
+          placeholder=""
+          style={[ui.input, props.multiline && ui.multiline, props.style]}
         />
       </View>
     </View>
@@ -328,13 +340,27 @@ export const ui = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     borderRadius: 16,
   },
+  inputPlaceholder: {
+    position: 'absolute',
+    left: 15,
+    right: 15,
+    top: 16,
+    color: '#171A1F',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '900',
+    opacity: 1,
+  },
+  inputPlaceholderMultiline: {
+    top: 14,
+  },
   input: {
     minHeight: 54,
     paddingHorizontal: 15,
     paddingVertical: 14,
     fontSize: 16,
     fontWeight: '900',
-    color: '#F3F5F8',
+    color: '#000000',
     opacity: 1,
     backgroundColor: 'transparent',
     outlineStyle: 'none',
