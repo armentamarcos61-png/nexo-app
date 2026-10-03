@@ -83,3 +83,17 @@ textarea:-webkit-autofill {
   -webkit-appearance: none;
   appearance: none;
 }
+
+
+[data-testid='nexo-field-input'],
+[data-testid='nexo-field-input']:focus {
+  position: relative !important;
+  z-index: 3 !important;
+  opacity: 1 !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #000000 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  text-shadow: none !important;
+}
