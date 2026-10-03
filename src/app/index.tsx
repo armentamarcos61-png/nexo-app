@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { categorias } from '@/constants/categories';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
+import { useAuth } from '@/state/auth';
 import { useProfessionalProfile } from '@/state/professional-profile';
 import {
   Image,
@@ -51,7 +52,8 @@ export default function HomeScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { profile } = useProfessionalProfile();
-  const greetingName = profile.firstName.trim();
+  const { user, signOut } = useAuth();
+  const greetingName = (user?.firstName || profile.firstName).trim();
   const profileInitial = greetingName ? greetingName.charAt(0).toUpperCase() : 'N';
 
   function buscar() {
@@ -82,46 +84,67 @@ export default function HomeScreen() {
             <Text style={[styles.logoSub, { color: palette.muted }]}>Conecta. Trabaja. Crece.</Text>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Abrir perfil"
-            style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
-            onPress={() => router.push('/perfil')}
-          >
-            <LinearGradient
-              pointerEvents="none"
-              colors={['#287EEB', '#8C54F6', '#E25BCE']}
-              style={styles.profileGradient}
-            />
-            {profile.photoDataUrl ? (
-              <Image source={{ uri: profile.photoDataUrl }} style={styles.profileImage} resizeMode="cover" />
-            ) : (
-              <Text style={styles.profileText}>{profileInitial}</Text>
-            )}
-          </Pressable>
+          <View style={styles.profileBlock}>
+            {user ? (
+              <Text numberOfLines={1} style={[styles.accountName, { color: palette.title }]}>
+                {user.firstName}
+              </Text>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Abrir perfil"
+              style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
+              onPress={() => router.push('/perfil')}
+            >
+              <LinearGradient
+                pointerEvents="none"
+                colors={['#287EEB', '#8C54F6', '#E25BCE']}
+                style={styles.profileGradient}
+              />
+              {profile.photoDataUrl ? (
+                <Image source={{ uri: profile.photoDataUrl }} style={styles.profileImage} resizeMode="cover" />
+              ) : (
+                <Text style={styles.profileText}>{profileInitial}</Text>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.authRow}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/iniciar-sesion')}
-            style={({ pressed }) => [styles.loginButton, pressed && styles.pressed]}
-          >
-            <Text style={[styles.loginButtonText, { color: palette.title }]}>Iniciar sesión</Text>
-          </Pressable>
+          {user ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={signOut}
+              style={({ pressed }) => [styles.loginButton, pressed && styles.pressed]}
+            >
+              <Text style={[styles.loginButtonText, { color: palette.title }]}>
+                Cerrar sesión · @{user.username}
+              </Text>
+            </Pressable>
+          ) : (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/iniciar-sesion')}
+                style={({ pressed }) => [styles.loginButton, pressed && styles.pressed]}
+              >
+                <Text style={[styles.loginButtonText, { color: palette.title }]}>Iniciar sesión</Text>
+              </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/registrarse')}
-            style={({ pressed }) => [styles.registerButton, pressed && styles.pressed]}
-          >
-            <LinearGradient
-              pointerEvents="none"
-              colors={['#56ECFF', '#7E8BFF', '#F17BE4']}
-              style={styles.registerGradient}
-            />
-            <Text style={styles.registerButtonText}>Registrarse</Text>
-          </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/registrarse')}
+                style={({ pressed }) => [styles.registerButton, pressed && styles.pressed]}
+              >
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={['#56ECFF', '#7E8BFF', '#F17BE4']}
+                  style={styles.registerGradient}
+                />
+                <Text style={styles.registerButtonText}>Registrarse</Text>
+              </Pressable>
+            </>
+          )}
         </View>
 
         <View style={styles.welcomeRow}>
@@ -359,6 +382,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
     marginTop: -2,
+  },
+  profileBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 9,
+    maxWidth: '52%',
+  },
+  accountName: {
+    maxWidth: 118,
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.1,
   },
   profile: {
     width: 48,
