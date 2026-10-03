@@ -169,17 +169,23 @@ export default function HomeScreen() {
             style={styles.searchGradient}
           />
           <Text style={[styles.searchIcon, { color: '#66E6FF' }]}>⌕</Text>
-          <TextInput
-            testID="nexo-home-search"
-            value={busqueda}
-            onChangeText={setBusqueda}
-            placeholder="Buscar empleos, servicios, productos..."
-            placeholderTextColor={palette.placeholder}
-            style={[styles.input, { color: palette.inputText }]}
-            autoComplete="off"
-            returnKeyType="search"
-            onSubmitEditing={buscar}
-          />
+          <View style={styles.searchInputWrap}>
+            {!busqueda ? (
+              <Text pointerEvents="none" numberOfLines={1} style={styles.searchPlaceholder}>
+                Buscar empleos, servicios, productos...
+              </Text>
+            ) : null}
+            <TextInput
+              testID="nexo-home-search"
+              value={busqueda}
+              onChangeText={setBusqueda}
+              placeholder=""
+              style={styles.input}
+              autoComplete="off"
+              returnKeyType="search"
+              onSubmitEditing={buscar}
+            />
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Buscar"
@@ -534,10 +540,26 @@ const styles = StyleSheet.create({
     marginRight: 10,
     marginTop: -3,
   },
-  input: {
+  searchInputWrap: {
     flex: 1,
+    minWidth: 0,
     minHeight: 58,
-    color: '#F3F5F8',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  searchPlaceholder: {
+    position: 'absolute',
+    left: 0,
+    right: 4,
+    color: '#171A1F',
+    fontSize: 15,
+    fontWeight: '900',
+    opacity: 1,
+  },
+  input: {
+    width: '100%',
+    minHeight: 58,
+    color: '#000000',
     fontSize: 15,
     fontWeight: '900',
     opacity: 1,
