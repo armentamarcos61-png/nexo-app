@@ -151,7 +151,9 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
         <TextInput
           accessibilityLabel={label}
           {...props}
+          testID={props.testID ?? 'nexo-field-input'}
           placeholder=""
+          selectionColor="#000000"
           style={[ui.input, props.multiline && ui.multiline, props.style]}
         />
       </View>
@@ -339,6 +341,7 @@ export const ui = StyleSheet.create({
   inputGradient: {
     ...StyleSheet.absoluteFill,
     borderRadius: 16,
+    zIndex: 0,
   },
   inputPlaceholder: {
     position: 'absolute',
@@ -350,6 +353,7 @@ export const ui = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '900',
     opacity: 1,
+    zIndex: 1,
   },
   inputPlaceholderMultiline: {
     top: 14,
@@ -364,6 +368,8 @@ export const ui = StyleSheet.create({
     opacity: 1,
     backgroundColor: 'transparent',
     outlineStyle: 'none',
+    position: 'relative',
+    zIndex: 3,
   } as any,
   multiline: {
     minHeight: 132,
