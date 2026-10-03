@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import type { PropsWithChildren } from 'react';
+import { useState, type PropsWithChildren } from 'react';
 import { router } from 'expo-router';
 import {
   Pressable,
@@ -124,6 +124,8 @@ export function Action({
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const isPassword = Boolean(props.secureTextEntry);
   const visiblePlaceholder =
     typeof props.placeholder === 'string' &&
     !String(props.value ?? '').length;
@@ -151,11 +153,32 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
         <TextInput
           accessibilityLabel={label}
           {...props}
+          secureTextEntry={isPassword && !passwordVisible}
           testID={props.testID ?? 'nexo-field-input'}
           placeholder=""
           selectionColor="#000000"
-          style={[ui.input, props.multiline && ui.multiline, props.style]}
+          style={[
+            ui.input,
+            isPassword && ui.passwordInput,
+            props.multiline && ui.multiline,
+            props.style,
+          ]}
         />
+        {isPassword ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            accessibilityState={{ expanded: passwordVisible }}
+            hitSlop={10}
+            onPress={() => setPasswordVisible((visible) => !visible)}
+            style={({ pressed }) => [ui.passwordToggle, pressed && ui.passwordTogglePressed]}
+          >
+            <View style={ui.eyeOutline}>
+              <View style={ui.eyePupil} />
+            </View>
+            {!passwordVisible ? <View pointerEvents="none" style={ui.eyeSlash} /> : null}
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -371,6 +394,49 @@ export const ui = StyleSheet.create({
     position: 'relative',
     zIndex: 3,
   } as any,
+  passwordInput: {
+    paddingRight: 58,
+  },
+  passwordToggle: {
+    position: 'absolute',
+    right: 7,
+    top: 5,
+    width: 46,
+    height: 44,
+    zIndex: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  passwordTogglePressed: {
+    opacity: 0.62,
+    transform: [{ scale: 0.94 }],
+  },
+  eyeOutline: {
+    width: 24,
+    height: 15,
+    borderWidth: 2,
+    borderColor: '#202938',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-2deg' }],
+  },
+  eyePupil: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#202938',
+  },
+  eyeSlash: {
+    position: 'absolute',
+    width: 27,
+    height: 2,
+    borderRadius: 99,
+    backgroundColor: '#202938',
+    transform: [{ rotate: '-38deg' }],
+  },
   multiline: {
     minHeight: 132,
     textAlignVertical: 'top',
