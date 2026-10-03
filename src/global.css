@@ -8,22 +8,71 @@
   --font-serif: Georgia, 'Times New Roman', serif;
 }
 
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-width: 100%;
+  min-height: 100%;
+  background: #071426;
+  overflow-x: hidden;
+}
+
+html,
+body {
+  min-height: 100vh;
+}
+
+body {
+  display: block !important;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+#root > div {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 100% !important;
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 input,
 textarea {
   opacity: 1 !important;
-  -webkit-text-fill-color: currentColor !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #101827 !important;
+  font-weight: 800 !important;
 }
 
 input::placeholder,
 textarea::placeholder {
   opacity: 1 !important;
+  color: #3e485a !important;
+  -webkit-text-fill-color: #3e485a !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #101827 !important;
 }
 
 [data-testid='nexo-home-search'],
 [data-testid='nexo-home-search']:focus {
-  color: #F3F5F8 !important;
-  -webkit-text-fill-color: #F3F5F8 !important;
-  caret-color: #66E6FF !important;
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #101827 !important;
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
