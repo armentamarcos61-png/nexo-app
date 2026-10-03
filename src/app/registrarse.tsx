@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
+import { useAuth } from '@/state/auth';
 import { useProfessionalProfile } from '@/state/professional-profile';
 
 function validBirthDate(value: string) {
@@ -22,6 +23,7 @@ function validBirthDate(value: string) {
 export default function RegistrarseScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
+  const { register } = useAuth();
   const { updateField } = useProfessionalProfile();
 
   const [firstName, setFirstName] = useState('');
@@ -32,10 +34,10 @@ export default function RegistrarseScreen() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
-  const [readyMessage, setReadyMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  function submit() {
-    setReadyMessage('');
+  async function submit() {
+    setError('');
 
     if (!firstName.trim() || !firstSurname.trim()) {
       setError('Escribe tu primer nombre y tu primer apellido.');
@@ -67,22 +69,34 @@ export default function RegistrarseScreen() {
       return;
     }
 
+    setLoading(true);
+    const result = await register({
+      username,
+      email,
+      firstName,
+      firstSurname,
+      password,
+    });
+    setLoading(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
     updateField('firstName', firstName.trim());
     updateField('firstSurname', firstSurname.trim());
     setPassword('');
     setConfirm('');
-    setError('');
-    setReadyMessage(
-      'Interfaz de registro lista. Guardé sólo tu nombre visible en Mi espacio. El correo, fecha de nacimiento y contraseña NO se almacenaron; se conectarán cuando activemos la autenticación segura.'
-    );
+    router.replace('/');
   }
 
   return (
     <NexoScreen title="Crear cuenta">
       <View style={[styles.notice, { borderColor: palette.cardBorder }]}>
-        <Text style={[styles.noticeTitle, { color: palette.title }]}>Cuenta Nexo</Text>
+        <Text style={[styles.noticeTitle, { color: palette.title }]}>Cuenta Nexo funcional</Text>
         <Text style={[styles.noticeText, { color: palette.text }]}>
-          Completa estos datos para probar el registro. Las credenciales todavía no se guardan hasta conectar la base segura.
+          Al registrarte quedas conectado de inmediato. Tu nombre, perfil y fotos guardadas en este navegador seguirán disponibles al volver a iniciar sesión.
         </Text>
       </View>
 
@@ -111,6 +125,7 @@ export default function RegistrarseScreen() {
         placeholder="Ej. juan.arriola"
         autoCapitalize="none"
         autoCorrect={false}
+        textContentType="username"
         maxLength={24}
       />
 
@@ -157,22 +172,17 @@ export default function RegistrarseScreen() {
         autoCorrect={false}
         textContentType="newPassword"
         maxLength={128}
+        onSubmitEditing={submit}
       />
 
       <Text style={[styles.securityNote, { color: palette.muted }]}>
-        🔒 Nexo nunca mostrará ni guardará contraseñas en Excel. Cuando conectemos cuentas reales, la contraseña será gestionada por un sistema de autenticación seguro.
+        🔒 Nexo no guarda la contraseña en texto legible. Esta versión conserva la cuenta en este navegador mientras conectamos el backend seguro para sincronizar entre dispositivos.
       </Text>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
-      {!!readyMessage && (
-        <View style={styles.success}>
-          <Text style={styles.successText}>{readyMessage}</Text>
-        </View>
-      )}
 
-      <Action label="Registrarme" onPress={submit} />
+      <Action label={loading ? 'Creando cuenta…' : 'Registrarme'} onPress={submit} disabled={loading} />
       <Action label="Ya tengo cuenta · Iniciar sesión" secondary onPress={() => router.push('/iniciar-sesion')} />
-      {!!readyMessage && <Action label="Ir a Mi espacio" secondary onPress={() => router.replace('/perfil')} />}
     </NexoScreen>
   );
 }
@@ -199,19 +209,6 @@ const styles = StyleSheet.create({
   },
   error: {
     color: '#FF9CAF',
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '800',
-  },
-  success: {
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(31,116,89,0.26)',
-    borderWidth: 1,
-    borderColor: 'rgba(81,225,175,0.34)',
-  },
-  successText: {
-    color: '#DFFFF2',
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '800',
