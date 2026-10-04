@@ -6,6 +6,7 @@ import { categorias } from '@/constants/categories';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useAuth } from '@/state/auth';
 import { useProfessionalProfile } from '@/state/professional-profile';
+import { NEXO_LOGO_DATA_URI } from '@/constants/brand-logo';
 import {
   Image,
   Pressable,
@@ -80,8 +81,15 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.brand}>
-            <Text style={[styles.logo, { color: palette.title }]}>Ne<Text style={styles.logoAccent}>xo</Text></Text>
-            <Text style={[styles.logoSub, { color: palette.muted }]}>Conecta. Trabaja. Crece.</Text>
+            <Image
+              accessibilityLabel="Logo Nexo"
+              source={{ uri: NEXO_LOGO_DATA_URI }}
+              resizeMode="contain"
+              style={styles.brandLogo}
+            />
+            <Text style={[styles.logoSub, { color: palette.muted }]}>
+              Negocios · Empleo · × · Oportunidades
+            </Text>
           </View>
 
           <View style={styles.profileBlock}>
@@ -372,15 +380,12 @@ const styles = StyleSheet.create({
   brand: {
     flex: 1,
   },
-  logo: {
-    color: '#F7FAFF',
-    fontSize: 38,
-    fontWeight: '900',
-    letterSpacing: -1.8,
-  },
-  logoAccent: {
-    color: '#78E9FF',
-    fontStyle: 'italic',
+  brandLogo: {
+    width: 138,
+    height: 72,
+    marginLeft: -8,
+    marginTop: -10,
+    marginBottom: -8,
   },
   logoSub: {
     color: '#99A9CA',
