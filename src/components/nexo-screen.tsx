@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
-import { NEXO_LOGO_DATA_URI } from '@/constants/brand-logo';
 
 export function NexoScreen({ title, children }: PropsWithChildren<{ title: string }>) {
   const { mode } = useAppearance();
@@ -53,12 +52,15 @@ export function NexoScreen({ title, children }: PropsWithChildren<{ title: strin
           </Pressable>
 
           <View style={ui.brandWrap}>
-            <Image
-              accessibilityLabel="Logo Nexo"
-              source={{ uri: NEXO_LOGO_DATA_URI }}
-              resizeMode="contain"
-              style={ui.brandLogo}
-            />
+            <View style={ui.brandLine}>
+              <Image
+                accessibilityLabel="Logo Nexo"
+                source={require('@/assets/images/icon.png')}
+                resizeMode="cover"
+                style={ui.brandIcon}
+              />
+              <Text style={ui.brandWord}>NEXO</Text>
+            </View>
             <Text style={[ui.brandSub, { color: palette.muted }]}>
               Negocios · Empleo · × · Oportunidades
             </Text>
@@ -270,12 +272,24 @@ export const ui = StyleSheet.create({
   brandWrap: {
     flex: 1,
   },
-  brandLogo: {
-    width: 108,
-    height: 58,
-    marginLeft: -5,
-    marginTop: -8,
-    marginBottom: -5,
+  brandLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+  },
+  brandWord: {
+    color: '#D7DBE0',
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    textShadowColor: 'rgba(255,255,255,0.16)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   brandSub: {
     color: '#9EADD0',
