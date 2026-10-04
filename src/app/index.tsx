@@ -82,7 +82,7 @@ export default function HomeScreen() {
           <View style={styles.brand}>
             <Image
               accessibilityLabel="Logo Nexo"
-              source={require('../../assets/images/icon.png')}
+              source={require('../../assets/images/nexo-logo.png')}
               resizeMode="contain"
               style={styles.brandLogo}
             />

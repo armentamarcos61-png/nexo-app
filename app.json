@@ -20,7 +20,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#15181D",
-          "image": "./assets/images/icon.png",
+          "image": "./assets/images/nexo-logo.png",
           "imageWidth": 110
         }
       ]

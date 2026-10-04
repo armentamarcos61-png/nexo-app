@@ -54,7 +54,7 @@ export function NexoScreen({ title, children }: PropsWithChildren<{ title: strin
           <View style={ui.brandWrap}>
             <Image
               accessibilityLabel="Logo Nexo"
-              source={require('../../assets/images/icon.png')}
+              source={require('../../assets/images/nexo-logo.png')}
               resizeMode="contain"
               style={ui.brandLogo}
             />
