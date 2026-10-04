@@ -6,7 +6,6 @@ import { categorias } from '@/constants/categories';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useAuth } from '@/state/auth';
 import { useProfessionalProfile } from '@/state/professional-profile';
-import { NEXO_LOGO_DATA_URI } from '@/constants/brand-logo';
 import {
   Image,
   Pressable,
@@ -81,12 +80,15 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.brand}>
-            <Image
-              accessibilityLabel="Logo Nexo"
-              source={{ uri: NEXO_LOGO_DATA_URI }}
-              resizeMode="contain"
-              style={styles.brandLogo}
-            />
+            <View style={styles.brandLine}>
+              <Image
+                accessibilityLabel="Logo Nexo"
+                source={require('@/assets/images/icon.png')}
+                resizeMode="cover"
+                style={styles.brandIcon}
+              />
+              <Text style={styles.brandWord}>NEXO</Text>
+            </View>
             <Text style={[styles.logoSub, { color: palette.muted }]}>
               Negocios · Empleo · × · Oportunidades
             </Text>
@@ -380,12 +382,24 @@ const styles = StyleSheet.create({
   brand: {
     flex: 1,
   },
-  brandLogo: {
-    width: 138,
-    height: 72,
-    marginLeft: -8,
-    marginTop: -10,
-    marginBottom: -8,
+  brandLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+  },
+  brandWord: {
+    color: '#D7DBE0',
+    fontSize: 31,
+    fontWeight: '900',
+    letterSpacing: 1.8,
+    textShadowColor: 'rgba(255,255,255,0.18)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   logoSub: {
     color: '#99A9CA',
