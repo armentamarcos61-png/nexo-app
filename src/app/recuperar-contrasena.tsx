@@ -19,6 +19,7 @@ const RESET_ENDPOINT =
   'https://wfwyftxbanwvixplzhcd.supabase.co/functions/v1/reset-password';
 
 const ACCOUNTS_KEY = 'nexo.local-accounts.v1';
+const SESSION_KEY = 'nexo.session.v1';
 const LAST_RECOVERY_EMAIL_KEY = 'nexo.last-recovery-email';
 
 type RecoveryStep = 'email' | 'code' | 'choice' | 'password' | 'done';
@@ -351,6 +352,29 @@ export default function RecuperarContrasenaScreen() {
     setCode('');
     setPassword('');
     setConfirm('');
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const rawAccounts = window.localStorage.getItem(ACCOUNTS_KEY);
+        const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
+        const account = Array.isArray(accounts)
+          ? accounts.find(
+              (item) =>
+                typeof item?.email === 'string' &&
+                item.email.trim().toLowerCase() === normalizedEmail
+            )
+          : null;
+
+        if (account?.id) {
+          window.localStorage.setItem(SESSION_KEY, account.id);
+          window.location.assign('/nexo-app/');
+          return;
+        }
+      } catch {
+        // Si la cuenta local no está disponible, volvemos al inicio de sesión.
+      }
+    }
+
     router.replace('/iniciar-sesion');
   }
 
@@ -458,7 +482,7 @@ export default function RecuperarContrasenaScreen() {
           />
 
           <Action
-            label="Conservar mi contraseña actual"
+            label="Conservar contraseña y continuar"
             secondary
             onPress={keepCurrentPassword}
           />
