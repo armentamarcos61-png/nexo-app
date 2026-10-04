@@ -265,10 +265,15 @@ export const ui = StyleSheet.create({
   },
   brandWrap: {
     flex: 1,
+    height: 60,
+    position: 'relative',
   },
   brandLogo: {
-    width: 150,
-    height: 150,
+    position: 'absolute',
+    left: 0,
+    top: -60,
+    width: 180,
+    height: 180,
   },
   spark: {
     width: 42,

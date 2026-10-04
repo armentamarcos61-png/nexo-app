@@ -375,10 +375,15 @@ const styles = StyleSheet.create({
   },
   brand: {
     flex: 1,
+    height: 76,
+    position: 'relative',
   },
   brandLogo: {
-    width: 190,
-    height: 190,
+    position: 'absolute',
+    left: 0,
+    top: -76,
+    width: 228,
+    height: 228,
   },
   profileBlock: {
     flexDirection: 'row',
