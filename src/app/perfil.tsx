@@ -1,8 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { ProfilePhotoPicker } from '@/components/profile-photo-picker';
+import { useActivityVisibility } from '@/state/activity-visibility';
 import {
   appearanceOptions,
   getAppearancePalette,
@@ -22,6 +23,7 @@ export default function PerfilScreen() {
   const { mode, setMode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { profile, updateField } = useProfessionalProfile();
+  const { showActivity, setShowActivity } = useActivityVisibility();
 
   const displayName = getDisplayName(profile);
   const completedFields = Object.values(profile).filter((value) => value.trim()).length;
@@ -151,6 +153,44 @@ export default function PerfilScreen() {
           value={profile.photoDataUrl}
           onChange={(value) => updateField('photoDataUrl', value)}
         />
+
+        <View
+          style={[
+            styles.activityPrivacyCard,
+            {
+              borderColor: palette.cardBorder,
+              backgroundColor:
+                mode === 'claro' ? 'rgba(255,255,255,0.86)' : 'rgba(13,29,52,0.78)',
+            },
+          ]}
+        >
+          <View style={styles.activityPrivacyCopy}>
+            <Text style={[styles.optionTitle, { color: palette.title }]}>
+              Mostrar estado de actividad
+            </Text>
+            <Text style={[styles.optionHint, { color: palette.text }]}>
+              Decide si otras personas pueden ver cuando estás activo en Nexo.
+            </Text>
+            <Text
+              style={[
+                styles.activityPrivacyState,
+                { color: showActivity ? '#35D98A' : palette.text },
+              ]}
+            >
+              {showActivity ? 'ON · Activo' : 'OFF · Oculto'}
+            </Text>
+          </View>
+
+          <Switch
+            accessibilityLabel="Mostrar estado de actividad"
+            accessibilityHint="Desliza para permitir u ocultar tu estado activo"
+            value={showActivity}
+            onValueChange={setShowActivity}
+            trackColor={{ false: '#667085', true: '#2CCB81' }}
+            thumbColor="#FFFFFF"
+            ios_backgroundColor="#667085"
+          />
+        </View>
 
         <View style={styles.nameCard}>
           <Text style={[styles.optionTitle, { color: palette.title }]}>Nombre visible</Text>
@@ -517,6 +557,25 @@ const styles = StyleSheet.create({
   },
   profileForm: {
     gap: 16,
+  },
+  activityPrivacyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 15,
+    borderRadius: 18,
+    borderWidth: 1,
+    boxShadow: '0 8px 18px rgba(0,0,0,0.14)',
+  },
+  activityPrivacyCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  activityPrivacyState: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.4,
   },
   nameCard: {
     gap: 9,
