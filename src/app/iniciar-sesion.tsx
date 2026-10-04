@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useAuth } from '@/state/auth';
@@ -45,7 +45,7 @@ export default function IniciarSesionScreen() {
       <View style={[styles.notice, { borderColor: palette.cardBorder }]}>
         <Text style={[styles.noticeTitle, { color: palette.title }]}>Tu cuenta Nexo</Text>
         <Text style={[styles.noticeText, { color: palette.text }]}>
-          Entra con tu usuario o correo y tu contraseña. Al acceder vuelves a tu perfil, fotos y contenido guardado en este navegador.
+          Entra con tu usuario o correo y tu contraseña. Al acceder vuelves a tu perfil, fotos y contenido guardados en este navegador.
         </Text>
       </View>
 
@@ -74,6 +74,15 @@ export default function IniciarSesionScreen() {
         onSubmitEditing={submit}
       />
 
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Recuperar contraseña"
+        onPress={() => router.push('/recuperar-contrasena')}
+        style={({ pressed }) => [styles.forgotButton, pressed && styles.forgotPressed]}
+      >
+        <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+      </Pressable>
+
       <Text style={[styles.securityNote, { color: palette.muted }]}>
         🔒 La contraseña no se guarda en texto legible. Esta etapa funciona en este dispositivo; la sincronización entre dispositivos llegará con el backend seguro.
       </Text>
@@ -101,6 +110,21 @@ const styles = StyleSheet.create({
   noticeText: {
     fontSize: 12,
     lineHeight: 18,
+  },
+  forgotButton: {
+    alignSelf: 'flex-end',
+    marginTop: -6,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  forgotPressed: {
+    opacity: 0.65,
+  },
+  forgotText: {
+    color: '#8FEAFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textDecorationLine: 'underline',
   },
   securityNote: {
     fontSize: 11,
