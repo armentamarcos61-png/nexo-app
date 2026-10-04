@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
@@ -103,19 +103,14 @@ function readRecoveryParams() {
 export default function RestablecerContrasenaScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
-  const [token, setToken] = useState('');
-  const [requestId, setRequestId] = useState('');
+  const [recoveryParams] = useState(readRecoveryParams);
+  const [token, setToken] = useState(recoveryParams.token);
+  const [requestId, setRequestId] = useState(recoveryParams.requestId);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const params = readRecoveryParams();
-    setToken(params.token);
-    setRequestId(params.requestId);
-  }, []);
 
   async function submit() {
     setError('');

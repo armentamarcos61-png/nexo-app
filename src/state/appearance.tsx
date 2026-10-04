@@ -3,12 +3,12 @@ import { Platform } from 'react-native';
 
 export type AppearanceMode = 'claro' | 'oscuro' | 'personalizado';
 
-export const appearanceOptions: Array<{
+export const appearanceOptions: {
   key: AppearanceMode;
   label: string;
   icon: string;
   description: string;
-}> = [
+>[] = [
   {
     key: 'claro',
     label: 'Claro',
