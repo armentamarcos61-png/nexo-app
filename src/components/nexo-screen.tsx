@@ -267,8 +267,8 @@ export const ui = StyleSheet.create({
     flex: 1,
   },
   brandLogo: {
-    width: 60,
-    height: 60,
+    width: 150,
+    height: 150,
   },
   spark: {
     width: 42,
