@@ -6,6 +6,7 @@ import { categorias } from '@/constants/categories';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useAuth } from '@/state/auth';
 import { useProfessionalProfile } from '@/state/professional-profile';
+import { useActivityVisibility } from '@/state/activity-visibility';
 import {
   Image,
   Pressable,
@@ -53,6 +54,7 @@ export default function HomeScreen() {
   const palette = getAppearancePalette(mode);
   const { profile } = useProfessionalProfile();
   const { user, signOut } = useAuth();
+  const { showActivity } = useActivityVisibility();
   const greetingName = user?.firstName.trim() ?? '';
   const profileInitial = greetingName ? greetingName.charAt(0).toUpperCase() : 'N';
 
@@ -94,23 +96,34 @@ export default function HomeScreen() {
                 {user.firstName}
               </Text>
             ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Abrir perfil"
-              style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
-              onPress={() => router.push(user ? '/perfil' : '/iniciar-sesion')}
-            >
-              <LinearGradient
-                pointerEvents="none"
-                colors={['#287EEB', '#8C54F6', '#E25BCE']}
-                style={styles.profileGradient}
-              />
-              {user && profile.photoDataUrl ? (
-                <Image source={{ uri: profile.photoDataUrl }} style={styles.profileImage} resizeMode="cover" />
-              ) : (
-                <Text style={styles.profileText}>{profileInitial}</Text>
-              )}
-            </Pressable>
+            <View style={styles.profileWrap}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Abrir perfil"
+                style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
+                onPress={() => router.push(user ? '/perfil' : '/iniciar-sesion')}
+              >
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={['#287EEB', '#8C54F6', '#E25BCE']}
+                  style={styles.profileGradient}
+                />
+                {user && profile.photoDataUrl ? (
+                  <Image source={{ uri: profile.photoDataUrl }} style={styles.profileImage} resizeMode="cover" />
+                ) : (
+                  <Text style={styles.profileText}>{profileInitial}</Text>
+                )}
+              </Pressable>
+              {user ? (
+                <View
+                  accessibilityLabel={showActivity ? 'Estado activo' : 'Estado oculto'}
+                  style={[
+                    styles.activityDot,
+                    showActivity ? styles.activityDotActive : styles.activityDotHidden,
+                  ]}
+                />
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -157,10 +170,6 @@ export default function HomeScreen() {
               {greetingName ? `¡Hola, ${greetingName}! 👋` : '¡Hola! 👋'}
             </Text>
             <Text style={[styles.welcomeTitle, { color: palette.title }]}>¿Qué quieres hacer hoy?</Text>
-          </View>
-          <View style={styles.statusPill}>
-            <Text style={styles.statusDot}>●</Text>
-            <Text style={styles.statusText}>Nexo activo</Text>
           </View>
         </View>
 
@@ -380,7 +389,7 @@ const styles = StyleSheet.create({
   },
   brandLogo: {
     position: 'absolute',
-    left: 0,
+    left: -68,
     top: -76,
     width: 228,
     height: 228,
@@ -397,6 +406,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.1,
+  },
+  profileWrap: {
+    position: 'relative',
+    width: 48,
+    height: 48,
   },
   profile: {
     width: 48,
@@ -424,6 +438,23 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
+  },
+  activityDot: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#071426',
+    boxShadow: '0 2px 7px rgba(0,0,0,0.34)',
+  },
+  activityDotActive: {
+    backgroundColor: '#39E58C',
+  },
+  activityDotHidden: {
+    backgroundColor: '#7B8495',
   },
   authRow: {
     flexDirection: 'row',
@@ -489,26 +520,6 @@ const styles = StyleSheet.create({
     lineHeight: 35,
     fontWeight: '900',
     letterSpacing: -0.8,
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(26,52,83,0.75)',
-    borderWidth: 1,
-    borderColor: 'rgba(124,174,225,0.32)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  statusDot: {
-    color: '#4CF0CE',
-    fontSize: 10,
-  },
-  statusText: {
-    color: '#C9D8F2',
-    fontSize: 11,
-    fontWeight: '800',
   },
   searchShell: {
     position: 'relative',
