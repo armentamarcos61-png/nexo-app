@@ -4,14 +4,19 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
+const SUPABASE_URL = 'https://wfwyftxbanwvixplzhcd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_UY_rNqVKNwofYYv-p8lb0w_DvGkQBXi';
+const RECOVERY_REDIRECT = 'https://p-opal.vercel.app/restablecer-contrasena';
+
 export default function RecuperarContrasenaScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  function submit() {
+  async function submit() {
     setError('');
     setMessage('');
 
@@ -22,9 +27,45 @@ export default function RecuperarContrasenaScreen() {
       return;
     }
 
-    setMessage(
-      'El flujo de recuperación ya está preparado. El envío real del enlace por correo se activará al conectar el backend seguro; por ahora no se cambia ni se revela tu contraseña.'
-    );
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(RECOVERY_REDIRECT)}`,
+        {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: normalized }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const detail =
+          typeof data?.msg === 'string'
+            ? data.msg
+            : typeof data?.message === 'string'
+              ? data.message
+              : 'No se pudo enviar el enlace. Inténtalo otra vez.';
+        throw new Error(detail);
+      }
+
+      setMessage(
+        'Si ese correo está registrado en Nexo, recibirás un enlace para crear una contraseña nueva. Revisa también Spam o Correo no deseado.'
+      );
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'No se pudo conectar con el servicio de recuperación.'
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -61,7 +102,11 @@ export default function RecuperarContrasenaScreen() {
         </View>
       )}
 
-      <Action label="Enviar enlace de recuperación" onPress={submit} />
+      <Action
+        label={loading ? 'Enviando enlace…' : 'Enviar enlace de recuperación'}
+        onPress={submit}
+        disabled={loading}
+      />
       <Action label="Volver a iniciar sesión" secondary onPress={() => router.replace('/iniciar-sesion')} />
     </NexoScreen>
   );
