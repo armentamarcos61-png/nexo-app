@@ -8,7 +8,7 @@ export const appearanceOptions: {
   label: string;
   icon: string;
   description: string;
->[] = [
+}[] = [
   {
     key: 'claro',
     label: 'Claro',
