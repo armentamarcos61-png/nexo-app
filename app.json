@@ -4,15 +4,19 @@
     "slug": "nexo-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/nexo-logo.png",
     "scheme": "nexoapp",
     "userInterfaceStyle": "automatic",
     "android": {
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/nexo-logo.png",
+        "backgroundColor": "#0B0E13"
+      }
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/nexo-logo.png"
     },
     "plugins": [
       "expo-router",
