@@ -59,8 +59,8 @@ export default function RegistrarseScreen() {
       return;
     }
 
-    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-      setError('La contraseña debe tener al menos 8 caracteres e incluir letras y números.');
+    if (password.length < 8 || password.length > 72 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      setError('La contraseña debe tener entre 8 y 72 caracteres e incluir letras y números.');
       return;
     }
 
@@ -159,7 +159,7 @@ export default function RegistrarseScreen() {
         autoCapitalize="none"
         autoCorrect={false}
         textContentType="newPassword"
-        maxLength={128}
+        maxLength={72}
       />
 
       <Field
@@ -171,7 +171,7 @@ export default function RegistrarseScreen() {
         autoCapitalize="none"
         autoCorrect={false}
         textContentType="newPassword"
-        maxLength={128}
+        maxLength={72}
         onSubmitEditing={submit}
       />
 
