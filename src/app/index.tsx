@@ -80,18 +80,12 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.brand}>
-            <View style={styles.brandLine}>
-              <Image
-                accessibilityLabel="Logo Nexo"
-                source={require('../../assets/images/icon.png')}
-                resizeMode="cover"
-                style={styles.brandIcon}
-              />
-              <Text style={styles.brandWord}>NEXO</Text>
-            </View>
-            <Text style={[styles.logoSub, { color: palette.muted }]}>
-              Negocios · Empleo · × · Oportunidades
-            </Text>
+            <Image
+              accessibilityLabel="Logo Nexo"
+              source={require('../../assets/images/icon.png')}
+              resizeMode="contain"
+              style={styles.brandLogo}
+            />
           </View>
 
           <View style={styles.profileBlock}>
@@ -382,31 +376,9 @@ const styles = StyleSheet.create({
   brand: {
     flex: 1,
   },
-  brandLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  brandIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-  },
-  brandWord: {
-    color: '#D7DBE0',
-    fontSize: 31,
-    fontWeight: '900',
-    letterSpacing: 1.8,
-    textShadowColor: 'rgba(255,255,255,0.18)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  logoSub: {
-    color: '#99A9CA',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginTop: -2,
+  brandLogo: {
+    width: 76,
+    height: 76,
   },
   profileBlock: {
     flexDirection: 'row',
