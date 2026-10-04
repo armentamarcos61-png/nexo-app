@@ -377,8 +377,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   brandLogo: {
-    width: 76,
-    height: 76,
+    width: 190,
+    height: 190,
   },
   profileBlock: {
     flexDirection: 'row',
