@@ -4,9 +4,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
-const SUPABASE_URL = 'https://wfwyftxbanwvixplzhcd.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_UY_rNqVKNwofYYv-p8lb0w_DvGkQBXi';
-const RECOVERY_REDIRECT = 'https://p-opal.vercel.app/restablecer-contrasena';
+const RECOVERY_ENDPOINT =
+  'https://wfwyftxbanwvixplzhcd.supabase.co/functions/v1/request-password-reset';
 
 export default function RecuperarContrasenaScreen() {
   const { mode } = useAppearance();
@@ -30,28 +29,22 @@ export default function RecuperarContrasenaScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(RECOVERY_REDIRECT)}`,
-        {
-          method: 'POST',
-          headers: {
-            apikey: SUPABASE_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email: normalized }),
-        }
-      );
+      const response = await fetch(RECOVERY_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: normalized }),
+      });
 
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const detail =
-          typeof data?.msg === 'string'
-            ? data.msg
-            : typeof data?.message === 'string'
-              ? data.message
-              : 'No se pudo enviar el enlace. Inténtalo otra vez.';
-        throw new Error(detail);
+        throw new Error(
+          typeof data?.error === 'string'
+            ? data.error
+            : 'No se pudo enviar el enlace. Inténtalo otra vez.'
+        );
       }
 
       setMessage(
