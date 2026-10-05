@@ -249,13 +249,19 @@ async function signInAccount(identifier: string, password: string): Promise<Auth
   );
 
   if (!account) {
-    return { ok: false, error: 'Usuario o contraseña incorrectos.' };
+    const looksLikeEmail = normalized.includes('@');
+    return {
+      ok: false,
+      error: looksLikeEmail
+        ? 'Ese correo no está registrado o no existe.'
+        : 'Ese usuario no existe.',
+    };
   }
 
   try {
     const hash = await derivePassword(password, account.passwordSalt);
     if (hash !== account.passwordHash) {
-      return { ok: false, error: 'Usuario o contraseña incorrectos.' };
+      return { ok: false, error: 'La contraseña es incorrecta.' };
     }
 
     const user = normalizePublicUser(account);
