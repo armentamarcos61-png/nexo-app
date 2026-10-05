@@ -59,8 +59,8 @@ export default function RegistrarseScreen() {
       return;
     }
 
-    if (password.length < 8 || password.length > 72 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-      setError('La contraseña debe tener entre 8 y 72 caracteres e incluir letras y números.');
+    if (password.length < 6) {
+      setError('La contraseña debe tener mínimo 6 caracteres.');
       return;
     }
 
@@ -154,12 +154,11 @@ export default function RegistrarseScreen() {
         label="Contraseña *"
         value={password}
         onChangeText={setPassword}
-        placeholder="Mínimo 8 caracteres"
+        placeholder="Mínimo 6 caracteres"
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
         textContentType="newPassword"
-        maxLength={72}
       />
 
       <Field
@@ -171,7 +170,6 @@ export default function RegistrarseScreen() {
         autoCapitalize="none"
         autoCorrect={false}
         textContentType="newPassword"
-        maxLength={72}
         onSubmitEditing={submit}
       />
 
