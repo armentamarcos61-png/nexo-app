@@ -22,6 +22,15 @@ export default function IniciarSesionScreen() {
       return;
     }
 
+    const normalizedIdentifier = identifier.trim();
+    if (
+      normalizedIdentifier.includes('@') &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier)
+    ) {
+      setError('El correo no es válido. Revisa que esté escrito correctamente.');
+      return;
+    }
+
     if (!password) {
       setError('Escribe tu contraseña.');
       return;
