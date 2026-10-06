@@ -64,10 +64,6 @@ export default function AsistenteScreen() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (assistant) setAnswer(assistant.greeting);
-  }, [assistant]);
-
-  useEffect(() => {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
