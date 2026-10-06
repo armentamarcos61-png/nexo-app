@@ -155,7 +155,11 @@ export default function AsistenteScreen() {
       <View style={styles.hero}>
         <LinearGradient
           pointerEvents="none"
-          colors={['rgba(35,67,119,0.96)', 'rgba(72,48,124,0.95)', 'rgba(14,63,77,0.94)']}
+          colors={
+            assistant.id === 'nexa'
+              ? ['rgba(91,44,145,0.96)', 'rgba(55,27,100,0.95)', 'rgba(24,34,70,0.94)']
+              : ['rgba(24,82,156,0.96)', 'rgba(18,58,116,0.95)', 'rgba(13,39,83,0.94)']
+          }
           style={StyleSheet.absoluteFill}
         />
         <AssistantAvatar profile={assistant} size={118} speaking={speaking} />

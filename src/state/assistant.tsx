@@ -26,8 +26,8 @@ export const assistantProfiles: Record<AssistantId, AssistantProfile> = {
     genderLabel: 'Perfil femenino',
     roleLabel: 'Profesional serena',
     greeting: 'Hola, soy Nexa. Estoy aquí para ayudarte a moverte por Nexo de forma clara y tranquila.',
-    accent: '#8A7DFF',
-    secondaryAccent: '#52E4FF',
+    accent: '#9B5CFF',
+    secondaryAccent: '#C18BFF',
   },
   nexo: {
     id: 'nexo',
@@ -35,8 +35,8 @@ export const assistantProfiles: Record<AssistantId, AssistantProfile> = {
     genderLabel: 'Perfil masculino',
     roleLabel: 'Maestro elegante',
     greeting: 'Hola, soy Nexo. Puedo orientarte con empleos, servicios, productos y funciones de la aplicación.',
-    accent: '#5C7CFF',
-    secondaryAccent: '#9A5CFF',
+    accent: '#3B82F6',
+    secondaryAccent: '#66C7FF',
   },
 };
 
