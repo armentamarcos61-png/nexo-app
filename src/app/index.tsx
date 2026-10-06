@@ -3,10 +3,12 @@ import React, { useState } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { categorias } from '@/constants/categories';
+import { AssistantAvatar } from '@/components/assistant-avatar';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useAuth } from '@/state/auth';
 import { useProfessionalProfile } from '@/state/professional-profile';
 import { useActivityVisibility } from '@/state/activity-visibility';
+import { useAssistant } from '@/state/assistant';
 import {
   Image,
   Pressable,
@@ -55,6 +57,7 @@ export default function HomeScreen() {
   const { profile } = useProfessionalProfile();
   const { user, signOut } = useAuth();
   const { showActivity } = useActivityVisibility();
+  const { assistant } = useAssistant();
   const greetingName = user?.firstName.trim() ?? '';
   const profileInitial = greetingName ? greetingName.charAt(0).toUpperCase() : 'N';
 
@@ -89,6 +92,35 @@ export default function HomeScreen() {
               style={styles.brandLogo}
             />
           </View>
+
+          {user ? (
+            <View style={styles.headerAssistant}>
+              {assistant ? (
+                <AssistantAvatar
+                  profile={assistant}
+                  size={44}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/asistente',
+                      params: { from: '/' },
+                    })
+                  }
+                />
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Elegir asistente de Nexo"
+                  onPress={() => router.push('/elegir-asistente')}
+                  style={({ pressed }) => [
+                    styles.assistantPrompt,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.assistantPromptText}>✦</Text>
+                </Pressable>
+              )}
+            </View>
+          ) : null}
 
           <View style={styles.profileBlock}>
             {user ? (
@@ -393,6 +425,26 @@ const styles = StyleSheet.create({
     top: -76,
     width: 228,
     height: 228,
+  },
+  headerAssistant: {
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assistantPrompt: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(55,43,103,0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(213,158,255,0.55)',
+    boxShadow: '0 6px 16px rgba(132,74,255,0.24)',
+  },
+  assistantPromptText: {
+    color: '#F0B9FF',
+    fontSize: 19,
   },
   profileBlock: {
     flexDirection: 'row',
