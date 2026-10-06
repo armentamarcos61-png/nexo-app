@@ -3,10 +3,8 @@ import { Pressable, View, type ViewStyle } from 'react-native';
 import type { AssistantProfile } from '@/state/assistant';
 import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
-import {
-  NEXA_IDLE_VIDEO_DATA,
-  NEXA_TALK_VIDEO_DATA,
-} from '@/components/assistant-media/nexa-videos';
+import { NEXA_IDLE_VIDEO_DATA } from '@/components/assistant-media/nexa-videos';
+import { NEXA_TALK_VIDEO_DATA } from '@/components/assistant-media/nexa-talk';
 import { NEXO_IDLE_VIDEO_DATA } from '@/components/assistant-media/nexo-idle';
 import { NEXO_TALK_VIDEO_DATA } from '@/components/assistant-media/nexo-talk';
 
