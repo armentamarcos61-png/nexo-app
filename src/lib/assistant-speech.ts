@@ -20,6 +20,7 @@ const femaleVoiceHints = [
   'lucia',
   'lucía',
   'ximena',
+  'elvira',
   'female',
   'mujer',
 ];
@@ -33,6 +34,8 @@ const maleVoiceHints = [
   'carlos',
   'andrés',
   'andres',
+  'alvaro',
+  'álvaro',
   'male',
   'hombre',
 ];
@@ -57,8 +60,12 @@ function scoreVoice(voice: Speech.Voice, assistantId: AssistantId) {
   else if (language.startsWith('es-')) score += 45;
   else if (language.startsWith('es')) score += 30;
 
-  if (hints.some((hint) => name.includes(normalize(hint)))) score += 55;
-  if (hints.some((hint) => identifier.includes(normalize(hint)))) score += 30;
+  if (hints.some((hint) => name.includes(normalize(hint)))) score += 72;
+  if (hints.some((hint) => identifier.includes(normalize(hint)))) score += 42;
+
+  const oppositeHints = assistantId === 'nexa' ? maleVoiceHints : femaleVoiceHints;
+  if (oppositeHints.some((hint) => name.includes(normalize(hint)))) score -= 95;
+  if (oppositeHints.some((hint) => identifier.includes(normalize(hint)))) score -= 55;
 
   const naturalHints = [
     'natural',
@@ -71,9 +78,17 @@ function scoreVoice(voice: Speech.Voice, assistantId: AssistantId) {
     'samsung',
   ];
 
-  if (naturalHints.some((hint) => name.includes(hint))) score += 24;
-  if (naturalHints.some((hint) => identifier.includes(hint))) score += 18;
-  if (String(voice.quality).toLowerCase().includes('enhanced')) score += 12;
+  if (naturalHints.some((hint) => name.includes(hint))) score += 34;
+  if (naturalHints.some((hint) => identifier.includes(hint))) score += 26;
+  if (String(voice.quality).toLowerCase().includes('enhanced')) score += 18;
+
+  if (assistantId === 'nexo') {
+    const masculineNatural = ['jorge', 'juan', 'alvaro', 'andres', 'carlos', 'diego'];
+    if (masculineNatural.some((hint) => name.includes(normalize(hint)))) score += 34;
+  } else {
+    const feminineNatural = ['dalia', 'paulina', 'monica', 'sofia', 'sabina', 'lucia'];
+    if (feminineNatural.some((hint) => name.includes(normalize(hint)))) score += 30;
+  }
 
   return score;
 }
@@ -102,12 +117,17 @@ export async function speakAsAssistant(
   const voice = await getPreferredVoice(assistantId);
   const isNexa = assistantId === 'nexa';
 
-  Speech.speak(text, {
+  const spokenText = text
+    .replace(/\s+/g, ' ')
+    .replace(/([.!?])\s+/g, '$1  ')
+    .trim();
+
+  Speech.speak(spokenText, {
     language: voice?.language || 'es-MX',
     voice: voice?.identifier,
-    rate: isNexa ? 0.92 : 0.90,
-    pitch: isNexa ? 1.01 : 0.96,
-    volume: 1,
+    rate: isNexa ? 0.94 : 0.91,
+    pitch: isNexa ? 1.0 : 0.90,
+    volume: 0.98,
     onStart: () => callbacks.onStart?.(),
     onDone: () => callbacks.onDone?.(),
     onStopped: () => callbacks.onStopped?.(),

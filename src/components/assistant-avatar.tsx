@@ -1,7 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import {
   Animated,
-  Image,
   Pressable,
   StyleSheet,
   View,
@@ -34,6 +34,7 @@ export function AssistantAvatar({
   const [idleMotion] = useState(() => new Animated.Value(0));
   const [talkMotion] = useState(() => new Animated.Value(0));
   const [blinkMotion] = useState(() => new Animated.Value(0));
+  const [shineMotion] = useState(() => new Animated.Value(-1));
 
   useEffect(() => {
     const idle = Animated.loop(
@@ -58,6 +59,28 @@ export function AssistantAvatar({
     idle.start();
     return () => idle.stop();
   }, [idleMotion]);
+
+  useEffect(() => {
+    const shine = Animated.loop(
+      Animated.sequence([
+        Animated.delay(1500),
+        Animated.timing(shineMotion, {
+          toValue: 1,
+          duration: 2600,
+          useNativeDriver: true,
+        }),
+        Animated.delay(2200),
+        Animated.timing(shineMotion, {
+          toValue: -1,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    shine.start();
+    return () => shine.stop();
+  }, [shineMotion]);
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -139,14 +162,44 @@ export function AssistantAvatar({
     return () => talk?.stop();
   }, [speaking, talkMotion]);
 
-  const rotate = idleMotion.interpolate({
+  const rotateZ = idleMotion.interpolate({
     inputRange: [-1, 0, 1],
-    outputRange: ['-1.35deg', '0deg', '1.2deg'],
+    outputRange: ['-1.1deg', '0deg', '1deg'],
+  });
+
+  const rotateY = idleMotion.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-3.4deg', '0deg', '3deg'],
+  });
+
+  const rotateX = idleMotion.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['1.8deg', '0deg', '-1.5deg'],
   });
 
   const translateY = idleMotion.interpolate({
     inputRange: [-1, 0, 1],
-    outputRange: [1.2, 0, -1.5],
+    outputRange: [1.4, 0, -1.7],
+  });
+
+  const imageShiftX = idleMotion.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: [-1.8, 0, 1.7],
+  });
+
+  const imageShiftY = idleMotion.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: [0.8, 0, -0.9],
+  });
+
+  const shineTranslateX = shineMotion.interpolate({
+    inputRange: [-1, 1],
+    outputRange: [-size * 0.7, size * 1.25],
+  });
+
+  const shineOpacity = shineMotion.interpolate({
+    inputRange: [-1, -0.45, 0, 0.45, 1],
+    outputRange: [0, 0.02, 0.12, 0.025, 0],
   });
 
   const speakingScale = talkMotion.interpolate({
@@ -237,14 +290,17 @@ export function AssistantAvatar({
               ? profile.secondaryAccent
               : 'rgba(166,196,255,0.62)',
             transform: [
-              { rotate },
+              { perspective: size * 5.5 },
+              { rotateX },
+              { rotateY },
+              { rotateZ },
               { translateY },
               { scale: speakingScale },
             ],
           },
         ]}
       >
-        <Image
+        <Animated.Image
           accessibilityLabel={'Avatar de ' + profile.name}
           source={avatarSources[profile.id]}
           resizeMode="cover"
@@ -254,9 +310,44 @@ export function AssistantAvatar({
               width: size,
               height: size,
               borderRadius: size / 2,
+              transform: [
+                { translateX: imageShiftX },
+                { translateY: imageShiftY },
+                { scale: 1.025 },
+              ],
             },
           ]}
         />
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.depthShine,
+            {
+              width: size * 0.34,
+              height: size * 1.45,
+              top: -size * 0.2,
+              opacity: shineOpacity,
+              transform: [
+                { translateX: shineTranslateX },
+                { rotate: '17deg' },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={[
+              'rgba(255,255,255,0)',
+              isNexa
+                ? 'rgba(229,207,255,0.38)'
+                : 'rgba(191,229,255,0.42)',
+              'rgba(255,255,255,0)',
+            ]}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
 
         <Animated.View
           pointerEvents="none"
@@ -365,6 +456,11 @@ const styles = StyleSheet.create({
   image: {
     display: 'flex',
     backgroundColor: '#071126',
+  },
+  depthShine: {
+    position: 'absolute',
+    left: 0,
+    zIndex: 2,
   },
   eyelid: {
     position: 'absolute',
