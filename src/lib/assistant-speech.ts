@@ -93,10 +93,17 @@ function scoreVoice(voice: Speech.Voice, assistantId: AssistantId) {
       'diego',
       'raul',
     ];
-    if (masculineNatural.some((hint) => name.includes(normalize(hint)))) score += 44;
+    if (masculineNatural.some((hint) => name.includes(normalize(hint)))) score += 70;
 
-    if (name.includes('jorge') && (name.includes('natural') || name.includes('online'))) {
-      score += 120;
+    if (name.includes('jorge')) score += 70;
+    if (
+      name.includes('jorge') &&
+      (name.includes('natural') ||
+        name.includes('neural') ||
+        name.includes('online') ||
+        name.includes('enhanced'))
+    ) {
+      score += 170;
     }
   } else {
     const feminineNatural = [
@@ -164,9 +171,9 @@ export async function speakAsAssistant(
   Speech.speak(spokenText, {
     language: voice?.language || 'es-MX',
     voice: voice?.identifier,
-    rate: isNexa ? 0.97 : 0.96,
-    pitch: isNexa ? 1.04 : 0.93,
-    volume: isNexa ? 0.96 : 0.99,
+    rate: isNexa ? 0.97 : 0.93,
+    pitch: isNexa ? 1.04 : 0.86,
+    volume: isNexa ? 0.96 : 1.0,
     onStart: reportStart,
     onDone: () => {
       if (runId === speechRunId) callbacks.onDone?.();
