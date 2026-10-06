@@ -33,6 +33,7 @@ export function AssistantAvatar({
 }: Props) {
   const [idleMotion] = useState(() => new Animated.Value(0));
   const [talkMotion] = useState(() => new Animated.Value(0));
+  const [blinkMotion] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const idle = Animated.loop(
@@ -59,6 +60,41 @@ export function AssistantAvatar({
   }, [idleMotion]);
 
   useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    let active = true;
+
+    const blink = () => {
+      if (!active) return;
+
+      Animated.sequence([
+        Animated.timing(blinkMotion, {
+          toValue: 1,
+          duration: 75,
+          useNativeDriver: true,
+        }),
+        Animated.delay(55),
+        Animated.timing(blinkMotion, {
+          toValue: 0,
+          duration: 95,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        if (!active) return;
+        const nextDelay = 2400 + Math.floor(Math.random() * 3000);
+        timeout = setTimeout(blink, nextDelay);
+      });
+    };
+
+    timeout = setTimeout(blink, 1800 + Math.floor(Math.random() * 1800));
+
+    return () => {
+      active = false;
+      if (timeout) clearTimeout(timeout);
+      blinkMotion.stopAnimation();
+    };
+  }, [blinkMotion]);
+
+  useEffect(() => {
     let talk: Animated.CompositeAnimation | null = null;
 
     if (speaking) {
@@ -66,12 +102,27 @@ export function AssistantAvatar({
         Animated.sequence([
           Animated.timing(talkMotion, {
             toValue: 1,
-            duration: 260,
+            duration: 115,
             useNativeDriver: true,
           }),
           Animated.timing(talkMotion, {
-            toValue: 0,
-            duration: 310,
+            toValue: 0.32,
+            duration: 90,
+            useNativeDriver: true,
+          }),
+          Animated.timing(talkMotion, {
+            toValue: 0.78,
+            duration: 135,
+            useNativeDriver: true,
+          }),
+          Animated.timing(talkMotion, {
+            toValue: 0.18,
+            duration: 105,
+            useNativeDriver: true,
+          }),
+          Animated.timing(talkMotion, {
+            toValue: 0.62,
+            duration: 100,
             useNativeDriver: true,
           }),
         ])
@@ -80,7 +131,7 @@ export function AssistantAvatar({
     } else {
       Animated.timing(talkMotion, {
         toValue: 0,
-        duration: 180,
+        duration: 150,
         useNativeDriver: true,
       }).start();
     }
@@ -100,13 +151,42 @@ export function AssistantAvatar({
 
   const speakingScale = talkMotion.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.018],
+    outputRange: [1, 1.014],
   });
 
   const speakingGlow = talkMotion.interpolate({
     inputRange: [0, 1],
     outputRange: [0.32, 0.82],
   });
+
+  const blinkOpacity = blinkMotion.interpolate({
+    inputRange: [0, 0.55, 1],
+    outputRange: [0, 0.6, 1],
+  });
+
+  const mouthScaleY = talkMotion.interpolate({
+    inputRange: [0, 0.18, 0.62, 1],
+    outputRange: [0.2, 0.55, 1.15, 1.55],
+  });
+
+  const mouthScaleX = talkMotion.interpolate({
+    inputRange: [0, 0.32, 0.78, 1],
+    outputRange: [1.12, 1.02, 0.92, 0.84],
+  });
+
+  const isNexa = profile.id === 'nexa';
+  const eyeTop = size * (isNexa ? 0.345 : 0.365);
+  const leftEyeLeft = size * (isNexa ? 0.405 : 0.39);
+  const rightEyeLeft = size * (isNexa ? 0.60 : 0.59);
+  const eyeWidth = size * (isNexa ? 0.105 : 0.12);
+  const eyelidHeight = Math.max(2, size * 0.027);
+  const eyelidColor = isNexa ? '#B9AEB2' : '#050817';
+
+  const mouthLeft = size * (isNexa ? 0.545 : 0.505);
+  const mouthTop = size * (isNexa ? 0.455 : 0.475);
+  const mouthWidth = size * (isNexa ? 0.105 : 0.125);
+  const mouthHeight = Math.max(3, size * (isNexa ? 0.035 : 0.028));
+  const mouthColor = isNexa ? '#5F3C49' : '#B57BFF';
 
   const avatar = (
     <View
@@ -163,6 +243,62 @@ export function AssistantAvatar({
             },
           ]}
         />
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.eyelid,
+            {
+              left: leftEyeLeft,
+              top: eyeTop,
+              width: eyeWidth,
+              height: eyelidHeight,
+              borderRadius: eyelidHeight,
+              backgroundColor: eyelidColor,
+              opacity: blinkOpacity,
+            },
+          ]}
+        />
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.eyelid,
+            {
+              left: rightEyeLeft,
+              top: eyeTop + size * (isNexa ? 0.03 : 0.035),
+              width: eyeWidth,
+              height: eyelidHeight,
+              borderRadius: eyelidHeight,
+              backgroundColor: eyelidColor,
+              opacity: blinkOpacity,
+            },
+          ]}
+        />
+
+        {speaking ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.mouth,
+              {
+                left: mouthLeft,
+                top: mouthTop,
+                width: mouthWidth,
+                height: mouthHeight,
+                borderRadius: mouthHeight,
+                backgroundColor: mouthColor,
+                borderColor: isNexa
+                  ? 'rgba(255,220,230,0.38)'
+                  : 'rgba(216,181,255,0.82)',
+                opacity: talkMotion,
+                transform: [
+                  { scaleY: mouthScaleY },
+                  { scaleX: mouthScaleX },
+                ],
+              },
+            ]}
+          />
+        ) : null}
       </Animated.View>
     </View>
   );
@@ -202,6 +338,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 0 20px rgba(103,111,255,0.50)',
   },
   imageShell: {
+    position: 'relative',
     overflow: 'hidden',
     borderWidth: 2,
     backgroundColor: '#070E21',
@@ -210,5 +347,15 @@ const styles = StyleSheet.create({
   image: {
     display: 'flex',
     backgroundColor: '#071126',
+  },
+  eyelid: {
+    position: 'absolute',
+    zIndex: 3,
+  },
+  mouth: {
+    position: 'absolute',
+    zIndex: 4,
+    borderWidth: 1,
+    boxShadow: '0 0 7px rgba(130,108,255,0.40)',
   },
 });
