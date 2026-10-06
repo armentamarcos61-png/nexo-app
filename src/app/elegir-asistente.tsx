@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, NexoScreen } from '@/components/nexo-screen';
 import { AssistantAvatar } from '@/components/assistant-avatar';
@@ -9,6 +9,7 @@ import {
   useAssistant,
   type AssistantId,
 } from '@/state/assistant';
+import { speakAsAssistant, stopAssistantSpeech } from '@/lib/assistant-speech';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 export default function ElegirAsistenteScreen() {
@@ -17,18 +18,23 @@ export default function ElegirAsistenteScreen() {
   const { assistantId, selectAssistant } = useAssistant();
   const [candidate, setCandidate] = useState<AssistantId>(assistantId ?? 'nexa');
   const [previewing, setPreviewing] = useState<AssistantId | null>(null);
-  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
-      if (previewTimer.current) clearTimeout(previewTimer.current);
+      void stopAssistantSpeech();
     };
   }, []);
 
   function preview(id: AssistantId) {
-    if (previewTimer.current) clearTimeout(previewTimer.current);
-    setPreviewing(id);
-    previewTimer.current = setTimeout(() => setPreviewing(null), 2200);
+    const item = assistantProfiles[id];
+    setCandidate(id);
+
+    void speakAsAssistant(item.greeting, id, {
+      onStart: () => setPreviewing(id),
+      onDone: () => setPreviewing(null),
+      onStopped: () => setPreviewing(null),
+      onError: () => setPreviewing(null),
+    });
   }
 
   function confirm() {
@@ -101,7 +107,7 @@ export default function ElegirAsistenteScreen() {
                 style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
               >
                 <Text style={styles.previewButtonText}>
-                  {previewing === id ? 'Hablando…' : 'Probar movimiento'}
+                  {previewing === id ? 'Hablando…' : 'Probar voz y movimiento'}
                 </Text>
               </Pressable>
 
