@@ -83,11 +83,35 @@ function scoreVoice(voice: Speech.Voice, assistantId: AssistantId) {
   if (String(voice.quality).toLowerCase().includes('enhanced')) score += 18;
 
   if (assistantId === 'nexo') {
-    const masculineNatural = ['jorge', 'juan', 'alvaro', 'andres', 'carlos', 'diego'];
-    if (masculineNatural.some((hint) => name.includes(normalize(hint)))) score += 34;
+    const masculineNatural = [
+      'jorge',
+      'juan',
+      'alvaro',
+      'andres',
+      'carlos',
+      'diego',
+      'raul',
+    ];
+    if (masculineNatural.some((hint) => name.includes(normalize(hint)))) score += 44;
+
+    if (name.includes('jorge') && (name.includes('natural') || name.includes('online'))) {
+      score += 120;
+    }
   } else {
-    const feminineNatural = ['dalia', 'paulina', 'monica', 'sofia', 'sabina', 'lucia'];
-    if (feminineNatural.some((hint) => name.includes(normalize(hint)))) score += 30;
+    const feminineNatural = [
+      'dalia',
+      'paulina',
+      'monica',
+      'sofia',
+      'sabina',
+      'lucia',
+      'ximena',
+    ];
+    if (feminineNatural.some((hint) => name.includes(normalize(hint)))) score += 42;
+
+    if (name.includes('dalia') && (name.includes('natural') || name.includes('online'))) {
+      score += 120;
+    }
   }
 
   return score;
@@ -125,9 +149,9 @@ export async function speakAsAssistant(
   Speech.speak(spokenText, {
     language: voice?.language || 'es-MX',
     voice: voice?.identifier,
-    rate: isNexa ? 0.94 : 0.91,
-    pitch: isNexa ? 1.0 : 0.90,
-    volume: 0.98,
+    rate: isNexa ? 0.97 : 0.96,
+    pitch: isNexa ? 1.04 : 0.93,
+    volume: isNexa ? 0.96 : 0.99,
     onStart: () => callbacks.onStart?.(),
     onDone: () => callbacks.onDone?.(),
     onStopped: () => callbacks.onStopped?.(),
