@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AssistantAvatar } from '@/components/assistant-avatar';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
@@ -9,6 +9,7 @@ import {
   recordAssistantQuestionMetric,
   type AssistantMetric,
 } from '@/lib/assistant-analytics';
+import { speakAsAssistant, stopAssistantSpeech } from '@/lib/assistant-speech';
 import { useAssistant } from '@/state/assistant';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
@@ -95,11 +96,11 @@ export default function AsistenteScreen() {
     assistant?.greeting ?? 'Primero elige tu asistente para comenzar.'
   );
   const [speaking, setSpeaking] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   useEffect(() => {
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      void stopAssistantSpeech();
     };
   }, []);
 
@@ -125,11 +126,17 @@ export default function AsistenteScreen() {
 
     setAnswer(next);
     setQuestion('');
-    setSpeaking(true);
 
-    if (timer.current) clearTimeout(timer.current);
-    const duration = Math.min(3600, Math.max(1300, next.length * 18));
-    timer.current = setTimeout(() => setSpeaking(false), duration);
+    if (voiceEnabled) {
+      void speakAsAssistant(next, assistant.id, {
+        onStart: () => setSpeaking(true),
+        onDone: () => setSpeaking(false),
+        onStopped: () => setSpeaking(false),
+        onError: () => setSpeaking(false),
+      });
+    } else {
+      setSpeaking(false);
+    }
   }
 
   if (!assistant) {
@@ -170,6 +177,40 @@ export default function AsistenteScreen() {
         </Text>
         <Text style={[styles.messageText, { color: palette.text }]}>{answer}</Text>
       </View>
+
+      <Pressable
+        accessibilityRole="switch"
+        accessibilityState={{ checked: voiceEnabled }}
+        onPress={() => {
+          const nextEnabled = !voiceEnabled;
+          setVoiceEnabled(nextEnabled);
+
+          if (!nextEnabled) {
+            void stopAssistantSpeech();
+            setSpeaking(false);
+          }
+        }}
+        style={({ pressed }) => [
+          styles.voiceToggle,
+          {
+            borderColor: voiceEnabled ? assistant.secondaryAccent : palette.cardBorder,
+            backgroundColor: voiceEnabled
+              ? 'rgba(52,92,147,0.34)'
+              : 'rgba(13,29,52,0.62)',
+          },
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text style={styles.voiceIcon}>{voiceEnabled ? '🔊' : '🔇'}</Text>
+        <View style={styles.voiceCopy}>
+          <Text style={[styles.voiceTitle, { color: palette.title }]}>
+            {voiceEnabled ? 'Voz activada' : 'Voz desactivada'}
+          </Text>
+          <Text style={[styles.voiceHint, { color: palette.muted }]}>
+            {assistant.name} usa una voz en español adaptada a su perfil.
+          </Text>
+        </View>
+      </Pressable>
 
       <View style={styles.quickGrid}>
         {quickQuestions.map((item) => (
@@ -270,6 +311,32 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 14,
     lineHeight: 21,
+  },
+  voiceToggle: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderWidth: 1,
+    borderRadius: 17,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  voiceIcon: {
+    fontSize: 21,
+  },
+  voiceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  voiceTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  voiceHint: {
+    marginTop: 2,
+    fontSize: 10,
+    lineHeight: 14,
   },
   quickGrid: {
     flexDirection: 'row',
