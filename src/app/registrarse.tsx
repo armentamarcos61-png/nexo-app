@@ -88,7 +88,7 @@ export default function RegistrarseScreen() {
     updateField('firstSurname', firstSurname.trim());
     setPassword('');
     setConfirm('');
-    router.replace('/');
+    router.replace('/elegir-asistente');
   }
 
   return (
