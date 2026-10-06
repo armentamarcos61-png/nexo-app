@@ -26,7 +26,7 @@ export function AssistantFloatingLayer() {
       <AssistantAvatar
         profile={assistant}
         size={62}
-        onPress={() => router.push('/asistente')}
+        onPress={() => router.push({ pathname: '/asistente', params: { from: pathname } })}
       />
     </View>
   );
