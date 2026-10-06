@@ -2,7 +2,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import {
   Animated,
-  Image,
   Pressable,
   StyleSheet,
   View,
@@ -301,7 +300,7 @@ export function AssistantAvatar({
           },
         ]}
       >
-        <Image
+        <Animated.Image
           accessibilityLabel={'Avatar de ' + profile.name}
           source={avatarSources[profile.id]}
           resizeMode="cover"
