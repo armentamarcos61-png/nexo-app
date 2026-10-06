@@ -30,8 +30,8 @@ export function classifyAssistantQuestion(question: string): AssistantMetric {
   }
 
   if (
-    includesAny(text, ['olvide mi contraseña', 'olvide la contraseña', 'recuperar contraseña', 'restablecer contraseña', 'codigo de recuperacion']) ||
-    (text.includes('contraseña') && includesAny(text, ['olvide', 'recuperar', 'restablecer', 'codigo']))
+    includesAny(text, ['olvide mi contrasena', 'olvide la contrasena', 'recuperar contrasena', 'restablecer contrasena', 'codigo de recuperacion']) ||
+    (text.includes('contrasena') && includesAny(text, ['olvide', 'recuperar', 'restablecer', 'codigo']))
   ) {
     return { intentKey: 'account.password_recovery', resolved: true };
   }
@@ -134,7 +134,7 @@ export function classifyAssistantQuestion(question: string): AssistantMetric {
     return { intentKey: 'other.shipping', resolved: true };
   }
 
-  if (includesAny(text, ['curriculum', 'currículum', 'cv'])) {
+  if (includesAny(text, ['curriculum', 'curriculum', 'cv'])) {
     return { intentKey: 'other.cv', resolved: true };
   }
 
