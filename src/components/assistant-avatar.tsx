@@ -218,6 +218,9 @@ export function AssistantAvatar({
           {
             borderRadius: size / 2,
             borderColor: profile.secondaryAccent,
+            boxShadow: isNexa
+              ? '0 0 20px rgba(155,92,255,0.50)'
+              : '0 0 20px rgba(59,130,246,0.50)',
             opacity: speaking ? speakingGlow : selected ? 0.68 : 0.38,
           },
         ]}
@@ -351,7 +354,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     borderWidth: 3,
     transform: [{ scale: 1.055 }],
-    boxShadow: '0 0 20px rgba(103,111,255,0.50)',
   },
   imageShell: {
     position: 'relative',
