@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -48,6 +47,10 @@ type AssistantContextValue = {
   clearAssistant: () => void;
 };
 
+type AssistantUserProviderProps = PropsWithChildren<{
+  userId: string | null;
+}>;
+
 const AssistantContext = createContext<AssistantContextValue | null>(null);
 const storagePrefix = 'nexo.assistant-choice.v1';
 
@@ -63,28 +66,27 @@ function isAssistantId(value: unknown): value is AssistantId {
   return value === 'nexa' || value === 'nexo';
 }
 
-export function AssistantProvider({ children }: PropsWithChildren) {
-  const { user } = useAuth();
-  const [assistantId, setAssistantId] = useState<AssistantId | null>(null);
-  const userId = user?.id ?? null;
+function readStoredChoice(userId: string | null): AssistantId | null {
+  if (!canUseStorage()) return null;
 
-  useEffect(() => {
-    if (!canUseStorage()) {
-      setAssistantId(null);
-      return;
-    }
+  try {
+    const stored = window.localStorage.getItem(storageKey(userId));
+    return isAssistantId(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
 
-    try {
-      const stored = window.localStorage.getItem(storageKey(userId));
-      setAssistantId(isAssistantId(stored) ? stored : null);
-    } catch {
-      setAssistantId(null);
-    }
-  }, [userId]);
+function AssistantUserProvider({ userId, children }: AssistantUserProviderProps) {
+  const [assistantId, setAssistantId] = useState<AssistantId | null>(
+    () => readStoredChoice(userId)
+  );
 
   function selectAssistant(id: AssistantId) {
     setAssistantId(id);
+
     if (!canUseStorage()) return;
+
     try {
       window.localStorage.setItem(storageKey(userId), id);
     } catch {
@@ -94,7 +96,9 @@ export function AssistantProvider({ children }: PropsWithChildren) {
 
   function clearAssistant() {
     setAssistantId(null);
+
     if (!canUseStorage()) return;
+
     try {
       window.localStorage.removeItem(storageKey(userId));
     } catch {
@@ -110,6 +114,17 @@ export function AssistantProvider({ children }: PropsWithChildren) {
   };
 
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
+}
+
+export function AssistantProvider({ children }: PropsWithChildren) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
+  return (
+    <AssistantUserProvider key={userId ?? 'guest'} userId={userId}>
+      {children}
+    </AssistantUserProvider>
+  );
 }
 
 export function useAssistant() {
