@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { ProfilePhotoPicker } from '@/components/profile-photo-picker';
 import { useActivityVisibility } from '@/state/activity-visibility';
+import { useAssistant } from '@/state/assistant';
 import {
   appearanceOptions,
   getAppearancePalette,
@@ -24,6 +25,7 @@ export default function PerfilScreen() {
   const palette = getAppearancePalette(mode);
   const { profile, updateField } = useProfessionalProfile();
   const { showActivity, setShowActivity } = useActivityVisibility();
+  const { assistant } = useAssistant();
 
   const displayName = getDisplayName(profile);
   const completedFields = Object.values(profile).filter((value) => value.trim()).length;
@@ -107,6 +109,37 @@ export default function PerfilScreen() {
             );
           })}
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: palette.title }]}>Asistente de Nexo</Text>
+        <Text style={[styles.sectionText, { color: palette.text }]}>
+          Elige con quién te sientes más cómodo. Nexa y Nexo tienen las mismas capacidades; cambia su personalidad y presencia.
+        </Text>
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: palette.cardBorder,
+            borderRadius: 18,
+            padding: 14,
+            backgroundColor:
+              mode === 'claro' ? 'rgba(255,255,255,0.82)' : 'rgba(13,29,52,0.72)',
+          }}
+        >
+          <Text style={[styles.optionTitle, { color: palette.title }]}>
+            {assistant ? assistant.name + ' · ' + assistant.genderLabel : 'Aún no has elegido asistente'}
+          </Text>
+          <Text style={[styles.optionHint, { color: palette.text }]}>
+            {assistant
+              ? assistant.roleLabel + '. Puedes cambiarlo cuando quieras.'
+              : 'Elige entre Nexa y Nexo para activar tu asistente dentro de la app.'}
+          </Text>
+        </View>
+        <Action
+          label={assistant ? 'Cambiar asistente' : 'Elegir asistente'}
+          secondary
+          onPress={() => router.push('/elegir-asistente')}
+        />
       </View>
 
       <View style={styles.profileHero}>
