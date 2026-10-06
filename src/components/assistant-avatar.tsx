@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Animated,
   Pressable,
@@ -27,8 +27,8 @@ export function AssistantAvatar({
   selected = false,
   style,
 }: Props) {
-  const headMotion = useRef(new Animated.Value(0)).current;
-  const mouthMotion = useRef(new Animated.Value(0.28)).current;
+  const [headMotion] = useState(() => new Animated.Value(0));
+  const [mouthMotion] = useState(() => new Animated.Value(0.28));
   const isFemale = profile.id === 'nexa';
 
   useEffect(() => {
@@ -80,25 +80,22 @@ export function AssistantAvatar({
     return () => talk?.stop();
   }, [mouthMotion, speaking]);
 
-  const animatedHeadStyle = useMemo(
-    () => ({
-      transform: [
-        {
-          rotate: headMotion.interpolate({
-            inputRange: [-1, 0, 1],
-            outputRange: ['-1.8deg', '0deg', '1.6deg'],
-          }),
-        },
-        {
-          translateY: headMotion.interpolate({
-            inputRange: [-1, 0, 1],
-            outputRange: [1.2, 0, -1.4],
-          }),
-        },
-      ],
-    }),
-    [headMotion]
-  );
+  const headRotate = headMotion.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-1.8deg', '0deg', '1.6deg'],
+  });
+  const headTranslateY = headMotion.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: [1.2, 0, -1.4],
+  });
+  const mouthScaleX = mouthMotion.interpolate({
+    inputRange: [0.28, 1],
+    outputRange: [1.15, 0.88],
+  });
+
+  const animatedHeadStyle = {
+    transform: [{ rotate: headRotate }, { translateY: headTranslateY }],
+  };
 
   const avatar = (
     <View style={[styles.shell, { width: size, height: size, borderRadius: size / 2 }, style]}>
@@ -159,12 +156,7 @@ export function AssistantAvatar({
                 backgroundColor: isFemale ? '#7F5261' : profile.secondaryAccent,
                 transform: [
                   { scaleY: mouthMotion },
-                  {
-                    scaleX: mouthMotion.interpolate({
-                      inputRange: [0.28, 1],
-                      outputRange: [1.15, 0.88],
-                    }),
-                  },
+                  { scaleX: mouthScaleX },
                 ],
               },
             ]}
