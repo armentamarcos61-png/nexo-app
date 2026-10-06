@@ -2,7 +2,6 @@ import {
   createContext,
   useContext,
   useEffect,
-  useMemo,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -103,15 +102,12 @@ export function AssistantProvider({ children }: PropsWithChildren) {
     }
   }
 
-  const value = useMemo<AssistantContextValue>(
-    () => ({
-      assistantId,
-      assistant: assistantId ? assistantProfiles[assistantId] : null,
-      selectAssistant,
-      clearAssistant,
-    }),
-    [assistantId]
-  );
+  const value: AssistantContextValue = {
+    assistantId,
+    assistant: assistantId ? assistantProfiles[assistantId] : null,
+    selectAssistant,
+    clearAssistant,
+  };
 
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
 }
