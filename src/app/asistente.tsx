@@ -128,6 +128,7 @@ export default function AsistenteScreen() {
     setQuestion('');
 
     if (voiceEnabled) {
+      setSpeaking(true);
       void speakAsAssistant(next, assistant.id, {
         onStart: () => setSpeaking(true),
         onDone: () => setSpeaking(false),

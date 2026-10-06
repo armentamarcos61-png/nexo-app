@@ -9,6 +9,7 @@ type SpeechCallbacks = {
 };
 
 let cachedVoices: Speech.Voice[] | null = null;
+let speechRunId = 0;
 
 const femaleVoiceHints = [
   'dalia',
@@ -136,9 +137,14 @@ export async function speakAsAssistant(
   assistantId: AssistantId,
   callbacks: SpeechCallbacks = {}
 ) {
+  const runId = ++speechRunId;
   await Speech.stop();
 
+  if (runId !== speechRunId) return;
+
   const voice = await getPreferredVoice(assistantId);
+  if (runId !== speechRunId) return;
+
   const isNexa = assistantId === 'nexa';
 
   const spokenText = text
@@ -146,20 +152,36 @@ export async function speakAsAssistant(
     .replace(/([.!?])\s+/g, '$1  ')
     .trim();
 
+  let started = false;
+  const reportStart = () => {
+    if (started || runId !== speechRunId) return;
+    started = true;
+    callbacks.onStart?.();
+  };
+
+  reportStart();
+
   Speech.speak(spokenText, {
     language: voice?.language || 'es-MX',
     voice: voice?.identifier,
     rate: isNexa ? 0.97 : 0.96,
     pitch: isNexa ? 1.04 : 0.93,
     volume: isNexa ? 0.96 : 0.99,
-    onStart: () => callbacks.onStart?.(),
-    onDone: () => callbacks.onDone?.(),
-    onStopped: () => callbacks.onStopped?.(),
-    onError: () => callbacks.onError?.(),
+    onStart: reportStart,
+    onDone: () => {
+      if (runId === speechRunId) callbacks.onDone?.();
+    },
+    onStopped: () => {
+      if (runId === speechRunId) callbacks.onStopped?.();
+    },
+    onError: () => {
+      if (runId === speechRunId) callbacks.onError?.();
+    },
   });
 }
 
 export async function stopAssistantSpeech() {
+  speechRunId += 1;
   await Speech.stop();
 }
 

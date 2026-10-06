@@ -28,6 +28,7 @@ export default function ElegirAsistenteScreen() {
   function preview(id: AssistantId) {
     const item = assistantProfiles[id];
     setCandidate(id);
+    setPreviewing(id);
 
     void speakAsAssistant(item.greeting, id, {
       onStart: () => setPreviewing(id),
