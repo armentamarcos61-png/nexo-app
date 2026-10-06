@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState, type PropsWithChildren } from 'react';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import {
   Image,
   Pressable,
@@ -12,11 +12,15 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AssistantAvatar } from '@/components/assistant-avatar';
+import { useAssistant } from '@/state/assistant';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 export function NexoScreen({ title, children }: PropsWithChildren<{ title: string }>) {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
+  const pathname = usePathname();
+  const { assistant } = useAssistant();
 
   return (
     <SafeAreaView style={[ui.safe, { backgroundColor: palette.background }]}>
@@ -60,9 +64,27 @@ export function NexoScreen({ title, children }: PropsWithChildren<{ title: strin
             />
           </View>
 
-          <View style={ui.spark}>
-            <Text style={ui.sparkText}>✦</Text>
-          </View>
+          {assistant ? (
+            <AssistantAvatar
+              profile={assistant}
+              size={46}
+              onPress={() =>
+                router.push({
+                  pathname: '/asistente',
+                  params: { from: pathname },
+                })
+              }
+            />
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Elegir asistente de Nexo"
+              onPress={() => router.push('/elegir-asistente')}
+              style={({ pressed }) => [ui.spark, pressed && ui.pressed]}
+            >
+              <Text style={ui.sparkText}>✦</Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={ui.headingCard}>
