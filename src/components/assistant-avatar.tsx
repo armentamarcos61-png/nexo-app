@@ -165,13 +165,18 @@ export function AssistantAvatar({
   });
 
   const mouthScaleY = talkMotion.interpolate({
-    inputRange: [0, 0.18, 0.62, 1],
-    outputRange: [0.2, 0.55, 1.15, 1.55],
+    inputRange: [0, 0.18, 0.32, 0.62, 0.78, 1],
+    outputRange: [0.45, 0.8, 1.35, 0.72, 1.75, 1.05],
   });
 
   const mouthScaleX = talkMotion.interpolate({
-    inputRange: [0, 0.32, 0.78, 1],
-    outputRange: [1.12, 1.02, 0.92, 0.84],
+    inputRange: [0, 0.18, 0.32, 0.62, 0.78, 1],
+    outputRange: [1.04, 1.0, 0.9, 1.08, 0.84, 0.96],
+  });
+
+  const mouthOpacity = talkMotion.interpolate({
+    inputRange: [0, 0.14, 1],
+    outputRange: [0.72, 0.9, 1],
   });
 
   const isNexa = profile.id === 'nexa';
@@ -182,11 +187,17 @@ export function AssistantAvatar({
   const eyelidHeight = Math.max(2, size * 0.027);
   const eyelidColor = isNexa ? '#B9AEB2' : '#050817';
 
-  const mouthLeft = size * (isNexa ? 0.545 : 0.505);
-  const mouthTop = size * (isNexa ? 0.455 : 0.475);
-  const mouthWidth = size * (isNexa ? 0.105 : 0.125);
-  const mouthHeight = Math.max(3, size * (isNexa ? 0.035 : 0.028));
-  const mouthColor = isNexa ? '#5F3C49' : '#B57BFF';
+  const mouthWidth = size * (isNexa ? 0.105 : 0.13);
+  const mouthHeight = Math.max(2.4, size * 0.024);
+  const mouthLeft = size * 0.54 - mouthWidth / 2;
+  const mouthTop = size * 0.515 - mouthHeight / 2;
+  const mouthColor = isNexa ? '#2A1527' : '#040B19';
+  const mouthBorder = isNexa
+    ? 'rgba(193,139,255,0.72)'
+    : 'rgba(102,199,255,0.86)';
+  const mouthHighlight = isNexa
+    ? 'rgba(241,171,214,0.88)'
+    : 'rgba(111,210,255,0.92)';
 
   const avatar = (
     <View
@@ -285,19 +296,24 @@ export function AssistantAvatar({
                 top: mouthTop,
                 width: mouthWidth,
                 height: mouthHeight,
-                borderRadius: mouthHeight,
+                borderRadius: mouthWidth,
                 backgroundColor: mouthColor,
-                borderColor: isNexa
-                  ? 'rgba(255,220,230,0.38)'
-                  : 'rgba(216,181,255,0.82)',
-                opacity: talkMotion,
+                borderColor: mouthBorder,
+                opacity: mouthOpacity,
                 transform: [
                   { scaleY: mouthScaleY },
                   { scaleX: mouthScaleX },
                 ],
               },
             ]}
-          />
+          >
+            <View
+              style={[
+                styles.mouthHighlight,
+                { backgroundColor: mouthHighlight },
+              ]}
+            />
+          </Animated.View>
         ) : null}
       </Animated.View>
     </View>
@@ -355,7 +371,17 @@ const styles = StyleSheet.create({
   mouth: {
     position: 'absolute',
     zIndex: 4,
-    borderWidth: 1,
-    boxShadow: '0 0 7px rgba(130,108,255,0.40)',
+    overflow: 'hidden',
+    borderWidth: 0.8,
+    boxShadow: '0 0 5px rgba(92,139,255,0.24)',
+  },
+  mouthHighlight: {
+    position: 'absolute',
+    left: '24%',
+    right: '24%',
+    bottom: 1,
+    height: 1.2,
+    borderRadius: 999,
+    opacity: 0.78,
   },
 });
