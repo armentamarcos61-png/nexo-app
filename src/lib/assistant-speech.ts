@@ -19,6 +19,7 @@ const femaleVoiceHints = [
   'monica',
   'lucia',
   'lucía',
+  'ximena',
   'female',
   'mujer',
 ];
@@ -30,6 +31,8 @@ const maleVoiceHints = [
   'raúl',
   'diego',
   'carlos',
+  'andrés',
+  'andres',
   'male',
   'hombre',
 ];
@@ -57,7 +60,20 @@ function scoreVoice(voice: Speech.Voice, assistantId: AssistantId) {
   if (hints.some((hint) => name.includes(normalize(hint)))) score += 55;
   if (hints.some((hint) => identifier.includes(normalize(hint)))) score += 30;
 
-  if (String(voice.quality).toLowerCase().includes('enhanced')) score += 8;
+  const naturalHints = [
+    'natural',
+    'neural',
+    'enhanced',
+    'premium',
+    'online',
+    'google',
+    'microsoft',
+    'samsung',
+  ];
+
+  if (naturalHints.some((hint) => name.includes(hint))) score += 24;
+  if (naturalHints.some((hint) => identifier.includes(hint))) score += 18;
+  if (String(voice.quality).toLowerCase().includes('enhanced')) score += 12;
 
   return score;
 }
@@ -89,8 +105,8 @@ export async function speakAsAssistant(
   Speech.speak(text, {
     language: voice?.language || 'es-MX',
     voice: voice?.identifier,
-    rate: isNexa ? 0.96 : 0.93,
-    pitch: isNexa ? 1.06 : 0.88,
+    rate: isNexa ? 0.92 : 0.90,
+    pitch: isNexa ? 1.01 : 0.96,
     volume: 1,
     onStart: () => callbacks.onStart?.(),
     onDone: () => callbacks.onDone?.(),
