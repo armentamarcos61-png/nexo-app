@@ -79,8 +79,8 @@ export default function ElegirAsistenteScreen() {
                 pointerEvents="none"
                 colors={
                   id === 'nexa'
-                    ? ['rgba(76,65,145,0.45)', 'rgba(35,122,152,0.25)', 'rgba(11,25,47,0.10)']
-                    : ['rgba(31,72,130,0.48)', 'rgba(89,54,143,0.30)', 'rgba(11,25,47,0.10)']
+                    ? ['rgba(111,48,174,0.55)', 'rgba(82,38,138,0.34)', 'rgba(11,25,47,0.10)']
+                    : ['rgba(24,86,164,0.58)', 'rgba(20,70,130,0.34)', 'rgba(11,25,47,0.10)']
                 }
                 style={StyleSheet.absoluteFill}
               />
