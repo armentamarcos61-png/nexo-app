@@ -169,12 +169,16 @@ export function AssistantAvatar({
             const center = box.getCenter(new THREE.Vector3());
             const dimensions = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(dimensions.x, dimensions.y, dimensions.z) || 1;
-            const scale = 1.95 / maxDim;
+            const isTallCharacter = dimensions.y > dimensions.x * 1.45;
+            const targetDim = isTallCharacter ? 3.6 : 2.15;
+            const scale = targetDim / maxDim;
+            const focusY =
+              center.y + dimensions.y * (isTallCharacter ? 0.31 : 0.12);
 
             modelRoot.scale.setScalar(scale);
             modelRoot.position.set(
               -center.x * scale,
-              -center.y * scale - 0.02,
+              -focusY * scale + 0.05,
               -center.z * scale,
             );
 
@@ -391,6 +395,8 @@ export function AssistantAvatar({
           width: '100%',
           height: '100%',
           objectFit: 'cover',
+          objectPosition: '50% 38%',
+          transform: 'scale(1.22)',
           display: 'block',
           userSelect: 'none',
           pointerEvents: 'none',
