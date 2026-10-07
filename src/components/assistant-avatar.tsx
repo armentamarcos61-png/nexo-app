@@ -50,6 +50,7 @@ export function AssistantAvatar({
           width: size,
           height: size,
           borderRadius: size / 2,
+          transform: [{ scale: 1.22 }],
         }}
       />
     </View>
