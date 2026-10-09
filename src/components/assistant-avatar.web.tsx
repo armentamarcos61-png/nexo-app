@@ -85,7 +85,7 @@ export function AssistantAvatar({
   }, [speaking]);
 
   useEffect(() => {
-    if (size < 64 || !hostRef.current || typeof window === 'undefined') {
+    if (size < 160 || !hostRef.current || typeof window === 'undefined') {
       setModelReady(false);
       return;
     }
@@ -404,7 +404,7 @@ export function AssistantAvatar({
           transition: 'opacity 220ms ease',
         },
       })}
-      {size >= 64 &&
+      {size >= 160 &&
         React.createElement('div', {
           ref: hostRef,
           'aria-hidden': true,
