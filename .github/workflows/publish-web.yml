@@ -55,6 +55,19 @@ jobs:
       - name: Compilar Nexo web
         run: npm run build:web
 
+      - name: Guardar rig facial 3D de Nexa en el repositorio
+        # The GLB was built from the original uploaded model by this workflow.
+        # Once committed it can also be consumed by standalone native builds.
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/models/Nexa_FacialRig_Pro.glb
+          if ! git diff --cached --quiet; then
+            git commit -m "Build Nexa facially rigged model [skip ci]"
+            git push origin HEAD:main
+          fi
+
       - name: Evitar procesamiento Jekyll
         run: touch dist/.nojekyll
 
