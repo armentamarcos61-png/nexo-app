@@ -189,20 +189,32 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           last = now;
           if (document.visibilityState === 'visible') {
             controller.current?.update(dt);
+            faceRig?.update(dt, now / 1000, speakingRef.current);
             if (controller.current) {
               roamElapsed += dt;
-              // Gentle autonomous motion every several seconds when not talking.
-              if (roamElapsed > 8.5 && !speakingRef.current) {
+              // A gentle gesture every ~20 seconds, never abrupt wandering.
+              if (roamElapsed > 20 && !speakingRef.current && controller.current.motion === 'Idle') {
                 roamElapsed = 0;
-                const targetX = (Math.random() - 0.5) * 0.55;
-                const targetZ = (Math.random() - 0.5) * 0.35;
-                controller.current.moveTo(targetX, targetZ, false);
+                controller.current.greet();
               }
-              if (controller.current.motion === 'Idle' && model) {
-                // Subtle attention towards the pointer, without fighting active clips.
-                model.rotation.y += (pointerX * 0.10 - model.rotation.y) * Math.min(1, dt * 0.5);
+              if (controller.current.motion !== previousMotion) {
+                previousMotion = controller.current.motion;
+                setMotion(previousMotion);
               }
             }
+
+            // Damped orbit and zoom: the camera, not the skeleton, follows touch.
+            const damp = Math.min(1, dt * 7);
+            cameraDistance += (zoom.current - cameraDistance) * damp;
+            cameraYaw += (yaw.current - cameraYaw) * damp;
+            cameraPitch += (pitch.current - cameraPitch) * damp;
+            const focusY = 0.91;
+            camera.position.set(
+              Math.sin(cameraYaw) * cameraDistance,
+              focusY + 0.1 + cameraPitch * 0.42,
+              Math.cos(cameraYaw) * cameraDistance,
+            );
+            camera.lookAt(0, focusY + cameraPitch * 0.12, 0);
             renderer.render(scene, camera);
           }
           frame = requestAnimationFrame(tick);
