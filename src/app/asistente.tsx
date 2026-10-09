@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { AssistantAvatar } from '@/components/assistant-avatar';
+import { AssistantStage } from '@/components/assistant-stage';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import {
   classifyAssistantQuestion,
@@ -163,7 +163,7 @@ export default function AsistenteScreen() {
           }
           style={StyleSheet.absoluteFill}
         />
-        <AssistantAvatar profile={assistant} size={118} speaking={speaking} />
+
         <View style={styles.heroCopy}>
           <Text style={styles.name}>{assistant.name}</Text>
           <Text style={styles.role}>{assistant.genderLabel} · {assistant.roleLabel}</Text>
@@ -175,6 +175,8 @@ export default function AsistenteScreen() {
           ) : null}
         </View>
       </View>
+
+      <AssistantStage profile={assistant} speaking={speaking} />
 
       <View style={[styles.message, { borderColor: palette.cardBorder }]}>
         <Text style={[styles.messageTitle, { color: palette.title }]}>
@@ -264,12 +266,12 @@ const styles = StyleSheet.create({
   hero: {
     position: 'relative',
     overflow: 'hidden',
-    minHeight: 180,
+    minHeight: 117,
     borderRadius: 26,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
+    padding: 19,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
     borderWidth: 1,
     borderColor: 'rgba(150,194,255,0.40)',
     borderBottomWidth: 4,
