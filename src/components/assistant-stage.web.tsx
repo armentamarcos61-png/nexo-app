@@ -279,16 +279,6 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     };
   }, [profile.id, isNexa]);
 
-  const command = (next: NexaMotion) => {
-    const current = controller.current;
-    if (!current || speaking) return;
-    if (next === 'Greeting') current.greet();
-    else if (next === 'Walking') current.moveTo(++moveCount.current % 2 ? 0.34 : -0.34, 0.1);
-    else if (next === 'Running') current.moveTo(++moveCount.current % 2 ? -0.34 : 0.34, -0.1, true);
-    else current.stopMoving();
-    setMotion(next);
-  };
-
   return (
     <View style={styles.stage}>
       <LinearGradient
@@ -346,7 +336,15 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               <Text style={styles.actionText}>－</Text>
             </Pressable>
             {!speaking && ([['Idle', 'Reposo'], ['Greeting', 'Saludar'], ['Walking', 'Caminar'], ['Running', 'Correr']] as const).map(([key, label]) => (
-              <Pressable key={key} onPress={() => command(key)} accessibilityRole="button"
+              <Pressable key={key} onPress={() => {
+                const current = controller.current;
+                if (!current || speaking) return;
+                if (key === 'Greeting') current.greet();
+                else if (key === 'Walking') current.moveTo(++moveCount.current % 2 ? 0.34 : -0.34, 0.1);
+                else if (key === 'Running') current.moveTo(++moveCount.current % 2 ? -0.34 : 0.34, -0.1, true);
+                else current.stopMoving();
+                setMotion(key);
+              }} accessibilityRole="button"
                 style={[styles.action, motion === key && styles.activeAction]}>
                 <Text style={styles.actionText}>{label}</Text>
               </Pressable>
