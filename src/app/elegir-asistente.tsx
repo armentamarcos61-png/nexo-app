@@ -123,7 +123,7 @@ export default function ElegirAsistenteScreen() {
         })}
       </View>
 
-      <AssistantStage profile={assistantProfiles[candidate]} speaking={previewing === candidate} />
+      <AssistantStage key={candidate} profile={assistantProfiles[candidate]} speaking={previewing === candidate} />
 
       <Text style={[styles.note, { color: palette.muted }]}>
         La elección no depende de tu género. Elige simplemente con quién te resulte más cómodo interactuar.
