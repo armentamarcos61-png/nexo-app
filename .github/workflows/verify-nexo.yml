@@ -30,5 +30,11 @@ jobs:
       - name: Revisar lint
         run: npx expo lint
 
+      - name: Comprobar que Nexa sea una sola
+        run: node scripts/verify-nexa-singleton.mjs
+
+      - name: Verificar empaquetado Android
+        run: npx expo export --platform android
+
       - name: Compilar web
         run: npm run build:web
