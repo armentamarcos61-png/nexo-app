@@ -133,7 +133,6 @@ export function installNexaFaceRig(THREE:any, root:any):NexaFaceRig{
         const look=Math.sin(t*0.32)*0.015;
         smallEuler.set(nod,look,0,'YXZ');
         nodQuat.setFromEuler(smallEuler);
-        if(baseHead && !head.quaternion) head.quaternion.copy(baseHead);
         head.quaternion.multiply(nodQuat);
       }
     },
