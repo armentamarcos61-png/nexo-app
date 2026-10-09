@@ -6,6 +6,7 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
+import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/+esm';
@@ -49,6 +50,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let modelRoot: any = null;
     let scene: any = null;
     let faceRig: NexaFaceRig | null = null;
+    let premiumLook: PremiumNexaLook | null = null;
     let unregisterResize: (() => void) | undefined;
     let previousTime = 0;
     let totalTime = 0;
@@ -199,6 +201,9 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             }
           });
           scene.add(modelRoot);
+          // New visible 3D cap, hair, Nexo emblems and violet eyes follow the
+          // existing animated head bone; original five motion clips remain.
+          premiumLook=installNexaPremiumLook(THREE,modelRoot,scene);
           faceRig=installNexaFaceRig(THREE,modelRoot);
           const mixer=new THREE.AnimationMixer(modelRoot);
           const actions: any={};
@@ -228,6 +233,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             totalTime+=dt;
             controllerRef.current?.update(dt);
             faceRig?.update(dt,totalTime,speakingRef.current);
+            premiumLook?.update(dt,totalTime);
             // Camera lags slightly behind gesture; still within the circular portrait.
             const alpha=1-Math.exp(-dt*8);
             distance+=(orbitRef.current.distance-distance)*alpha;
@@ -267,6 +273,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       pointers.clear();
       controllerRef.current?.dispose();
       controllerRef.current=null;
+      premiumLook?.dispose();
+      premiumLook=null;
       modelRoot?.traverse((node:any)=>{
         node.geometry?.dispose?.();
         const mats=Array.isArray(node.material)?node.material:node.material?[node.material]:[];
