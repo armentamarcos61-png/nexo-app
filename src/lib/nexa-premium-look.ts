@@ -217,7 +217,6 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
         material.needsUpdate=true;
         mesh.geometry=geometry;
         mesh.material=material;
-        mesh.updateMorphTargets();
         originalFaceMaterials.push({mesh,material:oldMaterial,geometry:oldGeometry});
       }
     },undefined,()=>{ /* Preserve original facial material if image is offline. */ });
