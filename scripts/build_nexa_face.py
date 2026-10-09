@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 
 src=Path('public/models/Nexa_Unica_Interactiva.glb')
-out=Path('public/models/Nexa_FacialRig_Pro.glb')
+out=Path('public/models/Nexa_FacialRig_V2.glb')
 raw=src.read_bytes()
 magic,version,length=struct.unpack_from('<4sII',raw,0)
 assert magic==b'glTF' and version==2 and length==len(raw)
@@ -60,26 +60,26 @@ def blank():return np.zeros_like(pos,dtype=np.float32)
 targets={}
 mouth=spot(0,1.520,.132,.044,.024,.041)
 top=y>=1.521
-v=blank();v[:,1]=mouth*np.where(top,.006,-.014);v[:,2]=mouth*.003
+v=blank();v[:,1]=mouth*np.where(top,.0016,-.0034);v[:,2]=mouth*.0006
 targets['MouthOpen']=v
-v=blank();v[:,0]=-x*mouth*.22;v[:,1]=mouth*np.where(top,.002,-.003);v[:,2]=mouth*.0045
+v=blank();v[:,0]=-x*mouth*.045;v[:,1]=mouth*np.where(top,.0007,-.0011);v[:,2]=mouth*.0008
 targets['MouthO']=v
-v=blank();v[:,0]=x*mouth*.35;v[:,1]=mouth*np.where(top,.003,-.0035)
+v=blank();v[:,0]=x*mouth*.065;v[:,1]=mouth*np.where(top,.0008,-.0010)
 targets['MouthWide']=v
-v=blank();v[:,0]=x*mouth*.21;v[:,1]=mouth*(.003+.010*np.clip((np.abs(x)-.012)/.033,0,1))
+v=blank();v[:,0]=x*mouth*.055;v[:,1]=mouth*(.0009+.0016*np.clip((np.abs(x)-.012)/.033,0,1))
 targets['MouthSmile']=v
 for name,cx in [('EyeBlinkLeft',-.036),('EyeBlinkRight',.036)]:
  eye=spot(cx,1.597,.128,.029,.022,.048)
- v=blank();v[:,1]=eye*(1.597-y)*1.8;v[:,2]=eye*.0012
+ v=blank();v[:,1]=eye*(1.597-y)*1.0;v[:,2]=eye*.0006
  targets[name]=v
 for name,cx in [('BrowRaiseLeft',-.038),('BrowRaiseRight',.038)]:
  brow=spot(cx,1.630,.121,.032,.016,.052)
- v=blank();v[:,1]=brow*.0145;v[:,2]=brow*.0015
+ v=blank();v[:,1]=brow*.0052;v[:,2]=brow*.0008
  targets[name]=v
 v=blank()
 for cx in (-.038,.038):
  brow=spot(cx,1.630,.121,.029,.016,.05)
- v[:,1]-=brow*.007;v[:,0]+=-np.sign(cx)*brow*.002
+ v[:,1]-=brow*.003;v[:,0]+=-np.sign(cx)*brow*.001
 targets['BrowFrown']=v
 names=list(targets)
 for name,shape in targets.items():
@@ -120,9 +120,9 @@ values=[]
 for t in times:
  state={name:0 for name in names}
  if .3<t<3.55:
-  state['MouthOpen']=max(0,np.sin(t*7)**2*.88)
-  state['MouthWide']=max(0,np.sin(t*4+1)**2*.48)
-  state['MouthO']=max(0,np.sin(t*2.9)**2*.58)
+  state['MouthOpen']=max(0,np.sin(t*7)**2*.24)
+  state['MouthWide']=max(0,np.sin(t*4+1)**2*.16)
+  state['MouthO']=max(0,np.sin(t*2.9)**2*.16)
   state['BrowRaiseLeft']=max(0,np.sin(t*1.3)**2*.65)
   state['BrowRaiseRight']=max(0,np.sin(t*1.3+.4)**2*.55)
  if 4.3<t<4.85:
@@ -140,7 +140,7 @@ mesh_node=next(i for i,n in enumerate(doc['nodes']) if n.get('mesh')==0)
 doc['animations'].append({'name':'Nexa_FacialDemo','samplers':[{'input':input_a,'output':output_a,'interpolation':'LINEAR'}],'channels':[{'sampler':0,'target':{'node':mesh_node,'path':'weights'}}]})
 
 doc['buffers'][0]['byteLength']=len(binary)
-doc['asset'].setdefault('extras',{})['facialRig']='Nexa v2: 9 native morph targets, face material, facial demo'
+doc['asset'].setdefault('extras',{})['facialRig']='Nexa v3: relaxed expressions, 9 native morph targets, face material, facial demo'
 j=json.dumps(doc,separators=(',',':')).encode('utf8')
 j+=b' '*((-len(j))%4)
 binary.extend(b'\0'*(-len(binary)%4))
