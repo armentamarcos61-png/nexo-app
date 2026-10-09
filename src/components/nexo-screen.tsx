@@ -64,7 +64,9 @@ export function NexoScreen({ title, children }: PropsWithChildren<{ title: strin
             />
           </View>
 
-          {assistant ? (
+          {pathname === '/asistente' || pathname === '/elegir-asistente' ? (
+            <View style={{ width: 46, height: 46 }} accessibilityLabel="Nexa" />
+          ) : assistant ? (
             <AssistantAvatar
               profile={assistant}
               size={46}
