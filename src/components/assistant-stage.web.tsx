@@ -345,14 +345,12 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             <Pressable accessibilityRole="button" accessibilityLabel="Alejar a Nexa" onPress={() => { zoom.current = Math.min(4.1, zoom.current + 0.22); }} style={styles.action}>
               <Text style={styles.actionText}>－</Text>
             </Pressable>
-            {!speaking ? (
-            {([['Idle', 'Reposo'], ['Greeting', 'Saludar'], ['Walking', 'Caminar'], ['Running', 'Correr']] as const).map(([key, label]) => (
+            {!speaking && ([['Idle', 'Reposo'], ['Greeting', 'Saludar'], ['Walking', 'Caminar'], ['Running', 'Correr']] as const).map(([key, label]) => (
               <Pressable key={key} onPress={() => command(key)} accessibilityRole="button"
                 style={[styles.action, motion === key && styles.activeAction]}>
                 <Text style={styles.actionText}>{label}</Text>
               </Pressable>
             ))}
-            ) : null}
           </View>
         ) : null}
       </View>
