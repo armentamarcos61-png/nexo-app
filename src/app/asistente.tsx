@@ -58,7 +58,7 @@ function localAnswer(metric: AssistantMetric, assistantName: string) {
       return 'La parte de pagos está pensada para que Nexo pueda coordinar cobros y pagos entre las partes. Conforme se active esa función te explicaré desde aquí cada paso y comisión antes de confirmar.';
 
     case 'assistant.change_assistant':
-      return 'Puedes cambiar entre Nessa y Nexo desde Mi espacio. Los dos tienen las mismas capacidades; cambia su estilo y personalidad.';
+      return 'Puedes cambiar entre Nexa y Nexo desde Mi espacio. Los dos tienen las mismas capacidades; cambia su estilo y personalidad.';
 
     case 'other.chat':
       return 'El chat de Nexo está pensado para mantener la comunicación dentro de la plataforma entre las partes relacionadas con una oportunidad, servicio o producto.';
@@ -144,7 +144,7 @@ export default function AsistenteScreen() {
     return (
       <NexoScreen title="Asistente Nexo">
         <Text style={[styles.empty, { color: palette.text }]}>
-          Aún no has elegido entre Nessa y Nexo.
+          Aún no has elegido entre Nexa y Nexo.
         </Text>
         <Action label="Elegir asistente" onPress={() => router.push('/elegir-asistente')} />
       </NexoScreen>
