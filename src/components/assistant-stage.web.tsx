@@ -295,7 +295,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           },
         })}
         {isNexa && React.createElement('div',{
-          ref:host,'aria-label':'Retrato tridimensional interactivo de Nexa',
+          ref:hostRef,'aria-label':'Retrato tridimensional interactivo de Nexa',
           style:{
             position:'absolute',inset:0,width:'100%',height:'100%',
             pointerEvents:'auto',touchAction:'none',
