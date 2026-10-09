@@ -114,7 +114,7 @@ export default function PerfilScreen() {
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: palette.title }]}>Asistente de Nexo</Text>
         <Text style={[styles.sectionText, { color: palette.text }]}>
-          Elige con quién te sientes más cómodo. Nexa y Nexo tienen las mismas capacidades; cambia su personalidad y presencia.
+          Nexa es tu asistente en Nexo. Su versión 3D y su imagen de respaldo son el mismo personaje.
         </Text>
         <View
           style={{
@@ -127,16 +127,14 @@ export default function PerfilScreen() {
           }}
         >
           <Text style={[styles.optionTitle, { color: palette.title }]}>
-            {assistant ? assistant.name + ' · ' + assistant.genderLabel : 'Aún no has elegido asistente'}
+            {'Nexa · asistente virtual'}
           </Text>
           <Text style={[styles.optionHint, { color: palette.text }]}>
-            {assistant
-              ? assistant.roleLabel + '. Puedes cambiarlo cuando quieras.'
-              : 'Elige entre Nexa y Nexo para activar tu asistente dentro de la app.'}
+            {'Voz, respuestas y movimiento desde una sola experiencia.'}
           </Text>
         </View>
         <Action
-          label={assistant ? 'Cambiar asistente' : 'Elegir asistente'}
+          label="Ver y configurar a Nexa"
           secondary
           onPress={() => router.push('/elegir-asistente')}
         />
