@@ -333,18 +333,26 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       <View style={styles.base}>
         <View style={styles.baseLine}/>
         <Text style={styles.caption}>
-          {speaking ? '◉ Respondiendo a tu pregunta' :
-            status === 'ready' ? 'Movimientos naturales · motor 3D activo' :
-            'Presencia visual · preparando modelo 3D'}
+          {speaking ? '◉ Nexa está hablando y gesticulando' :
+            status === 'ready' ? 'Desliza para girar · usa + y − para acercar' :
+            'Preparando el modelo 3D de Nexa'}
         </Text>
-        {loaded && !speaking ? (
+        {loaded ? (
           <View style={styles.actions}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Acercar a Nexa" onPress={() => { zoom.current = Math.max(0.95, zoom.current - 0.22); }} style={styles.action}>
+              <Text style={styles.actionText}>＋</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Alejar a Nexa" onPress={() => { zoom.current = Math.min(4.1, zoom.current + 0.22); }} style={styles.action}>
+              <Text style={styles.actionText}>－</Text>
+            </Pressable>
+            {!speaking ? (
             {([['Idle', 'Reposo'], ['Greeting', 'Saludar'], ['Walking', 'Caminar'], ['Running', 'Correr']] as const).map(([key, label]) => (
               <Pressable key={key} onPress={() => command(key)} accessibilityRole="button"
                 style={[styles.action, motion === key && styles.activeAction]}>
                 <Text style={styles.actionText}>{label}</Text>
               </Pressable>
             ))}
+            ) : null}
           </View>
         ) : null}
       </View>
