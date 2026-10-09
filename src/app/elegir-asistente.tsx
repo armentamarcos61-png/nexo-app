@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, NexoScreen } from '@/components/nexo-screen';
 import { AssistantAvatar } from '@/components/assistant-avatar';
+import { AssistantStage } from '@/components/assistant-stage';
 import {
   assistantProfiles,
   useAssistant,
@@ -121,6 +122,8 @@ export default function ElegirAsistenteScreen() {
           );
         })}
       </View>
+
+      <AssistantStage profile={assistantProfiles[candidate]} speaking={previewing === candidate} />
 
       <Text style={[styles.note, { color: palette.muted }]}>
         La elección no depende de tu género. Elige simplemente con quién te resulte más cómodo interactuar.
