@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -153,29 +152,6 @@ export default function AsistenteScreen() {
 
   return (
     <NexoScreen title={'Asistente · ' + assistant.name}>
-      <View style={styles.hero}>
-        <LinearGradient
-          pointerEvents="none"
-          colors={
-            assistant.id === 'nexa'
-              ? ['rgba(91,44,145,0.96)', 'rgba(55,27,100,0.95)', 'rgba(24,34,70,0.94)']
-              : ['rgba(24,82,156,0.96)', 'rgba(18,58,116,0.95)', 'rgba(13,39,83,0.94)']
-          }
-          style={StyleSheet.absoluteFill}
-        />
-
-        <View style={styles.heroCopy}>
-          <Text style={styles.name}>{assistant.name}</Text>
-          <Text style={styles.role}>{assistant.genderLabel} · {assistant.roleLabel}</Text>
-          <Text style={styles.scope}>
-            Ayuda limitada al funcionamiento y contenido de Nexo.
-          </Text>
-          {params.from ? (
-            <Text style={styles.context}>Sección actual: {String(params.from)}</Text>
-          ) : null}
-        </View>
-      </View>
-
       <AssistantStage key={assistant.id} profile={assistant} speaking={speaking} />
 
       <View style={[styles.message, { borderColor: palette.cardBorder }]}>
@@ -263,47 +239,6 @@ export default function AsistenteScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    position: 'relative',
-    overflow: 'hidden',
-    minHeight: 117,
-    borderRadius: 26,
-    padding: 19,
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(150,194,255,0.40)',
-    borderBottomWidth: 4,
-    borderBottomColor: 'rgba(61,49,132,0.95)',
-  },
-  heroCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  name: {
-    color: '#FFFFFF',
-    fontSize: 27,
-    fontWeight: '900',
-  },
-  role: {
-    color: '#AEEBFF',
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  scope: {
-    color: '#D6DFF4',
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 8,
-  },
-  context: {
-    color: '#9DACCB',
-    fontSize: 10,
-    marginTop: 7,
-  },
   message: {
     borderWidth: 1,
     borderRadius: 20,
