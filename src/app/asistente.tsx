@@ -176,7 +176,7 @@ export default function AsistenteScreen() {
         </View>
       </View>
 
-      <AssistantStage profile={assistant} speaking={speaking} />
+      <AssistantStage key={assistant.id} profile={assistant} speaking={speaking} />
 
       <View style={[styles.message, { borderColor: palette.cardBorder }]}>
         <Text style={[styles.messageTitle, { color: palette.title }]}>
