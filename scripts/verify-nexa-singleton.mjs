@@ -14,6 +14,16 @@ assert.ok(choose.includes("selectAssistant('nexa')"), 'Nexa must be the sole off
 assert.equal((screen.match(/<AssistantStage\b/g) || []).length, 1, 'Only one Nexa stage on the assistant screen');
 assert.ok(shell.includes("pathname === '/asistente' || pathname === '/elegir-asistente'"), 'No duplicate header avatar on stage screens');
 assert.ok(stage.includes('models/Nexa_FacialRig_V2.glb'), 'Single Nexa GLB path is required');
+assert.ok(stage.includes('installNexaPremiumLook'), 'Nexa premium 3D head / hair must be integrated');
+const premium = readFileSync('src/lib/nexa-premium-look.ts', 'utf8');
+assert.ok(premium.includes('Nexo N emblem'), 'Nexo N monograms must remain in the 3D model');
+assert.ok(premium.includes('Nexa long hair strand'), 'Nexa hair geometry must remain present');
+const faceTexture = 'public/models/nexa-reference-face.webp';
+assert.ok(existsSync(faceTexture), 'Approved Nexa face texture must be stored in the repository');
+const textureHeader = readFileSync(faceTexture);
+assert.equal(textureHeader.toString('ascii', 0, 4), 'RIFF', 'Nexa facial texture should be a WebP image');
+assert.equal(textureHeader.toString('ascii', 8, 12), 'WEBP', 'Invalid WebP facial reference');
+
 
 const file = 'public/models/Nexa_FacialRig_V2.glb';
 if (existsSync(file)) {
