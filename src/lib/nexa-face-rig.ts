@@ -1,145 +1,141 @@
 /**
- * Procedural facial motion for the one existing Nexa GLB.
+ * Facial expressions on the existing Nexa GLB.
+ * The source GLB has 68 body bones but zero supplied face blendshapes.
+ * Four localized, relative morph targets are generated at runtime so no
+ * second model, texture download, or new Meshy export is required.
  *
- * Meshy exported 68 body joints and zero facial blendshapes. We create small
- * morph targets on the skinned head surface at load-time so mouth, lids and
- * brows can respond without another downloaded character.
- *
- * These are approximate facial deformations, NOT phoneme-level lip sync.
- * A dedicated face rig would be required for exact speech articulation.
+ * This is approximate expression animation. True phoneme lip sync requires
+ * a dedicated facial rig and actual audio timing.
  */
 export type NexaFaceRig = {
-  update: (dt: number, seconds: number, speaking: boolean) => void;
   available: boolean;
+  update(dt: number, seconds: number, speaking: boolean): void;
+};
+type Handle = { mesh: any; start: number };
+const clamp = (x:number, a:number, b:number) => Math.max(a,Math.min(b,x));
+const smooth=(a:number,b:number,t:number)=>a+(b-a)*clamp(t,0,1);
+const gaussian=(x:number,y:number,z:number,cx:number,cy:number,cz:number,rx:number,ry:number,rz:number)=>{
+  const d=((x-cx)/rx)**2+((y-cy)/ry)**2+((z-cz)/rz)**2;
+  return Math.exp(-d*1.5);
 };
 
-type MorphHandle = { mesh: any; ids: { mouth: number; left: number; right: number; brow: number } };
+export function installNexaFaceRig(THREE:any, root:any):NexaFaceRig{
+  const meshes:Handle[]=[];
+  let head:any=null;
+  root.traverse?.((node:any)=>{
+    if(/mixamorig:Head$/i.test(node.name??''))head=node;
+    if(!node.isSkinnedMesh)return;
+    const geometry=node.geometry;
+    const positions=geometry?.getAttribute('position');
+    const joints=geometry?.getAttribute('skinIndex');
+    const weights=geometry?.getAttribute('skinWeight');
+    if(!positions||!joints||!weights)return;
+    const headIndex=node.skeleton?.bones?.findIndex((bone:any)=>/mixamorig:Head$/i.test(bone.name));
+    if(headIndex==null||headIndex<0)return;
 
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const radial = (x: number, y: number, z: number, cx: number, cy: number, cz: number, rx: number, ry: number, rz: number) => {
-  const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + ((z - cz) / rz) ** 2;
-  return Math.exp(-d * 1.65);
-};
-
-export function installNexaFaceRig(THREE: any, root: any): NexaFaceRig {
-  const handles: MorphHandle[] = [];
-  let head: any = null;
-  root.traverse?.((node: any) => {
-    if (/mixamorig:Head$/i.test(node.name ?? '')) head = node;
-    if (!node.isSkinnedMesh) return;
-    const geometry = node.geometry;
-    const position = geometry?.getAttribute('position');
-    const indices = geometry?.getAttribute('skinIndex');
-    const weights = geometry?.getAttribute('skinWeight');
-    if (!position || !indices || !weights) return;
-
-    const headIndex = node.skeleton?.bones?.findIndex((bone: any) => /mixamorig:Head$/i.test(bone.name));
-    if (headIndex === undefined || headIndex < 0) return;
-
-    const count = position.count;
-    const offsets: Record<'mouth'|'left'|'right'|'brow', Float32Array> = {
-      mouth: new Float32Array(count * 3),
-      left: new Float32Array(count * 3),
-      right: new Float32Array(count * 3),
-      brow: new Float32Array(count * 3),
-    };
-    let affected = 0;
-
-    for (let i = 0; i < count; i++) {
-      const x = position.getX(i);
-      const y = position.getY(i);
-      const z = position.getZ(i);
-      if (y < 1.47 || y > 1.69 || z < 0.072 || Math.abs(x) > 0.085) continue;
-      let headWeight = 0;
-      for (let k = 0; k < 4; k++) {
-        if (indices.getComponent(i, k) === headIndex) headWeight += weights.getComponent(i, k);
+    const count=positions.count;
+    const arrays=[
+      new Float32Array(count*3), // mouth
+      new Float32Array(count*3), // left blink
+      new Float32Array(count*3), // right blink
+      new Float32Array(count*3), // brow
+    ];
+    let affected=0;
+    for(let i=0;i<count;i++){
+      const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i);
+      if(y<1.465||y>1.655||z<0.083||Math.abs(x)>0.084)continue;
+      let headWeight=0;
+      for(let k=0;k<4;k++){
+        if(joints.getComponent(i,k)===headIndex)headWeight+=weights.getComponent(i,k);
       }
-      if (headWeight < 0.4) continue;
-      const front = clamp01((z - 0.073) / 0.043) * headWeight;
+      if(headWeight<0.52)continue;
+      const front=clamp((z-0.083)/0.042,0,1)*headWeight;
 
-      // Subtle vertical mouth opening, localized to lip region.
-      const mouth = radial(x,y,z,0,1.507,0.126,0.041,0.026,0.075) * front;
-      const upperOrLower = y < 1.507 ? -1 : 0.38;
-      offsets.mouth[i * 3 + 1] = mouth * upperOrLower * 0.009;
-      offsets.mouth[i * 3 + 2] = mouth * 0.003;
-
-      // Close eyelids towards each eye center, instead of distorting the skull.
-      for (const [key, ex] of [['left',-0.035],['right',0.035]] as const) {
-        const eye = radial(x,y,z,ex,1.590,0.123,0.026,0.023,0.080) * front;
-        offsets[key][i * 3 + 1] = eye * (1.590 - y) * 0.74;
-        offsets[key][i * 3 + 2] = eye * 0.001;
+      // Open mouth in two directions; keep cheeks and nose unaffected.
+      const mouth=gaussian(x,y,z,0,1.509,0.129,0.047,0.023,0.063)*front;
+      if(mouth>0.035){
+        affected++;
+        const lipTop=clamp((y-1.509)/0.028,-1,1);
+        arrays[0][i*3+1]=mouth*(lipTop<0?-0.017:0.007);
+        arrays[0][i*3+2]=mouth*0.004;
       }
 
-      const eyebrow = (
-        radial(x,y,z,-0.037,1.625,0.126,0.030,0.018,0.075) +
-        radial(x,y,z,0.037,1.625,0.126,0.030,0.018,0.075)
-      ) * front;
-      offsets.brow[i * 3 + 1] = eyebrow * 0.007;
-      if (mouth > 0.15 || eyebrow > 0.15) affected++;
-    }
+      // Eyelid surface converges towards the actual eye line.
+      for(const [index,eyeX] of [[1,-0.037],[2,0.037]] as const){
+        const lid=gaussian(x,y,z,eyeX,1.590,0.127,0.032,0.021,0.074)*front;
+        arrays[index][i*3+1]=lid*(1.590-y)*1.45;
+        arrays[index][i*3+2]=lid*0.002;
+        if(lid>0.08)affected++;
+      }
 
-    if (affected < 12) return;
-    geometry.morphTargetsRelative = true;
-    const target = geometry.morphAttributes.position ?? [];
-    const start = target.length;
-    for (const [name, arr] of Object.entries(offsets)) {
-      const a = new THREE.Float32BufferAttribute(arr, 3);
-      a.name = 'nexa_' + name;
-      target.push(a);
+      const brow=(
+        gaussian(x,y,z,-0.037,1.624,0.124,0.028,0.014,0.065)+
+        gaussian(x,y,z,0.037,1.624,0.124,0.028,0.014,0.065)
+      )*front;
+      arrays[3][i*3+1]=brow*0.012;
+      if(brow>0.09)affected++;
     }
-    geometry.morphAttributes.position = target;
-    // Rebuild morph influence indices once after adding new GPU blendshapes.
+    if(affected<20)return;
+    geometry.morphTargetsRelative=true;
+    const existing=geometry.morphAttributes.position ?? [];
+    const start=existing.length;
+    for(const [i,name] of ['mouth','leftBlink','rightBlink','brow'].entries()){
+      const attr=new THREE.Float32BufferAttribute(arrays[i],3);
+      attr.name='Nexa_'+name;
+      existing.push(attr);
+    }
+    geometry.morphAttributes.position=existing;
     node.updateMorphTargets();
-    handles.push({
-      mesh: node,
-      ids: { mouth:start, left:start+1, right:start+2, brow:start+3 },
-    });
+    meshes.push({mesh:node,start});
   });
 
-  let mouthValue = 0;
-  let browValue = 0;
-  let blinkAt = 2.3;
-  let blinkProgress = -1;
+  let lastMouth=0,lastBrow=0;
+  let nextBlink=2.6;
+  let blinkStart=-1;
+  const baseHead=head?.quaternion?.clone?.();
+  const nodQuat=head ? new THREE.Quaternion() : null;
+  const smallEuler=head ? new THREE.Euler(0,0,0,'YXZ') : null;
 
   return {
-    available: handles.length > 0,
-    update(dt: number, seconds: number, speaking: boolean) {
-      const t = Math.min(dt * 12, 1);
-      // Generated from the voice-active signal, not the actual audio waveform.
-      const syllables = speaking
-        ? clamp01(0.15 + 0.55 * Math.abs(Math.sin(seconds * 9.8)) + 0.35 * Math.abs(Math.sin(seconds * 14.1 + 1.3)))
-        : 0;
-      mouthValue = lerp(mouthValue, syllables, t);
-      browValue = lerp(browValue, speaking ? 0.35 + 0.35 * Math.sin(seconds * 1.5) ** 2 : 0.10 + 0.08 * Math.sin(seconds * 0.8) ** 2, Math.min(dt * 3.2, 1));
+    available:meshes.length>0,
+    update(dt:number,t:number,speaking:boolean){
+      // Varied phrase cadence and tiny closures instead of a fixed sine loop.
+      const cadence=Math.abs(Math.sin(t*8.9+0.24*Math.sin(t*2.2)));
+      const syllables=speaking ? clamp((cadence**1.35)*0.90 + 0.06*Math.abs(Math.sin(t*12.7)),0,1):0;
+      lastMouth=smooth(lastMouth,syllables,dt*(speaking?17:10));
+      const browGoal=speaking
+        ? 0.32+0.38*Math.sin(t*1.22+0.9)**2
+        : 0.10+0.17*Math.sin(t*0.6)**2;
+      lastBrow=smooth(lastBrow,browGoal,dt*3.6);
 
-      if (blinkProgress < 0 && seconds >= blinkAt) blinkProgress = 0;
-      let blink = 0;
-      if (blinkProgress >= 0) {
-        blinkProgress += dt / 0.22;
-        blink = Math.sin(Math.PI * Math.min(1, blinkProgress));
-        if (blinkProgress >= 1) {
-          blinkProgress = -1;
-          blinkAt = seconds + 2.4 + Math.random() * 2.4;
+      if(blinkStart<0&&t>nextBlink)blinkStart=t;
+      let eyeClose=0;
+      if(blinkStart>=0){
+        const progress=(t-blinkStart)/0.28;
+        eyeClose=Math.sin(Math.PI*clamp(progress,0,1))**0.80;
+        if(progress>=1){
+          blinkStart=-1;
+          nextBlink=t+2.1+Math.random()*2.9;
         }
       }
-
-      for (const { mesh, ids } of handles) {
-        const influences = mesh.morphTargetInfluences;
-        if (!influences) continue;
-        influences[ids.mouth] = mouthValue;
-        influences[ids.left] = blink;
-        influences[ids.right] = blink * 0.96;
-        influences[ids.brow] = browValue;
+      for(const {mesh,start} of meshes){
+        const influences=mesh.morphTargetInfluences;
+        if(!influences)continue;
+        influences[start]=lastMouth;
+        influences[start+1]=eyeClose;
+        influences[start+2]=eyeClose*0.98;
+        influences[start+3]=lastBrow;
       }
 
-      // Head motions piggyback on mixer-driven head bone, not the entire body.
-      // The mixer restores the animated quaternion on the next frame.
-      if (head) {
-        const nod = Math.sin(seconds * (speaking ? 1.8 : 0.72)) * (speaking ? 0.021 : 0.010);
-        const look = Math.sin(seconds * 0.41) * 0.027;
-        head.rotation.x += nod;
-        head.rotation.y += look;
+      // Rotations are based on the rest pose only if mixer does not animate head.
+      // Model's current clips do animate the head every frame; only a tiny additive nod.
+      if(head && nodQuat && smallEuler){
+        const nod=Math.sin(t*(speaking?1.9:0.5))*(speaking?0.016:0.007);
+        const look=Math.sin(t*0.32)*0.015;
+        smallEuler.set(nod,look,0,'YXZ');
+        nodQuat.setFromEuler(smallEuler);
+        if(baseHead && !head.quaternion) head.quaternion.copy(baseHead);
+        head.quaternion.multiply(nodQuat);
       }
     },
   };
