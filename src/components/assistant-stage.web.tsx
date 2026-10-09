@@ -25,6 +25,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const host = useRef<any>(null);
   const controller = useRef<NessaAnimationController | null>(null);
   const speakingRef = useRef(speaking);
+  const moveCount = useRef(0);
   const [loaded, setLoaded] = useState(false);
   const [motion, setMotion] = useState<NessaMotion>('Idle');
   const [status, setStatus] = useState<'loading' | 'ready' | 'fallback'>('loading');
@@ -39,9 +40,6 @@ export function AssistantStage({ profile, speaking = false }: Props) {
 
   useEffect(() => {
     controller.current = null;
-    setLoaded(false);
-    setStatus(isNessa ? 'loading' : 'fallback');
-    setMotion('Idle');
     if (!isNessa || !host.current || typeof window === 'undefined') return;
 
     let dead = false;
@@ -236,8 +234,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     const current = controller.current;
     if (!current || speaking) return;
     if (next === 'Greeting') current.greet();
-    else if (next === 'Walking') current.moveTo(Math.random() * 0.7 - 0.35, Math.random() * 0.45 - 0.22);
-    else if (next === 'Running') current.moveTo(Math.random() * 0.7 - 0.35, Math.random() * 0.45 - 0.22, true);
+    else if (next === 'Walking') current.moveTo(++moveCount.current % 2 ? 0.34 : -0.34, 0.1);
+    else if (next === 'Running') current.moveTo(++moveCount.current % 2 ? -0.34 : 0.34, -0.1, true);
     else current.stopMoving();
     setMotion(next);
   };
