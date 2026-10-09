@@ -71,7 +71,8 @@ function readStoredChoice(userId: string | null): AssistantId | null {
 
   try {
     const stored = window.localStorage.getItem(storageKey(userId));
-    return isAssistantId(stored) ? stored : null;
+    // During the Nexa-only rollout, legacy Nexo choices resolve to Nexa.
+    return stored === 'nexo' ? 'nexa' : isAssistantId(stored) ? stored : null;
   } catch {
     return null;
   }
@@ -79,7 +80,9 @@ function readStoredChoice(userId: string | null): AssistantId | null {
 
 function AssistantUserProvider({ userId, children }: AssistantUserProviderProps) {
   const [assistantId, setAssistantId] = useState<AssistantId | null>(
-    () => readStoredChoice(userId)
+    // Nexa is the single active assistant, including on mobile where localStorage
+    // is unavailable; no duplicate or repeated choice screen is needed.
+    () => readStoredChoice(userId) ?? 'nexa'
   );
 
   function selectAssistant(id: AssistantId) {
