@@ -13,7 +13,7 @@ export function AssistantStage({
   // Expo 57 DOM components use the bundled WebView for the same 3D stage
   // on Android and iOS; no extra native rendering dependency is required.
   return (
-    <View style={{ width: '100%', height: 380, overflow: 'hidden', borderRadius: 27 }}>
+    <View style={{ width: '100%', height: 430, overflow: 'hidden', borderRadius: 27 }}>
       <AssistantStageDom
         profile={profile}
         speaking={speaking}
