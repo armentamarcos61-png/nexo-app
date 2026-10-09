@@ -7,11 +7,11 @@ const screen = readFileSync('src/app/asistente.tsx','utf8');
 const stage = readFileSync('src/components/assistant-stage.web.tsx','utf8');
 const shell = readFileSync('src/components/nexo-screen.tsx','utf8');
 
-assert.equal((choose.match(/<AssistantStage\\b/g) || []).length, 1, 'Only one Nexa stage must exist on the chooser');
+assert.equal((choose.match(/<AssistantStage\b/g) || []).length, 1, 'Only one Nexa stage must exist on the chooser');
 assert.ok(!choose.includes('<AssistantAvatar'), 'No second static avatar on the chooser');
 assert.ok(!choose.includes('Object.keys(assistantProfiles)'), 'No second assistant option');
 assert.ok(choose.includes("selectAssistant('nexa')"), 'Nexa must be the sole offered choice');
-assert.equal((screen.match(/<AssistantStage\\b/g) || []).length, 1, 'Only one Nexa stage on the assistant screen');
+assert.equal((screen.match(/<AssistantStage\b/g) || []).length, 1, 'Only one Nexa stage on the assistant screen');
 assert.ok(shell.includes("pathname === '/asistente' || pathname === '/elegir-asistente'"), 'No duplicate header avatar on stage screens');
 assert.ok(stage.includes('models/nexa.glb'), 'Single Nexa GLB path is required');
 
