@@ -22,10 +22,10 @@ export type AssistantProfile = {
 export const assistantProfiles: Record<AssistantId, AssistantProfile> = {
   nexa: {
     id: 'nexa',
-    name: 'Nexa',
+    name: 'Nessa',
     genderLabel: 'Perfil femenino',
     roleLabel: 'Profesional serena',
-    greeting: 'Hola, soy Nexa. Estoy aquí para ayudarte a moverte por Nexo de forma clara y tranquila.',
+    greeting: 'Hola, soy Nessa. Estoy aquí para ayudarte a moverte por Nexo de forma clara y tranquila.',
     accent: '#9B5CFF',
     secondaryAccent: '#C18BFF',
   },
