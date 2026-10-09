@@ -4,7 +4,6 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { ProfilePhotoPicker } from '@/components/profile-photo-picker';
 import { useActivityVisibility } from '@/state/activity-visibility';
-import { useAssistant } from '@/state/assistant';
 import {
   appearanceOptions,
   getAppearancePalette,
@@ -25,7 +24,6 @@ export default function PerfilScreen() {
   const palette = getAppearancePalette(mode);
   const { profile, updateField } = useProfessionalProfile();
   const { showActivity, setShowActivity } = useActivityVisibility();
-  const { assistant } = useAssistant();
 
   const displayName = getDisplayName(profile);
   const completedFields = Object.values(profile).filter((value) => value.trim()).length;
