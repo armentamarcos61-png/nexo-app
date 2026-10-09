@@ -12,6 +12,9 @@ const LOADER_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/load
 
 function modelUrl() {
   // Use one GLB containing all five clips. Works on both root and /nexo-app deployments.
+  // Expo DOM components on Android/iOS serve public assets from EXPO_BASE_URL.
+  const expoBase = process.env.EXPO_BASE_URL;
+  if (expoBase) return expoBase.replace(/\\/?$/, '/') + 'models/nessa.glb';
   const prefix = location.pathname.startsWith('/nexo-app') ? '/nexo-app' : '';
   return prefix + '/models/nessa.glb';
 }
@@ -48,6 +51,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let model: any;
     let mixer: any;
     let observer: ResizeObserver | undefined;
+    let removeResize: (() => void) | undefined;
     let last = 0;
     let roamElapsed = 0;
     let pointerX = 0;
@@ -116,7 +120,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
         if (typeof ResizeObserver !== 'undefined') {
           observer = new ResizeObserver(resize);
           observer.observe(mount);
-        } else window.addEventListener('resize', resize);
+        } else {
+          window.addEventListener('resize', resize);
+          removeResize = () => window.removeEventListener('resize', resize);
+        }
 
         const loader = new GLTF.GLTFLoader();
         loader.load(
@@ -207,7 +214,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       cancelAnimationFrame(frame);
       mount.removeEventListener('pointermove', point);
       observer?.disconnect();
-      window.removeEventListener('resize', () => undefined);
+      removeResize?.();
       controller.current?.dispose();
       controller.current = null;
       if (model) {
