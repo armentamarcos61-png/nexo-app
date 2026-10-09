@@ -14,9 +14,9 @@ function modelUrl() {
   // Use one GLB containing all five clips. Works on both root and /nexo-app deployments.
   // Expo DOM components on Android/iOS serve public assets from EXPO_BASE_URL.
   const expoBase = process.env.EXPO_BASE_URL;
-  if (expoBase) return (expoBase.endsWith('/') ? expoBase : expoBase + '/') + 'models/nexa.glb';
+  if (expoBase) return (expoBase.endsWith('/') ? expoBase : expoBase + '/') + 'models/Nexa_Unica_Interactiva.glb';
   const prefix = location.pathname.startsWith('/nexo-app') ? '/nexo-app' : '';
-  return prefix + '/models/nexa.glb';
+  return prefix + '/models/Nexa_Unica_Interactiva.glb';
 }
 
 export function AssistantStage({ profile, speaking = false }: Props) {
