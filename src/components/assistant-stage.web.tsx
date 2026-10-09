@@ -5,6 +5,7 @@ import type { AssistantProfile } from '@/state/assistant';
 import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController, type NexaMotion } from '@/lib/nexa-animation-controller';
+import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/+esm';
@@ -26,6 +27,9 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const controller = useRef<NexaAnimationController | null>(null);
   const speakingRef = useRef(speaking);
   const moveCount = useRef(0);
+  const zoom = useRef(1.38);
+  const yaw = useRef(0);
+  const pitch = useRef(0);
   const [loaded, setLoaded] = useState(false);
   const [motion, setMotion] = useState<NexaMotion>('Idle');
   const [status, setStatus] = useState<'loading' | 'ready' | 'fallback'>('loading');
@@ -48,12 +52,17 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let scene: any;
     let model: any;
     let mixer: any;
+    let faceRig: NexaFaceRig | null = null;
+    let cameraDistance = zoom.current;
+    let cameraYaw = yaw.current;
+    let cameraPitch = pitch.current;
+    let previousMotion: NexaMotion = 'Idle';
+    let dragStart: { id: number; x: number; y: number } | null = null;
     let observer: ResizeObserver | undefined;
     let removeResize: (() => void) | undefined;
     let last = 0;
     let roamElapsed = 0;
-    let pointerX = 0;
-    let pointerY = 0;
+
     const mount = host.current;
     mount.replaceChildren();
 
@@ -68,14 +77,14 @@ export function AssistantStage({ profile, speaking = false }: Props) {
 
         scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(33, 1, 0.01, 100);
-        camera.position.set(0, 0.65, 5.1);
-        camera.lookAt(0, 0.03, 0);
+        camera.position.set(0, 1.0, 1.38);
+        camera.lookAt(0, 0.91, 0);
         renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.12;
-        renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;touch-action:pan-y;pointer-events:none';
+        renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;pointer-events:auto';
         mount.appendChild(renderer.domElement);
 
         scene.add(new THREE.HemisphereLight(0xe7f5ff, 0x161529, 2.8));
@@ -151,12 +160,18 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               }
             });
             scene.add(model);
+            faceRig = installNexaFaceRig(THREE, model);
             mixer = new THREE.AnimationMixer(model);
             const actions: any = {};
             for (const name of required) {
               actions[name] = mixer.clipAction(gltf.animations.find((clip: any) => clip.name === name));
               actions[name].enabled = true;
-              actions[name].setLoop(THREE.LoopRepeat);
+              if (name === 'Greeting') {
+                actions[name].setLoop(THREE.LoopOnce, 1);
+                actions[name].clampWhenFinished = true;
+              } else {
+                actions[name].setLoop(THREE.LoopRepeat);
+              }
             }
             controller.current = new NexaAnimationController(mixer, actions, model);
             if (speakingRef.current) controller.current.startSpeaking();
@@ -276,7 +291,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             position: 'absolute', inset: 0,
             opacity: loaded ? 1 : 0,
             transition: 'opacity 350ms ease',
-            pointerEvents: 'none',
+            pointerEvents: 'auto',
+            touchAction: 'none',
           },
         })}
       </View>
@@ -308,7 +324,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
 }
 
 const styles = StyleSheet.create({
-  stage: { width: '100%', height: 380, borderRadius: 27, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(119,167,244,.55)', backgroundColor: '#0F162B', position: 'relative' },
+  stage: { width: '100%', height: 430, borderRadius: 27, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(119,167,244,.55)', backgroundColor: '#0F162B', position: 'relative' },
   glow: { position: 'absolute', width: 235, height: 235, borderRadius: 999, left: '19%', top: 66, backgroundColor: 'rgba(97,105,228,.09)', borderWidth: 1, borderColor: 'rgba(119,178,255,.12)' },
   topline: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingTop: 13, zIndex: 2 },
   onlineDot: { backgroundColor: '#6FF2BD', width: 7, height: 7, borderRadius: 8 },
