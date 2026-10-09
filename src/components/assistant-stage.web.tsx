@@ -203,7 +203,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           scene.add(modelRoot);
           // New visible 3D cap, hair, Nexo emblems and violet eyes follow the
           // existing animated head bone; original five motion clips remain.
-          premiumLook=installNexaPremiumLook(THREE,modelRoot,scene);
+          premiumLook=installNexaPremiumLook(THREE,modelRoot,scene,getModelUrl().replace('Nexa_FacialRig_V2.glb','nexa-reference-face.webp'));
           faceRig=installNexaFaceRig(THREE,modelRoot);
           const mixer=new THREE.AnimationMixer(modelRoot);
           const actions: any={};
