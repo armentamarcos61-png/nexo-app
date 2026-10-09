@@ -52,8 +52,8 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any): Premi
   }
   function pill(parent: any, pos: number[], size: number[], mat: any, name: string) {
     const shape = add(parent, new THREE.SphereGeometry(1, 28, 18), mat, name);
-    shape.position.set(...pos);
-    shape.scale.set(...size);
+    shape.position.set(pos[0],pos[1],pos[2]);
+    shape.scale.set(size[0],size[1],size[2]);
     return shape;
   }
   function tube(parent: any, points: number[][], radius: number, mat: any, name: string) {
@@ -62,8 +62,8 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any): Premi
   }
   function torus(parent: any, center: number[], radius: number, material: any, rotation: number[], name: string) {
     const obj=add(parent,new THREE.TorusGeometry(radius,0.0027,8,64),material,name);
-    obj.position.set(...center);
-    obj.rotation.set(...rotation);
+    obj.position.set(center[0],center[1],center[2]);
+    obj.rotation.set(rotation[0],rotation[1],rotation[2]);
     return obj;
   }
 
@@ -96,7 +96,7 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any): Premi
 
   function logo(parent:any, position:number[], radius:number, faceDirection:'front'|'left'|'right' = 'front') {
     const group = new THREE.Group();
-    group.position.set(...position);
+    group.position.set(position[0],position[1],position[2]);
     if(faceDirection==='left')group.rotation.y=-Math.PI/2;
     if(faceDirection==='right')group.rotation.y=Math.PI/2;
     parent.add(group);
