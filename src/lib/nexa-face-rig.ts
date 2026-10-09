@@ -92,7 +92,6 @@ export function installNexaFaceRig(THREE:any, root:any):NexaFaceRig{
   let lastMouth=0,lastBrow=0;
   let nextBlink=2.6;
   let blinkStart=-1;
-  const baseHead=head?.quaternion?.clone?.();
   const nodQuat=head ? new THREE.Quaternion() : null;
   const smallEuler=head ? new THREE.Euler(0,0,0,'YXZ') : null;
 
