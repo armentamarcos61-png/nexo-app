@@ -8,7 +8,7 @@
  */
 export type PremiumNexaLook = { update(dt: number, time: number): void; dispose(): void };
 
-export function installNexaPremiumLook(THREE: any, root: any, scene: any): PremiumNexaLook {
+export function installNexaPremiumLook(THREE: any, root: any, scene: any, referenceUrl: string): PremiumNexaLook {
   root.updateMatrixWorld(true);
   const head = root.getObjectByName('mixamorig:Head');
   if (!head) return { update() {}, dispose() {} };
@@ -42,6 +42,9 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any): Premi
   const catchlight = new THREE.MeshBasicMaterial({ color: 0xf6eeff });
   const materials = [matteWhite, ivory, dark, hairMat, hairHighlight, violet, glow, iris, pupil, catchlight];
   const meshes: any[] = [];
+  let active = true;
+  const originalFaceMaterials: { mesh: any; material: any; geometry: any }[] = [];
+  let referenceTexture: any = null;
 
   function add(parent: any, geometry: any, material: any, name?: string) {
     const mesh = new THREE.Mesh(geometry, material);
@@ -174,6 +177,52 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any): Premi
     pill(look,[x-0.003,-0.029,0.186],[0.002,0.0021,0.001],catchlight,'Eye catchlight');
   }
 
+  // Reproject the approved illustration's facial features onto the genuine
+  // skinned facial surface. The skin mesh keeps all morph target animations.
+  // No billboard/sprite is used; turning Nexa still reveals a 3D face.
+  const faceMaterialMeshes: any[] = [];
+  root.traverse((node: any) => {
+    if (!node.isSkinnedMesh) return;
+    const name = Array.isArray(node.material) ? '' : node.material?.name ?? '';
+    if (name === 'Nexa_Soft_Facial_Skin') faceMaterialMeshes.push(node);
+  });
+  if (faceMaterialMeshes.length) {
+    new THREE.TextureLoader().load(referenceUrl, (texture: any) => {
+      if (!active) { texture.dispose(); return; }
+      texture.colorSpace=THREE.SRGBColorSpace;
+      texture.anisotropy=4;
+      texture.wrapS=THREE.ClampToEdgeWrapping;
+      texture.wrapT=THREE.ClampToEdgeWrapping;
+      referenceTexture=texture;
+      for(const mesh of faceMaterialMeshes){
+        const oldGeometry=mesh.geometry;
+        const oldMaterial=mesh.material;
+        const geometry=oldGeometry.clone();
+        const positions=geometry.getAttribute('position');
+        const uv=new Float32Array(positions.count*2);
+        for(let i=0;i<positions.count;i++){
+          const x=positions.getX(i),y=positions.getY(i);
+          // Front-facing photo: brows ~1.62, eyes ~1.59,
+          // lips ~1.52 in the original character's mesh coordinates.
+          uv[i*2]=Math.max(0,Math.min(1,(x+0.09)/0.18));
+          uv[i*2+1]=Math.max(0,Math.min(1,(y-1.49)/0.19));
+        }
+        geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+        const material=oldMaterial.clone();
+        material.map=texture;
+        material.color.set(0xffffff);
+        material.metalness=0;
+        material.roughness=0.78;
+        material.normalMap=null;
+        material.needsUpdate=true;
+        mesh.geometry=geometry;
+        mesh.material=material;
+        mesh.updateMorphTargets();
+        originalFaceMaterials.push({mesh,material:oldMaterial,geometry:oldGeometry});
+      }
+    },undefined,()=>{ /* Preserve original facial material if image is offline. */ });
+  }
+
   // Chest insignia belongs to the body so it doesn't sway with the head.
   const badge=new THREE.Group();
   badge.position.set(0.117,1.28,0.145);
@@ -200,6 +249,14 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any): Premi
       }
     },
     dispose() {
+      active=false;
+      for(const item of originalFaceMaterials){
+        item.mesh.geometry.dispose?.();
+        item.mesh.material.dispose?.();
+        item.mesh.geometry=item.geometry;
+        item.mesh.material=item.material;
+      }
+      referenceTexture?.dispose?.();
       for(const item of meshes)item.geometry?.dispose?.();
       for(const material of materials)material.dispose?.();
       logoMaterial.dispose?.();
