@@ -13,9 +13,9 @@ assert.ok(!choose.includes('Object.keys(assistantProfiles)'), 'No second assista
 assert.ok(choose.includes("selectAssistant('nexa')"), 'Nexa must be the sole offered choice');
 assert.equal((screen.match(/<AssistantStage\b/g) || []).length, 1, 'Only one Nexa stage on the assistant screen');
 assert.ok(shell.includes("pathname === '/asistente' || pathname === '/elegir-asistente'"), 'No duplicate header avatar on stage screens');
-assert.ok(stage.includes('models/nexa.glb'), 'Single Nexa GLB path is required');
+assert.ok(stage.includes('models/Nexa_Unica_Interactiva.glb'), 'Single Nexa GLB path is required');
 
-const file = 'public/models/nexa.glb';
+const file = 'public/models/Nexa_Unica_Interactiva.glb';
 if (existsSync(file)) {
   const binary = readFileSync(file);
   assert.equal(binary.toString('ascii',0,4),'glTF', 'The Nexa model must be a GLB');
