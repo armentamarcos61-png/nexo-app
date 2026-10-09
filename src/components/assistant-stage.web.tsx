@@ -14,9 +14,9 @@ const clamp = (x: number, minimum: number, maximum: number) => Math.max(minimum,
 
 function getModelUrl() {
   const base = process.env.EXPO_BASE_URL;
-  if (base) return (base.endsWith('/') ? base : base + '/') + 'models/Nexa_Unica_Interactiva.glb';
+  if (base) return (base.endsWith('/') ? base : base + '/') + 'models/Nexa_FacialRig_Pro.glb';
   const prefix = globalThis.location?.pathname?.startsWith('/nexo-app') ? '/nexo-app' : '';
-  return prefix + '/models/Nexa_Unica_Interactiva.glb';
+  return prefix + '/models/Nexa_FacialRig_Pro.glb';
 }
 
 /** One circular, close-up 3D Nexa. No duplicate photo/model or zoom buttons. */
