@@ -225,19 +225,41 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       }
     }
 
-    // Pointer movement only controls a mild look direction, not the camera.
-    const point = (event: PointerEvent) => {
-      const rect = mount.getBoundingClientRect();
-      pointerX = Math.max(-1, Math.min(1, (event.clientX - rect.left) / Math.max(rect.width, 1) * 2 - 1));
-      pointerY = Math.max(-1, Math.min(1, (event.clientY - rect.top) / Math.max(rect.height, 1) * 2 - 1));
-      void pointerY;
+    // Touch and mouse drag turn Nexa subtly, without twisting the body.
+    const down = (event: PointerEvent) => {
+      dragStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      mount.setPointerCapture?.(event.pointerId);
     };
-    mount.addEventListener('pointermove', point);
+    const move = (event: PointerEvent) => {
+      if (!dragStart || dragStart.id !== event.pointerId) return;
+      const dx = event.clientX - dragStart.x;
+      const dy = event.clientY - dragStart.y;
+      yaw.current = Math.max(-0.42, Math.min(0.42, yaw.current - dx * 0.004));
+      pitch.current = Math.max(-0.22, Math.min(0.22, pitch.current + dy * 0.003));
+      dragStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    };
+    const up = (event: PointerEvent) => {
+      if (dragStart?.id === event.pointerId) dragStart = null;
+    };
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      zoom.current = Math.max(0.95, Math.min(4.1, zoom.current + event.deltaY * 0.003));
+    };
+    mount.style.touchAction = 'none';
+    mount.addEventListener('pointerdown', down);
+    mount.addEventListener('pointermove', move);
+    mount.addEventListener('pointerup', up);
+    mount.addEventListener('pointercancel', up);
+    mount.addEventListener('wheel', wheel, { passive: false });
     void start();
     return () => {
       dead = true;
       cancelAnimationFrame(frame);
-      mount.removeEventListener('pointermove', point);
+      mount.removeEventListener('pointerdown', down);
+      mount.removeEventListener('pointermove', move);
+      mount.removeEventListener('pointerup', up);
+      mount.removeEventListener('pointercancel', up);
+      mount.removeEventListener('wheel', wheel);
       observer?.disconnect();
       removeResize?.();
       controller.current?.dispose();
