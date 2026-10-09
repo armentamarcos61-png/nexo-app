@@ -24,6 +24,16 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Configurar Python para Nexa 3D
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generar el modelo 3D de Nexa para las pruebas
+        run: |
+          python -m pip install numpy==2.2.6
+          python scripts/build_nexa_face.py
+
       - name: Verificar TypeScript
         run: npx tsc --noEmit
 
