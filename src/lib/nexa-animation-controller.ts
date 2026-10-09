@@ -1,17 +1,11 @@
 /**
- * Control de movimiento de Nexa: un único GLB con 5 clips.
- *
- * El visor 3D debe construir AnimationMixer y sus acciones con
- * los nombres exactos: Idle, Walking, Running, Greeting y Talking.
- * Llama a update(deltaSeconds) desde el bucle de renderizado; el motor
- * interpola los movimientos en cada fotograma (objetivo: 60 FPS,
- * sujeto al rendimiento del dispositivo).
- *
- * Este módulo no carga el GLB: debe añadirse como asset al visor.
+ * Animaciones de Nexa. Un solo GLB y transiciones fluidas:
+ * gestos de 4-7 s, aceleración y frenado gradual. Sin archivos extra.
  */
 export type NexaMotion = 'Idle' | 'Walking' | 'Running' | 'Greeting' | 'Talking';
 
 export interface NexaAnimationAction {
+  timeScale: number;
   reset(): this;
   play(): this;
   fadeIn(duration: number): this;
@@ -19,147 +13,128 @@ export interface NexaAnimationAction {
   stop(): this;
 }
 
-export interface NexaAnimationMixer {
-  update(deltaSeconds: number): void;
-}
-
+export interface NexaAnimationMixer { update(deltaSeconds: number): void; }
 export interface NexaTransform {
   position: { x: number; y: number; z: number };
   rotation: { y: number };
 }
 
 type Actions = Record<NexaMotion, NexaAnimationAction>;
-type Destination = { x: number; z: number; running: boolean };
-const CLIP_NAMES: NexaMotion[] = ['Idle', 'Walking', 'Running', 'Greeting', 'Talking'];
-const FADE_SECONDS = 0.23;
-const WALK_SPEED = 0.5;
-const RUN_SPEED = 1.0;
-const TURN_SPEED = 4.0;
-const MAX_DISTANCE_FROM_CENTER = 1.4;
+const MOTIONS: NexaMotion[] = ['Idle', 'Walking', 'Running', 'Greeting', 'Talking'];
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+const ease = (t: number) => { const a = clamp(t, 0, 1); return a * a * (3 - 2 * a); };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
-
-function normalizeAngle(angle: number) {
-  return Math.atan2(Math.sin(angle), Math.cos(angle));
-}
-
-/**
- * Los movimientos se eligen según eventos de Nexo, no mediante un video
- * predeterminado. La respuesta por voz tiene prioridad sobre caminar.
- */
 export class NexaAnimationController {
-  private mode: NexaMotion = 'Idle';
+  private modeValue: NexaMotion = 'Idle';
   private started = false;
   private speaking = false;
-  private greetingRemaining = 0;
-  private target: Destination | null = null;
   private elapsed = 0;
+  private timeLeft = 0;
+  private duration = 0;
+  private baseYaw = 0;
+  private initialX: number;
+  private initialZ: number;
+  private readonly baselines: Record<NexaMotion, number> = {
+    Idle: 0.83,
+    Walking: 0.83,
+    Running: 0.77,
+    Greeting: 0.43, // 1.9-second greeting stretched to ~4.4 seconds.
+    Talking: 0.83,
+  };
 
   constructor(
     private readonly mixer: NexaAnimationMixer,
     private readonly actions: Actions,
-    private readonly model: NexaTransform
+    private readonly model: NexaTransform,
   ) {
-    for (const name of CLIP_NAMES) {
-      if (!actions[name]) throw new Error('Falta la animación: ' + name);
+    for (const name of MOTIONS) {
+      if (!actions[name]) throw new Error('Falta la animación de Nexa: ' + name);
     }
+    this.initialX = model.position.x;
+    this.initialZ = model.position.z;
     this.setMotion('Idle');
   }
 
-  get motion(): NexaMotion {
-    return this.mode;
-  }
+  get motion(): NexaMotion { return this.modeValue; }
 
-  private setMotion(next: NexaMotion) {
-    if (this.started && this.mode === next) return;
-    if (this.started) this.actions[this.mode].fadeOut(FADE_SECONDS);
-    this.actions[next].reset().fadeIn(FADE_SECONDS).play();
-    this.mode = next;
+  private setMotion(next: NexaMotion, duration = 0) {
+    if (this.started && this.modeValue === next) {
+      if (duration > 0) { this.timeLeft = duration; this.duration = duration; }
+      return;
+    }
+    if (this.started) this.actions[this.modeValue].fadeOut(0.85);
+    const action = this.actions[next];
+    action.reset();
+    action.timeScale = this.baselines[next];
+    action.fadeIn(0.85).play();
+    this.modeValue = next;
+    this.timeLeft = duration;
+    this.duration = duration;
+    this.elapsed = 0;
+    this.baseYaw = this.model.rotation.y;
     this.started = true;
   }
 
-  /** Activar al abrir el asistente. */
   greet() {
     if (this.speaking) return;
-    this.target = null;
-    this.greetingRemaining = 1.9;
-    this.setMotion('Greeting');
+    this.setMotion('Greeting', 5.5);
   }
 
-  /** Conectar con el evento onStart de la voz de Nexo. */
+  /** Voz actual: mover gestos continuamente hasta que termine. */
   startSpeaking() {
     this.speaking = true;
-    this.greetingRemaining = 0;
-    this.target = null;
     this.setMotion('Talking');
   }
 
-  /** Conectar con onDone, onStopped y onError. */
   stopSpeaking() {
+    if (!this.speaking) return;
     this.speaking = false;
     this.setMotion('Idle');
   }
 
-  /**
-   * Ordena a Nexa desplazarse a otra posición del pequeño escenario 3D.
-   * Puede caminar o correr sin descargar animaciones nuevas.
-   */
-  moveTo(x: number, z: number, running = false) {
-    this.greetingRemaining = 0;
-    this.target = {
-      x: clamp(x, -MAX_DISTANCE_FROM_CENTER, MAX_DISTANCE_FROM_CENTER),
-      z: clamp(z, -MAX_DISTANCE_FROM_CENTER, MAX_DISTANCE_FROM_CENTER),
-      running,
-    };
-    if (!this.speaking) this.setMotion(running ? 'Running' : 'Walking');
+  /** Mantener caminar/correr varios segundos y luego detenerse suavemente. */
+  moveTo(_x: number, _z: number, running = false) {
+    if (this.speaking) return;
+    this.setMotion(running ? 'Running' : 'Walking', running ? 5.4 : 6.5);
   }
 
   stopMoving() {
-    this.target = null;
-    if (!this.speaking && this.greetingRemaining <= 0) this.setMotion('Idle');
-  }
-
-  /** Llamar UNA vez por frame: deltaSeconds del reloj del renderizador. */
-  update(deltaSeconds: number) {
-    const dt = clamp(Number.isFinite(deltaSeconds) ? deltaSeconds : 0, 0, 0.1);
-    this.elapsed += dt;
-    this.mixer.update(dt);
-
     if (this.speaking) return;
-
-    if (this.greetingRemaining > 0) {
-      this.greetingRemaining -= dt;
-      if (this.greetingRemaining <= 0) this.setMotion('Idle');
-      return;
-    }
-
-    if (this.target) {
-      const dx = this.target.x - this.model.position.x;
-      const dz = this.target.z - this.model.position.z;
-      const distance = Math.hypot(dx, dz);
-      if (distance < 0.025) {
-        this.target = null;
-        this.setMotion('Idle');
-        return;
-      }
-      const desiredYaw = Math.atan2(dx, dz);
-      const angleDifference = normalizeAngle(desiredYaw - this.model.rotation.y);
-      this.model.rotation.y += clamp(angleDifference, -TURN_SPEED * dt, TURN_SPEED * dt);
-      const step = Math.min(distance, (this.target.running ? RUN_SPEED : WALK_SPEED) * dt);
-      this.model.position.x += (dx / distance) * step;
-      this.model.position.z += (dz / distance) * step;
-      this.setMotion(this.target.running ? 'Running' : 'Walking');
-      return;
-    }
-
-    // Movimiento espontáneo discreto mientras espera: mira ligeramente alrededor.
-    this.model.rotation.y = 0.08 * Math.sin(this.elapsed * 0.45);
     this.setMotion('Idle');
   }
 
+  update(deltaSeconds: number) {
+    const dt = clamp(Number.isFinite(deltaSeconds) ? deltaSeconds : 0, 0, 0.08);
+    this.mixer.update(dt);
+    this.elapsed += dt;
+
+    if (this.speaking) {
+      this.model.rotation.y += (this.baseYaw + Math.sin(this.elapsed * 0.6) * 0.018 - this.model.rotation.y) * Math.min(1, dt * 1.2);
+      return;
+    }
+
+    if (this.timeLeft > 0) {
+      this.timeLeft = Math.max(0, this.timeLeft - dt);
+      const elapsedFraction = this.duration ? (this.duration - this.timeLeft) / this.duration : 1;
+      // Ease in and out; the last 1.25 s decelerate before fading into idle.
+      const start = ease(elapsedFraction / 0.17);
+      const end = ease(this.timeLeft / 1.25);
+      const speed = this.baselines[this.modeValue] * (0.48 + 0.52 * Math.min(start, end));
+      this.actions[this.modeValue].timeScale = speed;
+      const yaw = this.baseYaw + Math.sin(this.elapsed * 0.45) * 0.035 * Math.min(start, end);
+      this.model.rotation.y += (yaw - this.model.rotation.y) * Math.min(1, dt * 2.6);
+      if (this.timeLeft <= 0) this.setMotion('Idle');
+      return;
+    }
+
+    // Minimal body motion while waiting; no robotic wandering off camera.
+    this.model.rotation.y += (Math.sin(this.elapsed * 0.37) * 0.025 - this.model.rotation.y) * Math.min(1, dt * 0.55);
+    this.model.position.x += (this.initialX - this.model.position.x) * Math.min(1, dt * 0.8);
+    this.model.position.z += (this.initialZ - this.model.position.z) * Math.min(1, dt * 0.8);
+  }
+
   dispose() {
-    this.target = null;
-    for (const name of CLIP_NAMES) this.actions[name].stop();
+    this.speaking = false;
+    for (const name of MOTIONS) this.actions[name].stop();
   }
 }
