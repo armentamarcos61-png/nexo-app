@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { AssistantProfile } from '@/state/assistant';
 import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
-import { NessaAnimationController, type NessaMotion } from '@/lib/nessa-animation-controller';
+import { NexaAnimationController, type NexaMotion } from '@/lib/nexa-animation-controller';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/+esm';
@@ -14,20 +14,20 @@ function modelUrl() {
   // Use one GLB containing all five clips. Works on both root and /nexo-app deployments.
   // Expo DOM components on Android/iOS serve public assets from EXPO_BASE_URL.
   const expoBase = process.env.EXPO_BASE_URL;
-  if (expoBase) return (expoBase.endsWith('/') ? expoBase : expoBase + '/') + 'models/nessa.glb';
+  if (expoBase) return (expoBase.endsWith('/') ? expoBase : expoBase + '/') + 'models/nexa.glb';
   const prefix = location.pathname.startsWith('/nexo-app') ? '/nexo-app' : '';
-  return prefix + '/models/nessa.glb';
+  return prefix + '/models/nexa.glb';
 }
 
 export function AssistantStage({ profile, speaking = false }: Props) {
-  const isNessa = profile.id === 'nexa';
-  const image = isNessa ? NEXA_IMAGE_DATA : NEXO_IMAGE_DATA;
+  const isNexa = profile.id === 'nexa';
+  const image = isNexa ? NEXA_IMAGE_DATA : NEXO_IMAGE_DATA;
   const host = useRef<any>(null);
-  const controller = useRef<NessaAnimationController | null>(null);
+  const controller = useRef<NexaAnimationController | null>(null);
   const speakingRef = useRef(speaking);
   const moveCount = useRef(0);
   const [loaded, setLoaded] = useState(false);
-  const [motion, setMotion] = useState<NessaMotion>('Idle');
+  const [motion, setMotion] = useState<NexaMotion>('Idle');
   const [status, setStatus] = useState<'loading' | 'ready' | 'fallback'>('loading');
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
 
   useEffect(() => {
     controller.current = null;
-    if (!isNessa || !host.current || typeof window === 'undefined') return;
+    if (!isNexa || !host.current || typeof window === 'undefined') return;
 
     let dead = false;
     let frame = 0;
@@ -129,7 +129,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           (gltf: any) => {
             if (dead) return;
             // Reject the wrong file instead of showing a frozen/incorrect model.
-            const required: NessaMotion[] = ['Idle', 'Walking', 'Running', 'Greeting', 'Talking'];
+            const required: NexaMotion[] = ['Idle', 'Walking', 'Running', 'Greeting', 'Talking'];
             if (!required.every(name => gltf.animations.some((clip: any) => clip.name === name))) {
               setStatus('fallback');
               return;
@@ -158,7 +158,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               actions[name].enabled = true;
               actions[name].setLoop(THREE.LoopRepeat);
             }
-            controller.current = new NessaAnimationController(mixer, actions, model);
+            controller.current = new NexaAnimationController(mixer, actions, model);
             if (speakingRef.current) controller.current.startSpeaking();
             else controller.current.greet();
             setLoaded(true);
@@ -228,9 +228,9 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       renderer?.dispose?.();
       renderer?.domElement?.remove?.();
     };
-  }, [profile.id, isNessa]);
+  }, [profile.id, isNexa]);
 
-  const command = (next: NessaMotion) => {
+  const command = (next: NexaMotion) => {
     const current = controller.current;
     if (!current || speaking) return;
     if (next === 'Greeting') current.greet();
@@ -266,11 +266,11 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             opacity: loaded ? 0 : 1,
             filter: 'drop-shadow(0 7px 22px rgba(89,113,240,.34))',
             transition: 'opacity 350ms ease',
-            animation: loaded ? 'none' : 'nessaBreathe 4.2s ease-in-out infinite',
+            animation: loaded ? 'none' : 'nexaBreathe 4.2s ease-in-out infinite',
             pointerEvents: 'none',
           },
         })}
-        {isNessa && React.createElement('div', {
+        {isNexa && React.createElement('div', {
           ref: host, 'aria-hidden': true,
           style: {
             position: 'absolute', inset: 0,
@@ -300,7 +300,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       </View>
       {React.createElement('style', {
         dangerouslySetInnerHTML: {
-          __html: '@keyframes nessaBreathe{0%,100%{transform:translateY(2px) scale(.985)}50%{transform:translateY(-5px) scale(1.01)}}',
+          __html: '@keyframes nexaBreathe{0%,100%{transform:translateY(2px) scale(.985)}50%{transform:translateY(-5px) scale(1.01)}}',
         },
       })}
     </View>
