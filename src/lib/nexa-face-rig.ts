@@ -33,9 +33,7 @@ const approach = (a: number, b: number, dt: number, speed: number) =>
 
 export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
   const bound: BoundMesh[] = [];
-  let headBone: any = null;
   root.traverse?.((node: any) => {
-    if (/mixamorig:Head$/i.test(node.name ?? '')) headBone = node;
     if ((!node.isSkinnedMesh && !node.isMesh) || !node.morphTargetDictionary || !node.morphTargetInfluences) return;
     const dictionary: Record<string, number> = node.morphTargetDictionary;
     if (!REQUIRED.every(name => Number.isInteger(dictionary[name]))) return;
@@ -58,20 +56,13 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
   let browHold = 0;
   let browLeft = 0.12;
   let browRight = 0.1;
-  let headOffsetX = 0;
-  let headOffsetY = 0;
   const smooth = (t: number) => { const v=clamp(t,0,1); return v*v*(3-2*v); };
 
   return {
     available: bound.length > 0,
-    // Remove our additive pose before the mixer samples the next body pose.
-    // This also prevents drift when a future clip has no head track.
-    beforeUpdate() {
-      if (!headBone) return;
-      headBone.rotation.x -= headOffsetX;
-      headBone.rotation.y -= headOffsetY;
-      headOffsetX = headOffsetY = 0;
-    },
+    // Deliberately never move the skull or neck to imitate eyelids or speech.
+    // The facial morphs alone drive eyes, brows and lips.
+    beforeUpdate() {},
     update(dt: number, seconds: number, speaking: boolean) {
       if (!Number.isFinite(dt) || dt <= 0 || bound.length === 0) return;
       dt = Math.min(dt, 0.08);
@@ -83,10 +74,10 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       if (speaking) {
         mouthHold -= dt;
         if (mouthHold <= 0) {
-          mouthHold = 0.10 + Math.random() * 0.16;
+          mouthHold = 0.09 + Math.random() * 0.12;
           vowel = Math.random();
-          // Many phonemes close the lips altogether.
-          mouthGoal = Math.random() < 0.22 ? 0 : 0.28 + Math.random() * 0.48;
+          // Alternating clearly-open vowels and momentary lip closures.
+          mouthGoal = Math.random() < 0.26 ? 0 : 0.44 + Math.random() * 0.32;
         }
       } else {
         mouthGoal = 0;
@@ -94,10 +85,10 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       }
       // The rebuilt lip seam opens over a recessed oral cavity.
       // Vowel-like poses are approximate: TTS exposes no phoneme timings.
-      s('MouthOpen', mouthGoal, speaking ? 15 : 12);
-      s('MouthO', speaking && vowel < 0.34 ? mouthGoal * 0.65 : 0, 9);
-      s('MouthWide', speaking && vowel > 0.66 ? mouthGoal * 0.55 : 0, 9);
-      s('MouthSmile', speaking ? 0.055 : 0.11, 2.5);
+      s('MouthOpen', mouthGoal, speaking ? 19 : 14);
+      s('MouthO', speaking && vowel < 0.34 ? mouthGoal * 0.31 : 0, 12);
+      s('MouthWide', speaking && vowel > 0.66 ? mouthGoal * 0.29 : 0, 12);
+      s('MouthSmile', speaking ? 0.025 : 0.08, 3.5);
 
       if (blinkStart < 0 && seconds >= nextBlink) blinkStart = seconds;
       let blink = 0;
@@ -112,12 +103,13 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
           nextBlink = seconds + (Math.random() < 0.12 ? 0.22 : 2.1 + Math.random() * 3.0);
         }
       }
+      // A complete eyelid target is safe once sculpted to the small eye area.
       weights.EyeBlinkLeft = weights.EyeBlinkRight = blink;
       browHold -= dt;
       if (browHold <= 0) {
-        browHold = speaking ? 0.7 + Math.random() * 1.1 : 2.0 + Math.random() * 2;
-        browLeft = speaking ? 0.18 + Math.random() * 0.46 : 0.08 + Math.random() * 0.14;
-        browRight = browLeft * (0.7 + Math.random() * 0.3);
+        browHold = speaking ? 1.0 + Math.random() * 1.2 : 2.2 + Math.random() * 2.4;
+        browLeft = speaking ? 0.06 + Math.random() * 0.14 : 0.035 + Math.random() * 0.065;
+        browRight = browLeft * (0.86 + Math.random() * 0.14);
       }
       s('BrowRaiseLeft', browLeft, 4);
       s('BrowRaiseRight', browRight, 4);
@@ -127,13 +119,6 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
         for (const name of REQUIRED) mesh.influences[mesh.channels[name]] = weights[name];
       }
 
-      if (headBone) {
-        // Small additive nod; no stiff repeated tilting during speech.
-        headOffsetX = Math.sin(seconds * (speaking ? 1.1 : 0.43)) * (speaking ? 0.016 : 0.006);
-        headOffsetY = Math.sin(seconds * 0.47) * 0.014;
-        headBone.rotation.x += headOffsetX;
-        headBone.rotation.y += headOffsetY;
-      }
     },
   };
 }
