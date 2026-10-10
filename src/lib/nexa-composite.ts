@@ -405,6 +405,132 @@ function finishBoots(THREE: any, body: any, eyeWidth: number, floorY: number): v
 }
 
 /**
+ * Connect the original Studio bust edge to the older model's waist with a
+ * short real 3D suit panel. Two hard mesh cuts stacked on top of each other
+ * cannot be seamless: this samples torso-only skinned vertices on both sides,
+ * and makes one continuous tapered surface between their actual 3D contours.
+ * If either profile cannot be measured, retain the previous safe join.
+ */
+function torsoSection(THREE: any, root: any, y: number, band: number): any | null {
+  root.updateMatrixWorld(true);
+  const vertex = new THREE.Vector3();
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  let found = 0;
+  root.traverse((mesh: any) => {
+    if (!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position) return;
+    const geometry = mesh.geometry;
+    const position = geometry.attributes.position;
+    const joints = geometry.getAttribute('skinIndex');
+    const weights = geometry.getAttribute('skinWeight');
+    const names = mesh.skeleton?.bones?.map((bone: any) => bone.name ?? '') ?? [];
+    // Exclude vertices controlled by hands and arms: only the torso boundary
+    // is useful here, even when Studio's hands have already been lowered.
+    const live = geometry.index ? new Uint8Array(position.count) : null;
+    if (live) {
+      for (let i = 0; i < geometry.index.count; i++) live[geometry.index.getX(i)] = 1;
+    }
+    const step = Math.max(1, Math.floor(position.count / 27000));
+    for (let i = 0; i < position.count; i += step) {
+      if (live && !live[i]) continue;
+      if (joints && weights) {
+        let armWeight = 0;
+        for (let k = 0; k < Math.min(4, joints.itemSize, weights.itemSize); k++) {
+          if (/(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i.test(
+            names[joints.getComponent(i, k)] ?? '')) {
+            armWeight += weights.getComponent(i, k);
+          }
+        }
+        if (armWeight > 0.28) continue;
+      }
+      vertex.fromBufferAttribute(position, i);
+      mesh.applyBoneTransform(i, vertex);
+      mesh.localToWorld(vertex);
+      if (Math.abs(vertex.y - y) > band) continue;
+      minX = Math.min(minX, vertex.x);
+      maxX = Math.max(maxX, vertex.x);
+      minZ = Math.min(minZ, vertex.z);
+      maxZ = Math.max(maxZ, vertex.z);
+      found++;
+    }
+  });
+  if (found < 12 || maxX-minX < 0.04 || maxZ-minZ < 0.025) return null;
+  return {
+    x: (minX + maxX) * 0.5,
+    z: (minZ + maxZ) * 0.5,
+    rx: (maxX-minX) * 0.5,
+    rz: (maxZ-minZ) * 0.5,
+  };
+}
+
+function tailoredWaistPanel(
+  THREE: any, studio: any, body: any, upperMinY: number, height: number,
+  lowerCutY: number,
+): any | null {
+  const topY = upperMinY + height * 0.012;
+  const bottomY = lowerCutY - height * 0.025;
+  const upper = torsoSection(THREE, studio, topY, height * 0.04);
+  const lower = torsoSection(THREE, body, bottomY, height * 0.04);
+  if (!upper || !lower ||
+      upper.rx / lower.rx > 2.5 || lower.rx / upper.rx > 2.0 ||
+      upper.rz / lower.rz > 2.5 || lower.rz / upper.rz > 2.0) return null;
+
+  const segments = 32;
+  const rings = 7;
+  const vertices: number[] = [];
+  const colors: number[] = [];
+  const triangles: number[] = [];
+  const dark = new THREE.Color(0x171822);
+  const pearl = new THREE.Color(0xd6d9e7);
+  const color = new THREE.Color();
+  body.updateMatrixWorld(true);
+  for (let row = 0; row <= rings; row++) {
+    const t = row/rings;
+    const ease = t*t*(3-2*t);
+    const y = topY + (bottomY-topY)*t;
+    const cx = upper.x+(lower.x-upper.x)*ease;
+    const cz = upper.z+(lower.z-upper.z)*ease;
+    const swell = 1 + 0.025*Math.sin(Math.PI*t);
+    const rx = (upper.rx+(lower.rx-upper.rx)*ease)*swell;
+    const rz = (upper.rz+(lower.rz-upper.rz)*ease)*swell;
+    for (let i = 0; i <= segments; i++) {
+      const angle = 2*Math.PI*i/segments;
+      const x = cx + Math.sin(angle)*rx;
+      const z = cz + Math.cos(angle)*rz;
+      // The panel is part of the same real 3D scene, not a screen overlay.
+      const local = body.worldToLocal(new THREE.Vector3(x,y,z));
+      vertices.push(local.x,local.y,local.z);
+      const front = Math.cos(angle);
+      const side = Math.abs(Math.sin(angle));
+      // Two restrained ivory side insets continue the black/white Nexo suit.
+      const inset = front > 0.26 && side > 0.27 && side < 0.78 ? 0.85 : 0;
+      color.copy(dark).lerp(pearl,inset);
+      colors.push(color.r,color.g,color.b);
+    }
+  }
+  for (let j = 0; j < rings; j++) {
+    for (let i = 0; i < segments; i++) {
+      const a=j*(segments+1)+i;
+      const b=a+1;
+      const c=a+(segments+1);
+      const d=c+1;
+      triangles.push(a,b,c,b,d,c);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geometry.setIndex(triangles);
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshStandardMaterial({
+    vertexColors:true,roughness:0.55,metalness:0.08,side:THREE.DoubleSide,
+  });
+  const panel = new THREE.Mesh(geometry,material);
+  panel.name = 'Nexa continuous 3D tapered waist';
+  panel.frustumCulled = false;
+  return panel;
+}
+
+/**
  * Both models are genuine rigged GLBs. Alignment is measured from the native
  * blinking eyelid vertices, so no guessed pixel/photo offsets are involved.
  * Throws on invalid proportion instead of publishing a distorted character.
@@ -444,7 +570,15 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
 
   // Everything above the join belongs exclusively to Studio. The original
   // body face, cap, upper bust, and hair are not rendered at all.
-  const seamY = upper.min.y + Math.max(0.002, studioHeight * 0.009);
+  // A measured connector replaces the visible flat cut between two
+  // differently shaped torsos. Keep the original safe cut if no torso profile.
+  const candidateCut = upper.min.y - studioHeight * 0.12;
+  const waistPanel = tailoredWaistPanel(
+    THREE, studio, body, upper.min.y, studioHeight, candidateCut,
+  );
+  const seamY = waistPanel
+    ? candidateCut
+    : upper.min.y + Math.max(0.002, studioHeight * 0.009);
   // Three.js discards the NEGATIVE half-space of a clipping plane.
   // Therefore the normal MUST point downward: discard y > seamY (the
   // duplicate face/chest) and preserve y <= seamY (hips, legs, feet).
@@ -478,6 +612,7 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   const upperArmsPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -seamY);
   if (!studioOwnsArms) preserveOriginalArms(THREE, body, upperArmsPlane);
   finishBoots(THREE, body, studioEyes.width, lower.min.y);
+  if (waistPanel) body.add(waistPanel);
 
   const visibleBounds = new THREE.Box3().setFromObject(studio);
   const lowerVisible = lower.clone();
