@@ -103,8 +103,15 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
     if(faceDirection==='left')group.rotation.y=-Math.PI/2;
     if(faceDirection==='right')group.rotation.y=Math.PI/2;
     parent.add(group);
-    add(group,new THREE.CircleGeometry(radius,40),logoMaterial,'Nexo N emblem');
-    torus(group,[0,0,0.001],radius*0.96,glow,[0,0,0],'Nexo neon rim');
+    // Physical emblem: raised letter that stays legible on mobile even when
+    // the baked texture is dark or the cap is viewed from an angle.
+    add(group,new THREE.CircleGeometry(radius,48),logoMaterial,'Nexo N emblem');
+    torus(group,[0,0,0.003],radius*0.94,glow,[0,0,0],'Nexo neon rim');
+    const ink=new THREE.MeshBasicMaterial({color:0xf5f4ff,toneMapped:false});
+    materials.push(ink);
+    const q=radius*0.53;
+    tube(group,[[-q,-q,0.011],[-q,q,0.011],[q,-q,0.011],[q,q,0.011]],
+      Math.max(0.0015,radius*0.085),ink,'NEXO raised N insignia');
   }
 
   // Locate model-space head position, then attach the upgrades to the
@@ -159,7 +166,7 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
   tube(look,[[-0.15,0.09,0.10],[-0.09,0.092,0.166],[0,0.093,0.186],[0.09,0.092,0.166],[0.15,0.09,0.10]],0.003,glow,'Visor LED line');
   // Keep the N badge just ahead of the cap surface; the prior badge was
   // partially embedded, so it looked like an unreadable dark oval.
-  logo(look,[0,0.134,0.124],0.038);
+  logo(look,[0,0.16,0.152],0.036);
 
   // Rounded earpieces and integrated N branding.
   for(const side of [-1,1]){
@@ -220,7 +227,7 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
 
   // Chest insignia belongs to the body so it doesn't sway with the head.
   const badge=new THREE.Group();
-  badge.position.set(0.117,1.28,0.19);
+  badge.position.set(0.117,1.28,0.235);
   root.add(badge);
   logo(badge,[0,0,0],0.055,'front');
 
