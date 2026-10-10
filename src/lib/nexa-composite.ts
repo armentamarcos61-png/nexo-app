@@ -429,7 +429,11 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   relaxBodyPose(THREE, body);
   const studioOwnsArms = studioHasRiggedArms(studio);
   if (studioOwnsArms) removeLegacyArmSurfaces(body);
-  const upper = new THREE.Box3().setFromObject(studio);
+  // The Studio arms may extend below the original cropped chest when posed.
+  // Use the pre-pose bust bounds so the join follows the true chest edge,
+  // rather than the position of the hands.
+  const upper = studio.userData?.nexaBustOriginalBounds?.clone?.() ??
+    new THREE.Box3().setFromObject(studio);
   const lower = new THREE.Box3().setFromObject(body);
   const studioHeight = upper.max.y - upper.min.y;
   const bodyHeight = lower.max.y - lower.min.y;
