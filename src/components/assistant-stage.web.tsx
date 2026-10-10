@@ -6,7 +6,7 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
-import { composeNexaBody, poseNexaStudioArms } from '@/lib/nexa-composite';
+import { composeNexaBody, poseNexaStudioArms, tailorNexaStudioLowerTorso } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
@@ -367,10 +367,12 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             }
           });
           scene.add(modelRoot);
-          // The chest trim is measured BEFORE the hands are lowered.
-          // Otherwise the hands become the lowest point of Studio, and the
-          // compositor mistakenly cuts the lower body at wrist height.
+          // First narrow only the two lower side flaps marked by the user.
+          // Never scale the entire Studio: the approved face and logo stay put.
+          // Then measure the cut before lowering the hands; their position
+          // must not become the lower edge of the joined chest.
           if (studio) {
+            tailorNexaStudioLowerTorso(modelRoot);
             modelRoot.userData.nexaBustOriginalBounds =
               new THREE.Box3().setFromObject(modelRoot).clone();
           }
