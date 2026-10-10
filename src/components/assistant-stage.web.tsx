@@ -6,6 +6,7 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
+import { composeNexaBody } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
@@ -52,6 +53,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
   const [attempt, setAttempt] = useState(0);
   const [variant, setVariant] = useState<ModelVariant>('studio');
+  const [hasBody, setHasBody] = useState(false);
 
   // Studio is the default after publication; use the previous fully rigged model
   // only if an old browser cache or unavailable asset prevents Studio loading.
@@ -69,13 +71,14 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     if (!host || typeof window === 'undefined' || !isNexa) return;
     // Reset to the appropriate camera when Studio loads or legacy is restored.
     const studio = variant === 'studio';
-    const homeDistance = studio ? STUDIO_FRAMING.distance : CLASSIC_DISTANCE;
-    const minDistance = studio ? STUDIO_FRAMING.minDistance : 1.08;
-    const maxDistance = studio ? STUDIO_FRAMING.maxDistance : 1.90;
-    const focus = studio ? STUDIO_FRAMING.focus : 0.99;
+    let homeDistance = studio ? STUDIO_FRAMING.distance : CLASSIC_DISTANCE;
+    let minDistance = studio ? STUDIO_FRAMING.minDistance : 1.08;
+    let maxDistance = studio ? STUDIO_FRAMING.maxDistance : 1.90;
+    let focus = studio ? STUDIO_FRAMING.focus : 0.99;
     orbitRef.current = { yaw: 0, pitch: 0, distance: homeDistance };
 
     setLoaded(false);
+    setHasBody(false);
     setUnavailable(false);
     setLoadMessage('Preparando visor 3D…');
     let disposed = false;
@@ -118,6 +121,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let scene: any = null;
     let faceRig: NexaFaceRig | null = null;
     let premiumLook: PremiumNexaLook | null = null;
+    let composite: ReturnType<typeof composeNexaBody> | null = null;
     let unregisterResize: (() => void) | undefined;
     let previousTime = 0;
     let totalTime = 0;
@@ -327,6 +331,42 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           if (variant !== 'light' && !faceRig.available) {
             throw new Error('El modelo cargado no contiene los controles faciales de Nexa');
           }
+          // Only the lower, clipped geometry of the older fully rigged GLB is
+          // shown. Studio continues to own the entire approved head and bust.
+          // This is genuine 3D composition, not a photo overlay or second Nexa.
+          if (studio) {
+            try {
+              setLoadMessage('Uniendo rostro y cuerpo 3D…');
+              watchStall();
+              const bodyUrl = getModelUrl('full');
+              const bodyResponse = await fetch(bodyUrl, {signal:download.signal,cache:'force-cache'});
+              if (!bodyResponse.ok) throw new Error('Modelo de cuerpo HTTP '+bodyResponse.status);
+              const bodyBytes = await bodyResponse.arrayBuffer();
+              watchStall();
+              if (disposed || download.signal.aborted) return;
+              if (bodyBytes.byteLength < 20 || new DataView(bodyBytes).getUint32(0,true) !== 0x46546c67) {
+                throw new Error('Archivo GLB del cuerpo incompleto');
+              }
+              const bodyGltf = await loader.parseAsync(bodyBytes,new URL('.',new URL(bodyUrl,window.location.href)).href);
+              if (disposed || download.signal.aborted) return;
+              composite = composeNexaBody(THREE,modelRoot,bodyGltf.scene,renderer);
+              scene.add(composite.body);
+              const completed = composite.bounds;
+              const fullHeight = completed.getSize(new THREE.Vector3()).y;
+              focus = completed.getCenter(new THREE.Vector3()).y;
+              // An entire person needs an optically wider frame than the old bust.
+              homeDistance = clamp(fullHeight / (2*Math.tan(THREE.MathUtils.degToRad(16))) * 1.14,3.5,16);
+              minDistance = Math.max(1.75,homeDistance*0.26);
+              maxDistance = Math.max(homeDistance*1.65,7);
+              orbitRef.current = {yaw:0,pitch:0,distance:homeDistance};
+              distance = homeDistance;
+              setHasBody(true);
+            } catch (error) {
+              if (disposed || download.signal.aborted) return;
+              console.warn('[Nexa 3D] No fue posible completar el cuerpo; se conserva intacto Studio',error);
+              setHasBody(false);
+            }
+          }
           const mixer=new THREE.AnimationMixer(modelRoot);
           const actions: any={};
           // Animations must only touch their own articulated joints. Head,
@@ -393,6 +433,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             faceRig?.beforeUpdate();
             controllerRef.current?.update(dt);
             faceRig?.update(dt,totalTime,speakingRef.current);
+            composite?.update(dt,speakingRef.current);
             premiumLook?.update(dt,totalTime);
             // Camera lags slightly behind gesture; still within the circular portrait.
             const alpha=1-Math.exp(-dt*8);
@@ -448,6 +489,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       controllerRef.current=null;
       premiumLook?.dispose();
       premiumLook=null;
+      composite?.dispose();
+      composite=null;
       modelRoot?.traverse((node:any)=>{
         node.geometry?.dispose?.();
         const mats=Array.isArray(node.material)?node.material:node.material?[node.material]:[];
@@ -487,7 +530,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       <View style={styles.identity}>
         <View style={[styles.dot, {backgroundColor:unavailable?'#E6BB85':'#73EBC4'}]}/>
         <Text style={styles.name}>NEXA</Text>
-        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'studio' ? 'Nexa Studio 3D' : variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
+        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'studio' ? (hasBody ? 'Nexa Studio 3D · cuerpo completo' : 'Nexa Studio 3D · busto') : variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
       </View>
       <Text style={styles.hint}>
         {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza para girar · pellizca con dos dedos para acercar') : 'Imagen de referencia mientras se prepara el modelo 3D'}
