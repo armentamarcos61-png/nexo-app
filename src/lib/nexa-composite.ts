@@ -266,6 +266,67 @@ function repairStudioSleeveWeights(studio: any): number {
   return repaired;
 }
 
+/**
+ * Ajuste localizado en los dos faldones laterales del busto aprobado.
+ *
+ * El Meshy Studio tiene una sola malla para cara, mangas y pecho; escalar
+ * todo el modelo encogería también el rostro y los logos. En vez de hacerlo,
+ * cambiamos únicamente los vértices de los costados BAJOS del torso,
+ * conservando las coordenadas de ojos, cuello, hombros y manos externas.
+ *
+ * La máscara espacial es continua (smoothstep) tanto vertical como
+ * horizontalmente para evitar un nuevo pliegue visible al girar en 3D.
+ */
+export function tailorNexaStudioLowerTorso(studio: any): number {
+  if (studio.userData.nexaLowerTorsoTailored) return 0;
+  const smoothstep = (low: number, high: number, value: number): number => {
+    const t = Math.max(0, Math.min(1, (value-low)/(high-low)));
+    return t*t*(3-2*t);
+  };
+  let changed = 0;
+  studio.traverse((mesh: any) => {
+    if (!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position) return;
+    const geometry = mesh.geometry;
+    const positions = geometry.getAttribute('position');
+    geometry.computeBoundingBox();
+    const bounds = geometry.boundingBox;
+    const height = bounds.max.y-bounds.min.y;
+    const centerX = (bounds.min.x+bounds.max.x)/2;
+    const halfWidth = (bounds.max.x-bounds.min.x)/2;
+    if (height < 0.15 || halfWidth < 0.07) return;
+    let modified = false;
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i);
+      const y = positions.getY(i);
+      const normalizedY = (y-bounds.min.y)/height;
+      const radial = Math.abs(x-centerX)/halfWidth;
+      // The chest insignia, breasts and shoulders remain completely untouched
+      // above y=45%; only the lower side panels taper toward the waist.
+      if (normalizedY >= 0.45 || radial <= 0.23 || radial >= 0.94) continue;
+      const vertical = 1-smoothstep(0.12,0.45,normalizedY);
+      // Do not pull the far end of either arm inward. The correction fades
+      // smoothly before reaching wrists, forearms and fingertips.
+      const sides = smoothstep(0.23,0.47,radial)*
+        (1-smoothstep(0.76,0.94,radial));
+      const influence = vertical*sides;
+      if (influence < 0.0001) continue;
+      // Up to 16% narrower at the two lower corners, symmetrically.
+      positions.setX(i, centerX+(x-centerX)*(1-0.16*influence));
+      changed++;
+      modified = true;
+    }
+    if (modified) {
+      positions.needsUpdate = true;
+      geometry.computeVertexNormals();
+      geometry.computeBoundingBox();
+      geometry.computeBoundingSphere();
+    }
+  });
+  studio.userData.nexaLowerTorsoTailored = true;
+  if (changed) console.info('[Nexa 3D] Laterales inferiores del busto suavizados:', changed);
+  return changed;
+}
+
 export function poseNexaStudioArms(THREE: any, studio: any): boolean {
   if (!studioHasRiggedArms(studio)) return false;
   const repaired = repairStudioSleeveWeights(studio);
