@@ -335,14 +335,15 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           // shown. Studio continues to own the entire approved head and bust.
           // This is genuine 3D composition, not a photo overlay or second Nexa.
           if (studio) {
+            // Progressive loading: the approved Studio bust is rendered immediately.
+            // A missing or slow body is optional and cannot break the assistant.
+            void (async () => {
             try {
               setLoadMessage('Uniendo rostro y cuerpo 3D…');
-              watchStall();
               const bodyUrl = getModelUrl('full');
               const bodyResponse = await fetch(bodyUrl, {signal:download.signal,cache:'force-cache'});
               if (!bodyResponse.ok) throw new Error('Modelo de cuerpo HTTP '+bodyResponse.status);
               const bodyBytes = await bodyResponse.arrayBuffer();
-              watchStall();
               if (disposed || download.signal.aborted) return;
               if (bodyBytes.byteLength < 20 || new DataView(bodyBytes).getUint32(0,true) !== 0x46546c67) {
                 throw new Error('Archivo GLB del cuerpo incompleto');
@@ -366,6 +367,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               console.warn('[Nexa 3D] No fue posible completar el cuerpo; se conserva intacto Studio',error);
               setHasBody(false);
             }
+            })();
           }
           const mixer=new THREE.AnimationMixer(modelRoot);
           const actions: any={};
