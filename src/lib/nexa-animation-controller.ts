@@ -39,7 +39,7 @@ export class NexaAnimationController {
     Walking: 0.83,
     Running: 0.77,
     Greeting: 0.43, // 1.9-second greeting stretched to ~4.4 seconds.
-    Talking: 0.83,
+    Talking: 0.60,
   };
 
   constructor(
@@ -80,10 +80,11 @@ export class NexaAnimationController {
     this.setMotion('Greeting', 5.5);
   }
 
-  /** Voice uses only facial morphs; the whole-body Talking clip twisted the skull. */
+  /** Speech blends in arm/hand gesture tracks; head and face stay independent. */
   startSpeaking() {
+    if (this.speaking) return;
     this.speaking = true;
-    this.setMotion('Idle');
+    this.setMotion('Talking');
   }
 
   stopSpeaking() {
