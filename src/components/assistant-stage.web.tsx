@@ -6,7 +6,7 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
-import { composeNexaBody } from '@/lib/nexa-composite';
+import { composeNexaBody, poseNexaStudioArms } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
@@ -367,6 +367,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             }
           });
           scene.add(modelRoot);
+          // The Studio asset contains complete rigged arms. Lower them into
+          // a quiet, natural pose before capturing animation baselines; the
+          // previous T-pose remained visible even after posing the second GLB.
+          const studioHasNativeArms = studio && poseNexaStudioArms(THREE, modelRoot);
           // New visible 3D cap, hair, Nexo emblems and violet eyes follow the
           // existing animated head bone; original five motion clips remain.
           // The Studio model already has accurate baked cap/hair/N logos.
@@ -452,12 +456,18 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           };
           for(const name of names){
             const sourceClip=gltf.animations.find((a:any)=>a.name===name);
-            const safeClip=sourceClip?.clone() ??
+            const gentleStudioGesture=studioHasNativeArms &&
+              (name==='Talking'||name==='Greeting');
+            const safeClip=(gentleStudioGesture ? syntheticGesture(name) : sourceClip?.clone()) ??
               (name==='Talking'||name==='Greeting'
                 ? syntheticGesture(name) : new THREE.AnimationClip(name,1,[]));
             safeClip.tracks=safeClip.tracks.filter((track:any)=>{
               const forbidden=/(?:head|neck|jaw|hips|pelvis)/i.test(track.name);
               if(forbidden)return false;
+              // Legacy keyframes restore the horizontal Studio T-pose each
+              // frame. Never let idle/locomotion overwrite the calibrated arms.
+              if (studioHasNativeArms && name!=='Talking' && name!=='Greeting' &&
+                  /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)) return false;
               if(name==='Talking'||name==='Greeting')
                 return /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)
                   && /quaternion|rotation/i.test(track.name);
