@@ -168,14 +168,8 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
     logo(look,[side*0.196,0.001,0.004],0.048,side<0?'left':'right');
   }
 
-  // Delicate violet highlights in the visible iris, restrained enough to
-  // respect the facial morphs and prevent the uncanny detached-eye effect.
-  for(const side of [-1,1]) {
-    const x=side*0.051;
-    pill(look,[x,-0.033,0.180],[0.010,0.011,0.0033],iris,'Nexa violet iris');
-    pill(look,[x,-0.033,0.184],[0.0042,0.0065,0.002],pupil,'Pupil');
-    pill(look,[x-0.003,-0.029,0.186],[0.002,0.0021,0.001],catchlight,'Eye catchlight');
-  }
+  // Eye color comes from the deforming facial surface. Detached iris spheres
+  // stayed visible through a blink and made the expression look frozen.
 
   // Reproject the approved illustration's facial features onto the genuine
   // skinned facial surface. The skin mesh keeps all morph target animations.
@@ -204,8 +198,8 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
           const x=positions.getX(i),y=positions.getY(i);
           // Front-facing photo: brows ~1.62, eyes ~1.59,
           // lips ~1.52 in the original character's mesh coordinates.
-          uv[i*2]=Math.max(0,Math.min(1,(x+0.09)/0.18));
-          uv[i*2+1]=Math.max(0,Math.min(1,(y-1.49)/0.19));
+          uv[i*2]=Math.max(0,Math.min(1,x/0.18+0.58));
+          uv[i*2+1]=Math.max(0,Math.min(1,(y-1.48)/0.198));
         }
         geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
         const material=oldMaterial.clone();

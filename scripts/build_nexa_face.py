@@ -44,6 +44,74 @@ def add(data,typ,shape,name,target=None):
 mesh=doc['meshes'][0];prim=mesh['primitives'][0]
 assert not prim.get('targets'), 'Only run on the original unmodified GLB'
 attrs=prim['attributes']
+# Split the lip seam before making morphs: upper and lower lips must be
+# disconnected at the opening. Keep a recessed, skinned oral surface behind it.
+arrays={key:read(value) for key,value in attrs.items()}
+rows={key:list(value) for key,value in arrays.items()}
+original_indices=read(prim['indices']).reshape(-1,3)
+new_indices=[];oral_indices=[]
+seam=1.521
+
+def vertex_between(a,b,t,side):
+ index=len(rows['POSITION'])
+ for key,data in arrays.items():
+  if key.startswith('JOINTS_') or key.startswith('WEIGHTS_'):
+   value=data[a if t<.5 else b].copy()
+  else:value=(data[a]*(1-t)+data[b]*t).astype(data.dtype)
+  if key=='POSITION':value[1]=seam+side*0.000001
+  rows[key].append(value)
+ return index
+
+for tri in original_indices:
+ points=arrays['POSITION'][tri]
+ crossing=points[:,1].min()<seam<points[:,1].max()
+ is_lip=crossing and np.max(np.abs(points[:,0]))<.033 and points[:,2].min()>.108
+ if not is_lip:
+  new_indices.append(tri.tolist());continue
+ # Back wall covers the opened seam, following the same skinning/morphs.
+ back=[]
+ for old in tri:
+  back.append(len(rows['POSITION']))
+  for key,data in arrays.items():
+   value=data[old].copy()
+   if key=='POSITION':value[2]-=.006
+   rows[key].append(value)
+ oral_indices.append(back)
+ for side in (1,-1):
+  polygon=[]
+  for j in range(3):
+   a=int(tri[j]);b=int(tri[(j+1)%3])
+   ya=arrays['POSITION'][a,1];yb=arrays['POSITION'][b,1]
+   inside_a=(ya-seam)*side>=0;inside_b=(yb-seam)*side>=0
+   if inside_a:polygon.append(a)
+   if inside_a != inside_b:polygon.append(vertex_between(a,b,(seam-ya)/(yb-ya),side))
+  for j in range(1,len(polygon)-1):new_indices.append([polygon[0],polygon[j],polygon[j+1]])
+assert len(oral_indices)>0, 'Lip seam must intersect facial triangles'
+# The source face has very large triangles. Subdivide its surface before
+# computing eyelid deltas; otherwise only a few corners move and the eye folds.
+for iteration in range(3):
+ edges={};refined=[]
+ def midpoint(a,b):
+  key=tuple(sorted((int(a),int(b))))
+  if key in edges:return edges[key]
+  index=len(rows['POSITION']);edges[key]=index
+  for name in rows:
+   va=rows[name][a];vb=rows[name][b]
+   value=va.copy() if name.startswith(('JOINTS_','WEIGHTS_')) else ((va+vb)*.5).astype(arrays[name].dtype)
+   rows[name].append(value)
+  return index
+ for tri in new_indices:
+  points=np.asarray([rows['POSITION'][i] for i in tri])
+  facial=points[:,1].max()>1.485 and points[:,1].min()<1.66 and points[:,2].min()>.065 and np.max(np.abs(points[:,0]))<.11
+  if not facial:refined.append(tri);continue
+  a,b,c=tri;ab=midpoint(a,b);bc=midpoint(b,c);ca=midpoint(c,a)
+  refined.extend([[a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]])
+ new_indices=refined
+for key,data in arrays.items():
+ old=doc['accessors'][attrs[key]]
+ attrs[key]=add(np.asarray(rows[key],dtype=data.dtype),old['componentType'],old['type'],key+'_Articulated',34962)
+prim['indices']=add(np.asarray(new_indices,dtype='<u4').reshape(-1,1),5125,'SCALAR','ArticulatedFace',34963)
+oral_indices=np.asarray(oral_indices,dtype='<u4')
 pos=read(attrs['POSITION']).astype(np.float32)
 joints=np.concatenate([read(attrs['JOINTS_'+str(i)]) for i in range(3)],axis=1)
 weights=np.concatenate([read(attrs['WEIGHTS_'+str(i)]) for i in range(3)],axis=1)
@@ -58,9 +126,10 @@ def spot(cx,cy,cz,rx,ry,rz):
  return np.exp(-.5*((x-cx)/rx)**2-.5*((y-cy)/ry)**2-.5*((z-cz)/rz)**2)*mask
 def blank():return np.zeros_like(pos,dtype=np.float32)
 targets={}
-mouth=spot(0,1.520,.132,.044,.024,.041)
+mouth=spot(0,1.520,.132,.030,.024,.041)
+mouth*=np.clip(1-(np.abs(x)/.026)**2,0,1)
 top=y>=1.521
-v=blank();v[:,1]=mouth*np.where(top,.0016,-.0034);v[:,2]=mouth*.0006
+v=blank();v[:,1]=mouth*np.where(top,.003,-.010);v[:,2]=mouth*.0006
 targets['MouthOpen']=v
 v=blank();v[:,0]=-x*mouth*.045;v[:,1]=mouth*np.where(top,.0007,-.0011);v[:,2]=mouth*.0008
 targets['MouthO']=v
@@ -68,13 +137,16 @@ v=blank();v[:,0]=x*mouth*.065;v[:,1]=mouth*np.where(top,.0008,-.0010)
 targets['MouthWide']=v
 v=blank();v[:,0]=x*mouth*.055;v[:,1]=mouth*(.0009+.0016*np.clip((np.abs(x)-.012)/.033,0,1))
 targets['MouthSmile']=v
-for name,cx in [('EyeBlinkLeft',-.036),('EyeBlinkRight',.036)]:
- eye=spot(cx,1.597,.128,.029,.022,.048)
- v=blank();v[:,1]=eye*(1.597-y)*1.0;v[:,2]=eye*.0006
+for name,cx in [('EyeBlinkLeft',-.050),('EyeBlinkRight',.050)]:
+ # Flat core closes the painted eye fully; smooth falloff protects cheeks.
+ eye=np.clip((.036-np.abs(x-cx))/.012,0,1)
+ eye*=np.clip((.025-np.abs(y-1.596))/.009,0,1)
+ eye*=np.clip((z-.072)/.023,0,1)*head
+ v=blank();v[:,1]=eye*(1.592-y)*.995;v[:,2]=eye*.001
  targets[name]=v
-for name,cx in [('BrowRaiseLeft',-.038),('BrowRaiseRight',.038)]:
+for name,cx in [('BrowRaiseLeft',-.050),('BrowRaiseRight',.050)]:
  brow=spot(cx,1.630,.121,.032,.016,.052)
- v=blank();v[:,1]=brow*.0052;v[:,2]=brow*.0008
+ v=blank();v[:,1]=brow*.0085;v[:,2]=brow*.0008
  targets[name]=v
 v=blank()
 for cx in (-.038,.038):
@@ -113,6 +185,14 @@ if 'KHR_materials_specular' not in doc.get('extensionsUsed',[]):
 doc['materials'].append(skin)
 mesh['primitives'].append({'attributes':copy.deepcopy(attrs),'indices':skin_indices,'material':len(doc['materials'])-1,'mode':4,'targets':copy.deepcopy(morph)})
 
+# Dark, recessed mouth interior is part of the same skinned character.
+oral_material=len(doc['materials'])
+doc['materials'].append({'name':'Nexa_Oral_Cavity','doubleSided':True,
+ 'pbrMetallicRoughness':{'baseColorFactor':[.035,.009,.017,1],'metallicFactor':0,'roughnessFactor':1}})
+mesh['primitives'].append({'attributes':copy.deepcopy(attrs),
+ 'indices':add(oral_indices.reshape(-1,1),5125,'SCALAR','Nexa_OralIndices',34963),
+ 'material':oral_material,'mode':4,'targets':copy.deepcopy(morph)})
+
 # Optional demo clip can be previewed in any standard GLB animation viewer.
 # Application does NOT play this clip: it drives targets from voice events.
 times=np.array([0,.3,.6,1,1.25,1.42,1.58,2,2.45,2.8,3.15,3.55,4.1,4.48,4.65,4.82,5.25,5.7,6.2,6.6,7,7.45,8,8.6,9.15,9.7,10],dtype='<f4')
@@ -140,7 +220,7 @@ mesh_node=next(i for i,n in enumerate(doc['nodes']) if n.get('mesh')==0)
 doc['animations'].append({'name':'Nexa_FacialDemo','samplers':[{'input':input_a,'output':output_a,'interpolation':'LINEAR'}],'channels':[{'sampler':0,'target':{'node':mesh_node,'path':'weights'}}]})
 
 doc['buffers'][0]['byteLength']=len(binary)
-doc['asset'].setdefault('extras',{})['facialRig']='Nexa v3: relaxed expressions, 9 native morph targets, face material, facial demo'
+doc['asset'].setdefault('extras',{})['facialRig']='Nexa v4: articulated lips, full eyelid closure, expressive brows, 9 native morph targets, face material, facial demo'
 j=json.dumps(doc,separators=(',',':')).encode('utf8')
 j+=b' '*((-len(j))%4)
 binary.extend(b'\0'*(-len(binary)%4))

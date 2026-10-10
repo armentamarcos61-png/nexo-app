@@ -1,5 +1,5 @@
 /**
- * Drives the *real* blendshapes embedded in Nexa_FacialRig_Pro.glb.
+ * Drives the *real* blendshapes embedded in Nexa_FacialRig_V2.glb.
  *
  * These morphs are part of the single 3D character, not overlays or images.
  * The current TTS interface only provides a speaking on/off signal; exact
@@ -7,6 +7,7 @@
  */
 export interface NexaFaceRig {
   available: boolean;
+  beforeUpdate(): void;
   update(dt: number, seconds: number, speaking: boolean): void;
 }
 
@@ -35,7 +36,7 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
   let headBone: any = null;
   root.traverse?.((node: any) => {
     if (/mixamorig:Head$/i.test(node.name ?? '')) headBone = node;
-    if (!node.isSkinnedMesh || !node.morphTargetDictionary || !node.morphTargetInfluences) return;
+    if ((!node.isSkinnedMesh && !node.isMesh) || !node.morphTargetDictionary || !node.morphTargetInfluences) return;
     const dictionary: Record<string, number> = node.morphTargetDictionary;
     if (!REQUIRED.every(name => Number.isInteger(dictionary[name]))) return;
     bound.push({
@@ -49,56 +50,77 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
     EyeBlinkLeft: 0, EyeBlinkRight: 0,
     BrowRaiseLeft: 0.1, BrowRaiseRight: 0.1, BrowFrown: 0,
   };
-  let nextBlink = 2.2;
+  let nextBlink = 0.9;
   let blinkStart = -1;
-  let phase = 0;
   let mouthHold = 0;
   let mouthGoal = 0;
+  let vowel = 0;
+  let browHold = 0;
+  let browLeft = 0.12;
+  let browRight = 0.1;
+  let headOffsetX = 0;
+  let headOffsetY = 0;
+  const smooth = (t: number) => { const v=clamp(t,0,1); return v*v*(3-2*v); };
 
   return {
     available: bound.length > 0,
+    // Remove our additive pose before the mixer samples the next body pose.
+    // This also prevents drift when a future clip has no head track.
+    beforeUpdate() {
+      if (!headBone) return;
+      headBone.rotation.x -= headOffsetX;
+      headBone.rotation.y -= headOffsetY;
+      headOffsetX = headOffsetY = 0;
+    },
     update(dt: number, seconds: number, speaking: boolean) {
-      if (dt <= 0 || bound.length === 0) return;
+      if (!Number.isFinite(dt) || dt <= 0 || bound.length === 0) return;
+      dt = Math.min(dt, 0.08);
       // Realistic, restrained face animation. A spoken word contains brief
       // closures; never combine multiple full-strength mouth shapes.
       const s = (channel: FaceChannel, goal: number, speed = 10) => {
         weights[channel] = clamp(approach(weights[channel], goal, dt, speed), 0, 1);
       };
       if (speaking) {
-        phase += dt;
         mouthHold -= dt;
         if (mouthHold <= 0) {
-          mouthHold = 0.09 + Math.random() * 0.12;
+          mouthHold = 0.10 + Math.random() * 0.16;
+          vowel = Math.random();
           // Many phonemes close the lips altogether.
-          mouthGoal = Math.random() < 0.25 ? 0.0 : 0.12 + Math.random() * 0.31;
+          mouthGoal = Math.random() < 0.22 ? 0 : 0.28 + Math.random() * 0.48;
         }
       } else {
-        phase = 0;
         mouthGoal = 0;
         mouthHold = 0;
       }
-      // A maximum 0.43 multiplier applied to a max ~3mm lip shape ensures
-      // no circular gaping hole or distorting chin.
+      // The rebuilt lip seam opens over a recessed oral cavity.
+      // Vowel-like poses are approximate: TTS exposes no phoneme timings.
       s('MouthOpen', mouthGoal, speaking ? 15 : 12);
-      s('MouthO', speaking ? Math.min(0.12, mouthGoal * 0.22) : 0, 9);
-      s('MouthWide', speaking ? Math.min(0.11, mouthGoal * 0.20) : 0, 9);
+      s('MouthO', speaking && vowel < 0.34 ? mouthGoal * 0.65 : 0, 9);
+      s('MouthWide', speaking && vowel > 0.66 ? mouthGoal * 0.55 : 0, 9);
       s('MouthSmile', speaking ? 0.055 : 0.11, 2.5);
 
       if (blinkStart < 0 && seconds >= nextBlink) blinkStart = seconds;
       let blink = 0;
       if (blinkStart >= 0) {
-        const fraction = (seconds - blinkStart) / 0.22;
-        blink = Math.sin(Math.PI * clamp(fraction, 0, 1));
-        if (fraction >= 1) {
+        const age = seconds - blinkStart;
+        // Quick close, a fully closed hold, then a slower reopening.
+        // Applying another low-pass here prevented a complete closure.
+        blink = age < 0.085 ? smooth(age / 0.085)
+          : age < 0.15 ? 1 : 1 - smooth((age - 0.15) / 0.15);
+        if (age >= 0.30) {
           blinkStart = -1;
-          nextBlink = seconds + 2.3 + Math.random() * 3.1;
+          nextBlink = seconds + (Math.random() < 0.12 ? 0.22 : 2.1 + Math.random() * 3.0);
         }
       }
-      s('EyeBlinkLeft', blink, 38);
-      s('EyeBlinkRight', blink * 0.98, 38);
-      const brow = speaking ? 0.08 + 0.09 * Math.pow(Math.sin(seconds * 0.85), 2) : 0.07;
-      s('BrowRaiseLeft', brow, 3.1);
-      s('BrowRaiseRight', brow * 0.96, 3.1);
+      weights.EyeBlinkLeft = weights.EyeBlinkRight = blink;
+      browHold -= dt;
+      if (browHold <= 0) {
+        browHold = speaking ? 0.7 + Math.random() * 1.1 : 2.0 + Math.random() * 2;
+        browLeft = speaking ? 0.18 + Math.random() * 0.46 : 0.08 + Math.random() * 0.14;
+        browRight = browLeft * (0.7 + Math.random() * 0.3);
+      }
+      s('BrowRaiseLeft', browLeft, 4);
+      s('BrowRaiseRight', browRight, 4);
       s('BrowFrown', 0, 3.8);
 
       for (const mesh of bound) {
@@ -107,8 +129,10 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
 
       if (headBone) {
         // Small additive nod; no stiff repeated tilting during speech.
-        headBone.rotation.x += Math.sin(seconds * (speaking ? 1.1 : 0.43)) * (speaking ? 0.006 : 0.003);
-        headBone.rotation.y += Math.sin(seconds * 0.26) * 0.007;
+        headOffsetX = Math.sin(seconds * (speaking ? 1.1 : 0.43)) * (speaking ? 0.016 : 0.006);
+        headOffsetY = Math.sin(seconds * 0.47) * 0.014;
+        headBone.rotation.x += headOffsetX;
+        headBone.rotation.y += headOffsetY;
       }
     },
   };

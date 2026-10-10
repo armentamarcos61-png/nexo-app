@@ -40,7 +40,7 @@ if (existsSync(file)) {
   for (const name of ['MouthOpen','MouthO','MouthWide','MouthSmile','EyeBlinkLeft','EyeBlinkRight','BrowRaiseLeft','BrowRaiseRight','BrowFrown']) {
     assert.ok(targets.includes(name), 'Falta control facial: '+name);
   }
-  assert.equal(gltf.meshes[0].primitives.length,2,'Debe incluir material facial independiente');
+  assert.equal(gltf.meshes[0].primitives.length,3,'Debe incluir piel y cavidad oral independientes');
   assert.ok(animationNames.includes('Nexa_FacialDemo'),'Falta la demostración facial');
   console.log('PASS: Nexa única, cinco movimientos y nueve controles faciales reales');
 } else {
