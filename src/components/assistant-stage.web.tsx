@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { AssistantProfile } from '@/state/assistant';
 import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
@@ -9,8 +9,7 @@ import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
-const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/+esm';
-const LOADER_URL = 'https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/loaders/GLTFLoader.js/+esm';
+// Bundled with the app: loading Nexa must not depend on a third-party CDN.
 const clamp = (x: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(maximum, x));
 
 function getModelUrl() {
@@ -30,6 +29,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const orbitRef = useRef({ yaw: 0, pitch: 0, distance: 1.37 });
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     speakingRef.current = speaking;
@@ -44,7 +45,24 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     controllerRef.current = null;
     if (!host || typeof window === 'undefined' || !isNexa) return;
 
+    setLoaded(false);
+    setUnavailable(false);
+    setLoadMessage('Preparando visor 3D…');
     let disposed = false;
+    let ready = false;
+    const download = new AbortController();
+    const fail = (message: string, error?: unknown) => {
+      if (disposed) return;
+      console.error('[Nexa 3D]', message, error ?? '');
+      setLoaded(false);
+      setUnavailable(true);
+      setLoadMessage(message);
+    };
+    const timeout = window.setTimeout(() => {
+      if (disposed || ready) return;
+      download.abort();
+      fail('La carga 3D tardó demasiado. Puedes reintentar.');
+    }, 90000);
     let animationFrame = 0;
     let renderer: any = null;
     let modelRoot: any = null;
@@ -120,23 +138,32 @@ export function AssistantStage({ profile, speaking = false }: Props) {
 
     async function boot() {
       try {
-        const dynamicImport = new Function('url', 'return import(url)');
         const [THREE, GLTF] = await Promise.all([
-          dynamicImport(THREE_URL), dynamicImport(LOADER_URL),
+          import('three'), import('three/examples/jsm/loaders/GLTFLoader.js'),
         ]);
         if (disposed) return;
         scene = new THREE.Scene();
         perspectiveCamera = new THREE.PerspectiveCamera(32,1,0.01,100);
-        renderer = new THREE.WebGLRenderer({
-          alpha:true,antialias:true,precision:'highp',powerPreference:'high-performance',
-        });
+        try {
+          renderer = new THREE.WebGLRenderer({
+            alpha:true,antialias:true,precision:'highp',powerPreference:'default',
+          });
+        } catch (error) {
+          fail('Este navegador no pudo activar el visor 3D (WebGL). Prueba abrir Nexo en Chrome.', error);
+          window.clearTimeout(timeout);
+          return;
+        }
         // Keep sharp enough for the close-up without exhausting mobile GPUs.
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.25));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 0.97;
         renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;pointer-events:none';
         host.appendChild(renderer.domElement);
+        renderer.domElement.addEventListener('webglcontextlost', (event: Event) => {
+          event.preventDefault();
+          fail('Se interrumpió el visor 3D. Pulsa Reintentar.');
+        });
 
         // Soft studio lighting: skin detail first, gentle lavender rim.
         scene.add(new THREE.HemisphereLight(0xf0efff,0x24203d,1.65));
@@ -168,12 +195,38 @@ export function AssistantStage({ profile, speaking = false }: Props) {
         }
 
         const loader=new GLTF.GLTFLoader();
-        loader.load(getModelUrl(), (gltf:any) => {
-          if (disposed) return;
+        setLoadMessage('Descargando modelo 3D…');
+        const response = await fetch(getModelUrl(), { signal: download.signal });
+        if (!response.ok) throw new Error(`Modelo 3D: HTTP ${response.status}`);
+        const total = Number(response.headers.get('content-length')) || 0;
+        const reader = response.body?.getReader();
+        let bytes: ArrayBuffer;
+        if (reader) {
+          const chunks: Uint8Array[] = [];
+          let received = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.byteLength;
+            if (disposed) { await reader.cancel(); return; }
+            setLoadMessage(total
+              ? `Descargando 3D · ${Math.min(100, Math.round(received / total * 100))}%`
+              : `Descargando 3D · ${(received / 1048576).toFixed(1)} MB`);
+          }
+          const joined = new Uint8Array(received);
+          let offset = 0;
+          for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.byteLength; }
+          bytes = joined.buffer;
+        } else bytes = await response.arrayBuffer();
+        if (disposed || download.signal.aborted) return;
+        setLoadMessage('Preparando rostro y animaciones…');
+        const modelBase = new URL('.', new URL(getModelUrl(), window.location.href)).href;
+        const gltf = await loader.parseAsync(bytes, modelBase);
+        if (disposed || download.signal.aborted) return;
           const names=['Idle','Walking','Running','Greeting','Talking'];
           if (!names.every(name=>gltf.animations.some((a:any)=>a.name===name))) {
-            setUnavailable(true);
-            return;
+            throw new Error('El modelo no contiene las animaciones necesarias');
           }
           modelRoot=gltf.scene;
           const bounds=new THREE.Box3().setFromObject(modelRoot);
@@ -207,7 +260,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           const mixer=new THREE.AnimationMixer(modelRoot);
           const actions: any={};
           for(const name of names){
-            const clip=gltf.animations.find((a:any)=>a.name===name);
+            const clip=gltf.animations.find((a:any)=>a.name===name)!;
             actions[name]=mixer.clipAction(clip);
             actions[name].enabled=true;
             if(name==='Greeting'){
@@ -218,11 +271,14 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           controllerRef.current=new NexaAnimationController(mixer,actions,modelRoot);
           if(speakingRef.current) controllerRef.current.startSpeaking();
           // Portrait should remain calm; no forced walk/run or abrupt greetings.
+          // Show 3D only after its first successful rendered frame.
+          perspectiveCamera.position.set(0, 0.965, distance);
+          perspectiveCamera.lookAt(0, 0.94, 0);
+          renderer.render(scene, perspectiveCamera);
+          ready = true;
+          window.clearTimeout(timeout);
           setLoaded(true);
           setUnavailable(false);
-        },undefined,()=>{
-          if (!disposed) setUnavailable(true);
-        });
 
         const render=(now:number)=>{
           if(disposed)return;
@@ -252,14 +308,17 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           animationFrame=requestAnimationFrame(render);
         };
         animationFrame=requestAnimationFrame(render);
-      } catch {
-        if(!disposed)setUnavailable(true);
+      } catch (error) {
+        window.clearTimeout(timeout);
+        if (!download.signal.aborted) fail('No se pudo cargar el modelo 3D. Pulsa Reintentar.', error);
       }
     }
     void boot();
 
     return ()=>{
       disposed=true;
+      window.clearTimeout(timeout);
+      download.abort();
       cancelAnimationFrame(animationFrame);
       host.removeEventListener('pointerdown',onDown);
       host.removeEventListener('pointermove',onMove);
@@ -285,10 +344,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       renderer?.dispose?.();
       renderer?.domElement?.remove?.();
     };
-  },[isNexa,profile.id]);
+  },[isNexa,profile.id,attempt]);
 
   return (
-    <View style={styles.stage}>
+    <View style={[styles.stage, unavailable && {height: 470}]}>
       <View style={styles.portrait}>
         <LinearGradient colors={['#19102D','#121C36','#080D1A']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} pointerEvents="none" />
         <View pointerEvents="none" style={styles.halo}/>
@@ -312,11 +371,12 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       <View style={styles.identity}>
         <View style={[styles.dot, {backgroundColor:unavailable?'#E6BB85':'#73EBC4'}]}/>
         <Text style={styles.name}>NEXA</Text>
-        <Text style={styles.status}>{unavailable?'Vista de respaldo':loaded?'Asistente 3D':'Cargando Nexa…'}</Text>
+        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?'Asistente 3D':loadMessage}</Text>
       </View>
       <Text style={styles.hint}>
-        {speaking?'Nexa está respondiendo':'Desliza para girar · pellizca con dos dedos para acercar'}
+        {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza para girar · pellizca con dos dedos para acercar') : 'Imagen de referencia mientras se prepara el modelo 3D'}
       </Text>
+      {unavailable && <Pressable accessibilityRole="button" onPress={() => setAttempt(value => value + 1)} style={{padding: 10}}><Text style={{color:'#D5C4FF',fontWeight:'700'}}>Reintentar 3D</Text></Pressable>}
     </View>
   );
 }
