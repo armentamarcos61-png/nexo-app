@@ -456,11 +456,16 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           };
           for(const name of names){
             const sourceClip=gltf.animations.find((a:any)=>a.name===name);
-            const gentleStudioGesture=studioHasNativeArms &&
-              (name==='Talking'||name==='Greeting');
-            const safeClip=(gentleStudioGesture ? syntheticGesture(name) : sourceClip?.clone()) ??
-              (name==='Talking'||name==='Greeting'
-                ? syntheticGesture(name) : new THREE.AnimationClip(name,1,[]));
+            // Studio's imported animation tracks reset its shoulders/spine
+            // to the original T-pose on every mixer tick. Never play these
+            // skeletal clips on the approved bust: its facial rig works
+            // independently and speech uses tiny additive arm gestures.
+            const gentleStudioGesture=studio && (name==='Talking'||name==='Greeting');
+            const safeClip=studio
+              ? (gentleStudioGesture ? syntheticGesture(name) : new THREE.AnimationClip(name,1,[]))
+              : (sourceClip?.clone() ??
+                 (name==='Talking'||name==='Greeting'
+                   ? syntheticGesture(name) : new THREE.AnimationClip(name,1,[])));
             safeClip.tracks=safeClip.tracks.filter((track:any)=>{
               const forbidden=/(?:head|neck|jaw|hips|pelvis)/i.test(track.name);
               if(forbidden)return false;
