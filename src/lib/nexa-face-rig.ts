@@ -89,9 +89,12 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       set('EyeLookRight',Math.max(0,gazeX),2.8);
       set('EyeLookUp',Math.max(0,gazeY),2.7);
       set('EyeLookDown',Math.max(0,-gazeY),2.7);
-      const expression=speaking?0.06+0.065*syllable:0.045;
-      set('BrowRaiseLeft',expression,3.1);
-      set('BrowRaiseRight',expression*0.94,3.1);
+      // Studio's native eyebrow shapes are restrained: a very small weight
+      // was imperceptible on phones. Make expressions visible, still smooth.
+      // Brows and eyes stay anatomically independent of mouth and head.
+      const expression=speaking?0.18+0.31*ease(syllable):0.11;
+      set('BrowRaiseLeft',expression,4.2);
+      set('BrowRaiseRight',expression*0.96,4.2);
       set('BrowFrown',0,3);
       for(const mesh of binding){
         for(const [name,index] of Object.entries(mesh.channels)){
