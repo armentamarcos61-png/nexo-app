@@ -140,6 +140,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let renderer: any = null;
     let modelRoot: any = null;
     let scene: any = null;
+    let avatarRoot: any = null;
     let faceRig: NexaFaceRig | null = null;
     let premiumLook: PremiumNexaLook | null = null;
     let composite: ReturnType<typeof composeNexaBody> | null = null;
@@ -366,7 +367,14 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               mat.needsUpdate=true;
             }
           });
-          scene.add(modelRoot);
+          // Both source GLBs become ONE 3D character under this scene node.
+          // The runtime keeps the original Studio head/bust/facial rig and
+          // uses only the clipped lower half of the rigged full-body asset.
+          // This is a real unified 3D hierarchy, never a photo overlay.
+          avatarRoot = new THREE.Group();
+          avatarRoot.name = 'Nexa unified 3D avatar';
+          avatarRoot.add(modelRoot);
+          scene.add(avatarRoot);
           // First narrow only the two lower side flaps marked by the user.
           // Never scale the entire Studio: the approved face and logo stay put.
           // Then measure the cut before lowering the hands; their position
@@ -409,7 +417,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               const bodyGltf = await loader.parseAsync(bodyBytes,new URL('.',new URL(bodyUrl,window.location.href)).href);
               if (disposed || download.signal.aborted) return;
               composite = composeNexaBody(THREE,modelRoot,bodyGltf.scene,renderer);
-              scene.add(composite.body);
+              avatarRoot.add(composite.body);
               // Keep the lower rig's calibrated neutral pose. Its old Idle
               // clip overwrote our corrected shoulder/ankle rotations and raised
               // the hands again. Nexa's face keeps animating independently.
@@ -462,13 +470,13 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           };
           for(const name of names){
             const sourceClip=gltf.animations.find((a:any)=>a.name===name);
-            // Studio's imported animation tracks reset its shoulders/spine
-            // to the original T-pose on every mixer tick. Never play these
-            // skeletal clips on the approved bust: its facial rig works
-            // independently and speech uses tiny additive arm gestures.
-            const gentleStudioGesture=studio && (name==='Talking'||name==='Greeting');
+            // Studio's original sleeves contain baked panels that deform
+            // differently from the arm bones. All skeletal arm clips (even
+            // small synthetic talk gestures) make them look doubled.
+            // Leave the approved Studio arm geometry motionless: blinking,
+            // brows, lips and subtle head motion still animate independently.
             const safeClip=studio
-              ? (gentleStudioGesture ? syntheticGesture(name) : new THREE.AnimationClip(name,1,[]))
+              ? new THREE.AnimationClip(name,1,[])
               : (sourceClip?.clone() ??
                  (name==='Talking'||name==='Greeting'
                    ? syntheticGesture(name) : new THREE.AnimationClip(name,1,[])));
