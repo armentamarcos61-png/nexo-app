@@ -580,7 +580,7 @@ function finishBoots(THREE: any, body: any, eyeWidth: number, floorY: number): v
  * any source geometry. The native eye distance gives a stable scale on both
  * mobile and desktop, independent of the two GLB source units.
  */
-function studioTorsoBottomY(THREE: any, studio: any, eye: Landmark, bounds: any): number {
+export function studioTorsoBottomY(THREE: any, studio: any, eye: Landmark, bounds: any): number {
   studio.updateMatrixWorld(true);
   const ys: number[] = [];
   const v = new THREE.Vector3();
