@@ -235,7 +235,7 @@ function repairStudioSleeveWeights(studio: any): number {
       // Meshy's shoulder/sleeve vertices sit ABOVE the middle of the bust.
       // Cutting off y>46% omitted precisely the patches visible on Android.
       // Restrict the fix to outer limbs, away from the face, cap and chest.
-      if (extension < 0.53 || height > 0.79) continue;
+      if (extension < 0.57 || height > 0.79 || height < 0.12) continue;
       const side = sideCoordinate > 0 ? 'Left' : 'Right';
       const entries: {id:number;weight:number}[] = [];
       let activeArm=0;
@@ -249,11 +249,11 @@ function repairStudioSleeveWeights(studio: any): number {
       }
       // A waist vertex close to the outer contour is not a sleeve unless it
       // already has some arm influence or is well beyond the rib cage.
-      if (activeArm < 0.065 && extension < 0.76) continue;
+      if (activeArm < 0.065 && extension < 0.82) continue;
       // The sleeves extend horizontally: choose their joint by distance
       // along the arm, NOT by height (which changes when Nexa moves).
       const target = 'mixamorig:'+side+
-        (extension < 0.67 ? 'Arm' : extension < 0.86 ? 'ForeArm' : 'Hand');
+        (extension < 0.70 ? 'Arm' : extension < 0.89 ? 'ForeArm' : 'Hand');
       const targetId = byName.get(target);
       if (targetId === undefined) continue;
       const merged = new Map<number,number>();
@@ -347,7 +347,11 @@ export function poseNexaStudioArms(THREE: any, studio: any): boolean {
   if (!studioHasRiggedArms(studio)) return false;
   const repaired = repairStudioSleeveWeights(studio);
   if (repaired) console.info('[Nexa 3D] Reasignados pesos de las mangas:', repaired);
-  relaxBodyPose(THREE, studio, true);
+  // Meshy's baked shoulder panels do not follow the same rig weights as its
+  // skin. Even a small post-import rotation separates their seams and gives
+  // the appearance of TWO arms. Keep the approved original Studio bind pose;
+  // the face has its own independent rig and continues to animate.
+  studio.updateMatrixWorld(true);
   return true;
 }
 
@@ -567,6 +571,42 @@ function finishBoots(THREE: any, body: any, eyeWidth: number, floorY: number): v
 }
 
 /**
+ * Find the bottom of the CENTRAL Studio torso rather than the lowest hand.
+ * The GLB was exported as a bust with sleeves, and its Box3.min.y can belong
+ * to fingertips. A finger-driven seam is exactly what produced the floating
+ * rectangular chest and a band underneath it.
+ *
+ * The 2nd percentile resists isolated cape/sleeve vertices without changing
+ * any source geometry. The native eye distance gives a stable scale on both
+ * mobile and desktop, independent of the two GLB source units.
+ */
+function studioTorsoBottomY(THREE: any, studio: any, eye: Landmark, bounds: any): number {
+  studio.updateMatrixWorld(true);
+  const ys: number[] = [];
+  const v = new THREE.Vector3();
+  const torsoRadius = eye.width * 2.05;
+  const maxY = eye.center.y - eye.width * 0.45;
+  studio.traverse((mesh: any) => {
+    if (!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position) return;
+    const position = mesh.geometry.attributes.position;
+    const step = Math.max(1, Math.floor(position.count / 30000));
+    for (let i=0; i<position.count; i+=step) {
+      v.fromBufferAttribute(position,i);
+      if (typeof mesh.applyBoneTransform === 'function') mesh.applyBoneTransform(i,v);
+      mesh.localToWorld(v);
+      if (Math.abs(v.x-eye.center.x) <= torsoRadius && v.y < maxY &&
+          Number.isFinite(v.y)) ys.push(v.y);
+    }
+  });
+  if (ys.length < 30) return bounds.min.y;
+  ys.sort((a,b) => a-b);
+  const estimate = ys[Math.floor((ys.length-1)*0.02)];
+  const h = bounds.max.y - bounds.min.y;
+  // Keep the join safely in the lower quarter of the approved bust.
+  return Math.max(bounds.min.y,Math.min(bounds.min.y+h*0.27,estimate));
+}
+
+/**
  * Connect the original Studio bust edge to the older model's waist with a
  * short real 3D suit panel. Two hard mesh cuts stacked on top of each other
  * cannot be seamless: this samples torso-only skinned vertices on both sides,
@@ -729,6 +769,7 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   const lower = new THREE.Box3().setFromObject(body);
   const studioHeight = upper.max.y - upper.min.y;
   const bodyHeight = lower.max.y - lower.min.y;
+  const torsoBottom = studioTorsoBottomY(THREE, studio, studioEyes, upper);
   if (studioHeight < 0.15 || bodyHeight < studioHeight * 1.25 ||
       lower.min.y > upper.min.y || lower.max.y < upper.max.y - studioHeight * 0.3) {
     throw new Error('No se pudo ajustar el cuerpo sin deformar el torso Studio');
@@ -738,15 +779,15 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   // body face, cap, upper bust, and hair are not rendered at all.
   // A measured connector replaces the visible flat cut between two
   // differently shaped torsos. Keep the original safe cut if no torso profile.
-  const candidateCut = upper.min.y - studioHeight * 0.12;
+  const candidateCut = torsoBottom - studioHeight * 0.10;
   const waistPanel = tailoredWaistPanel(
-    THREE, studio, body, upper.min.y, studioHeight, candidateCut,
+    THREE, studio, body, torsoBottom, studioHeight, candidateCut,
   );
   // Never let the older bust rise into Studio when profile measurement
-  // fails. The earlier ABOVE-the-cut fallback created the floating chest band.
+  // fails. Match the actual lower chest instead of low-hanging fingers.
   const seamY = waistPanel
     ? candidateCut
-    : upper.min.y - Math.max(0.002, studioHeight * 0.012);
+    : torsoBottom - Math.max(0.002, studioHeight * 0.012);
   // Three.js discards the NEGATIVE half-space of a clipping plane.
   // Therefore the normal MUST point downward: discard y > seamY (the
   // duplicate face/chest) and preserve y <= seamY (hips, legs, feet).
