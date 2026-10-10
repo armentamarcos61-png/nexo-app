@@ -34,6 +34,9 @@ jobs:
           python -m pip install numpy==2.2.6
           python scripts/build_nexa_face.py
 
+      - name: Restaurar y validar Nexa Studio 3D
+        run: node scripts/restore-nexa-studio.cjs
+
       - name: Verificar TypeScript
         run: npx tsc --noEmit
 

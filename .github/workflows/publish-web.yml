@@ -39,6 +39,9 @@ jobs:
           python -m pip install numpy==2.2.6
           python scripts/build_nexa_face.py
 
+      - name: Restaurar modelo Nexa Studio y validar integridad
+        run: node scripts/restore-nexa-studio.cjs
+
       - name: Preparar ruta estable de GitHub Pages
         run: |
           node - <<'NODE'

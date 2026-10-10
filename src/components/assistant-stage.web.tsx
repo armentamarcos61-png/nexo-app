@@ -41,19 +41,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const [unavailable, setUnavailable] = useState(false);
   const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
   const [attempt, setAttempt] = useState(0);
-  const [variant, setVariant] = useState<ModelVariant>('full');
+  const [variant, setVariant] = useState<ModelVariant>('studio');
 
-  // When the optimized Meshy bust is present in published models/, prefer
-  // its actual 3D geometry. Until then retain the verified old model.
-  useEffect(() => {
-    if (!isNexa || typeof window === 'undefined') return;
-    const probe=new AbortController();
-    void fetch(getModelUrl('studio'),{method:'HEAD',signal:probe.signal})
-      .then(res=>{if(res.ok&&!probe.signal.aborted)setVariant('studio');})
-      .catch(()=>{ /* Studio binary has not been published yet. */ });
-    return ()=>probe.abort();
-  },[isNexa]);
-
+  // Studio is the default after publication; use the previous fully rigged model
+  // only if an old browser cache or unavailable asset prevents Studio loading.
   useEffect(() => {
     speakingRef.current = speaking;
     const controller = controllerRef.current;
@@ -398,6 +389,11 @@ export function AssistantStage({ profile, speaking = false }: Props) {
         };
         animationFrame=requestAnimationFrame(render);
       } catch (error) {
+        if (!download.signal.aborted && !disposed && variant === 'studio') {
+          console.warn('[Nexa Studio] Fallback to previous 3D while asset is unavailable', error);
+          setVariant('full');
+          return;
+        }
         if (!download.signal.aborted && !disposed) {
           const details = error instanceof Error ? error.message : String(error);
           fail(/HTTP 404/.test(details)
