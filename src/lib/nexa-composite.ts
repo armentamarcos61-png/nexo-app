@@ -175,6 +175,94 @@ function relaxBodyPose(THREE: any, body: any): void {
 }
 
 /**
+ * The approved Studio bust already supplies complete skinned arms and hands.
+ * Pose those limbs, not just the older body's arms: otherwise Studio remains
+ * in the horizontal T pose regardless of how the lower half is calibrated.
+ * Returns false for bust exports without genuine animated arm joints.
+ */
+function studioHasRiggedArms(studio: any): boolean {
+  const required = [
+    'mixamorig:LeftArm', 'mixamorig:LeftForeArm', 'mixamorig:LeftHand',
+    'mixamorig:RightArm', 'mixamorig:RightForeArm', 'mixamorig:RightHand',
+  ];
+  const weightedJoints = new Set<string>();
+  studio.traverse((node: any) => {
+    if (!node.isSkinnedMesh || !node.skeleton?.bones?.length) return;
+    for (const bone of node.skeleton.bones) weightedJoints.add(bone.name);
+  });
+  return required.every(name => weightedJoints.has(name) && studio.getObjectByName(name));
+}
+
+export function poseNexaStudioArms(THREE: any, studio: any): boolean {
+  if (!studioHasRiggedArms(studio)) return false;
+  relaxBodyPose(THREE, studio);
+  return true;
+}
+
+/**
+ * Studio owns the face, clothing above the seam, AND the complete arms.
+ * The older model owns only the lower torso and legs. Remove its arm-skin
+ * triangles before cropping to avoid double forearms/hands below the seam.
+ * Preserve the remaining skinned mesh (not a static image replacement).
+ */
+function removeLegacyArmSurfaces(body: any): number {
+  let removed = 0;
+  body.traverse((mesh: any) => {
+    if (!mesh.isSkinnedMesh || !mesh.skeleton?.bones ||
+        !mesh.geometry?.attributes?.skinIndex) return;
+    const geometry = mesh.geometry;
+    const count = geometry.attributes.position?.count ?? 0;
+    if (!count) return;
+    const jointNames = mesh.skeleton.bones.map((bone: any) => bone.name || '');
+    const scores = new Float32Array(count);
+    for (let set = 0; set < 3; set++) {
+      const suffix = set ? String(set) : '';
+      const joints = geometry.getAttribute('skinIndex' + suffix);
+      const weights = geometry.getAttribute('skinWeight' + suffix);
+      if (!joints || !weights) continue;
+      for (let i = 0; i < count; i++) {
+        for (let channel = 0; channel < Math.min(4, joints.itemSize, weights.itemSize); channel++) {
+          const name = jointNames[joints.getComponent(i, channel)] ?? '';
+          if (/(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i.test(name)) {
+            scores[i] += weights.getComponent(i, channel);
+          }
+        }
+      }
+    }
+    const originalIndex = geometry.index;
+    const indexAt = (index: number) => originalIndex ? originalIndex.getX(index) : index;
+    const indexCount = originalIndex?.count ?? count;
+    const groups = geometry.groups.length ? geometry.groups :
+      [{ start: 0, count: indexCount, materialIndex: 0 }];
+    const kept: number[] = [];
+    const sections: { start: number; count: number; materialIndex: number }[] = [];
+    for (const group of groups) {
+      const first = kept.length;
+      const stop = Math.min(indexCount, group.start + group.count);
+      for (let i = group.start; i + 2 < stop; i += 3) {
+        const a = indexAt(i), b = indexAt(i + 1), c = indexAt(i + 2);
+        const max = Math.max(scores[a], scores[b], scores[c]);
+        const avg = (scores[a] + scores[b] + scores[c]) / 3;
+        if (max >= 0.48 && avg >= 0.32) {
+          removed++;
+        } else {
+          kept.push(a, b, c);
+        }
+      }
+      if (kept.length > first) {
+        sections.push({ start: first, count: kept.length-first, materialIndex: group.materialIndex ?? 0 });
+      }
+    }
+    // Do not turn an unexpected/unweighted mesh invisible.
+    if (!removed || !kept.length) return;
+    geometry.setIndex(kept);
+    geometry.clearGroups();
+    for (const group of sections) geometry.addGroup(group.start, group.count, group.materialIndex);
+  });
+  return removed;
+}
+
+/**
  * Keep the original body's articulated upper arms while clipping the duplicate
  * head and chest. A global horizontal clipping plane used to amputate the
  * shoulder region, making the detached hands float beside the Studio bust.
@@ -288,7 +376,7 @@ function finishBoots(THREE: any, body: any, eyeWidth: number, floorY: number): v
     if (!Number.isFinite(reach) || reach < eyeWidth * 0.18 || reach > eyeWidth * 2.7) continue;
     forward.normalize();
     const centerWorld = tip.clone().addScaledVector(forward, -reach * 0.19);
-    const y = floorY + eyeWidth * 0.095;
+    const y = floorY + eyeWidth * 0.07;
     const angle = Math.atan2(forward.x, forward.z);
     const group = new THREE.Group();
     group.name = 'Nexa rounded ' + side + ' boot tip';
@@ -296,11 +384,11 @@ function finishBoots(THREE: any, body: any, eyeWidth: number, floorY: number): v
     group.position.copy(body.worldToLocal(centerWorld));
     group.rotation.y = angle;
     const toeCap = new THREE.Mesh(geometry, ivory);
-    toeCap.scale.set(eyeWidth * 0.31, eyeWidth * 0.16, eyeWidth * 0.43);
-    toeCap.position.y = eyeWidth * 0.06;
+    toeCap.scale.set(eyeWidth * 0.27, eyeWidth * 0.10, eyeWidth * 0.34);
+    toeCap.position.y = eyeWidth * 0.028;
     const outsole = new THREE.Mesh(geometry, sole);
-    outsole.scale.set(eyeWidth * 0.34, eyeWidth * 0.058, eyeWidth * 0.48);
-    outsole.position.y = -eyeWidth * 0.05;
+    outsole.scale.set(eyeWidth * 0.29, eyeWidth * 0.038, eyeWidth * 0.37);
+    outsole.position.y = -eyeWidth * 0.04;
     group.add(toeCap, outsole);
     body.add(group);
     pieces.push(group);
@@ -339,6 +427,8 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   body.position.y += (new THREE.Box3().setFromObject(studio).getSize(new THREE.Vector3()).y) * 0.032;
   body.updateMatrixWorld(true);
   relaxBodyPose(THREE, body);
+  const studioOwnsArms = studioHasRiggedArms(studio);
+  if (studioOwnsArms) removeLegacyArmSurfaces(body);
   const upper = new THREE.Box3().setFromObject(studio);
   const lower = new THREE.Box3().setFromObject(body);
   const studioHeight = upper.max.y - upper.min.y;
@@ -382,7 +472,7 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   });
 
   const upperArmsPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -seamY);
-  preserveOriginalArms(THREE, body, upperArmsPlane);
+  if (!studioOwnsArms) preserveOriginalArms(THREE, body, upperArmsPlane);
   finishBoots(THREE, body, studioEyes.width, lower.min.y);
 
   const visibleBounds = new THREE.Box3().setFromObject(studio);
