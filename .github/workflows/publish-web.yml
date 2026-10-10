@@ -42,6 +42,9 @@ jobs:
       - name: Restaurar modelo Nexa Studio y validar integridad
         run: node scripts/restore-nexa-studio.cjs
 
+      - name: Comprobar geometría de unión Nexa Studio + cuerpo completo
+        run: node scripts/verify-nexa-composite.cjs
+
       - name: Preparar ruta estable de GitHub Pages
         run: |
           node - <<'NODE'
