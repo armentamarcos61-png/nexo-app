@@ -129,7 +129,7 @@ targets={}
 mouth=spot(0,1.520,.132,.030,.024,.041)
 mouth*=np.clip(1-(np.abs(x)/.026)**2,0,1)
 top=y>=1.521
-v=blank();v[:,1]=mouth*np.where(top,.003,-.010);v[:,2]=mouth*.0006
+v=blank();v[:,1]=mouth*np.where(top,.0037,-.0170);v[:,2]=mouth*.0004
 targets['MouthOpen']=v
 v=blank();v[:,0]=-x*mouth*.045;v[:,1]=mouth*np.where(top,.0007,-.0011);v[:,2]=mouth*.0008
 targets['MouthO']=v
@@ -138,15 +138,18 @@ targets['MouthWide']=v
 v=blank();v[:,0]=x*mouth*.055;v[:,1]=mouth*(.0009+.0016*np.clip((np.abs(x)-.012)/.033,0,1))
 targets['MouthSmile']=v
 for name,cx in [('EyeBlinkLeft',-.050),('EyeBlinkRight',.050)]:
- # Flat core closes the painted eye fully; smooth falloff protects cheeks.
- eye=np.clip((.036-np.abs(x-cx))/.012,0,1)
- eye*=np.clip((.025-np.abs(y-1.596))/.009,0,1)
- eye*=np.clip((z-.072)/.023,0,1)*head
- v=blank();v[:,1]=eye*(1.592-y)*.995;v[:,2]=eye*.001
+ # Eyelids only: never tug the skull, temples, brow or cheeks toward eye center.
+ # The old target shifted a large area as much as 0.025 model units and made
+ # the head look folded. Keep the controlled surface under 0.008 units.
+ eye=np.clip((.031-np.abs(x-cx))/.012,0,1)
+ eye*=np.clip((.015-np.abs(y-1.596))/.008,0,1)
+ eye*=np.clip((z-.101)/.022,0,1)*head
+ v=blank();v[:,1]=eye*np.where(y>=1.594,-.0075,.0035)
+ v[:,2]=eye*.0002
  targets[name]=v
 for name,cx in [('BrowRaiseLeft',-.050),('BrowRaiseRight',.050)]:
  brow=spot(cx,1.630,.121,.032,.016,.052)
- v=blank();v[:,1]=brow*.0085;v[:,2]=brow*.0008
+ v=blank();v[:,1]=brow*.0037;v[:,2]=brow*.0003
  targets[name]=v
 v=blank()
 for cx in (-.038,.038):
@@ -220,7 +223,7 @@ mesh_node=next(i for i,n in enumerate(doc['nodes']) if n.get('mesh')==0)
 doc['animations'].append({'name':'Nexa_FacialDemo','samplers':[{'input':input_a,'output':output_a,'interpolation':'LINEAR'}],'channels':[{'sampler':0,'target':{'node':mesh_node,'path':'weights'}}]})
 
 doc['buffers'][0]['byteLength']=len(binary)
-doc['asset'].setdefault('extras',{})['facialRig']='Nexa v4: articulated lips, full eyelid closure, expressive brows, 9 native morph targets, face material, facial demo'
+doc['asset'].setdefault('extras',{})['facialRig']='Nexa v5: localized eyelids, restrained brows, visible lip articulation, 9 native morph targets, soft facial material'
 j=json.dumps(doc,separators=(',',':')).encode('utf8')
 j+=b' '*((-len(j))%4)
 binary.extend(b'\0'*(-len(binary)%4))
