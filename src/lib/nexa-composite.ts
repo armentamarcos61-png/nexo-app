@@ -58,7 +58,7 @@ function landmarks(THREE: any, root: any): Landmark | null {
   return { left, right, center: left.clone().add(right).multiplyScalar(0.5), width };
 }
 
-function addRearHair(THREE: any, studio: any, eyes: Landmark | null) {
+function addRearHair(THREE: any, studio: any, eyes: Landmark | null): (dt?: number, headMotion?: number) => void {
   if (!eyes) return () => {};
   const head = studio.getObjectByName('mixamorig:Head');
   if (!head) return () => {};
@@ -157,8 +157,9 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   body.traverse((object: any) => {
     if (!object.isMesh) return;
     object.frustumCulled = false;
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
-    object.material = materials.map((material: any) => {
+    const isArray = Array.isArray(object.material);
+    const materials = isArray ? object.material : [object.material];
+    const adjusted = materials.map((material: any) => {
       if (!material) return material;
       const copy = material.clone();
       copy.clippingPlanes = [plane];
@@ -167,12 +168,7 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
       copy.needsUpdate = true;
       return copy;
     });
-    if (!Array.isArray(object.userData.nexaOriginalMaterial = object.userData.nexaOriginalMaterial || null)) {
-      // Keep cloned material only; original source materials remain in the loader.
-    }
-    if (!Array.isArray(object.material) && object.material?.length === 1) {
-      object.material = object.material[0];
-    }
+    object.material = isArray ? adjusted : adjusted[0];
   });
 
   const visibleBounds = new THREE.Box3().setFromObject(studio);
