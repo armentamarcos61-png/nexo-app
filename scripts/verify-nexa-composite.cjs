@@ -127,3 +127,65 @@ function describeRig(label, glb) {
 }
 describeRig('studio',studio);
 describeRig('full',full);
+
+function readFour(gltf, reference, vertex) {
+  const a=gltf.doc.accessors[reference];
+  const view=gltf.doc.bufferViews[a.bufferView];
+  const width=a.componentType===5126||a.componentType===5125?4:a.componentType===5123?2:1;
+  const stride=view.byteStride||width*4;
+  const offset=(view.byteOffset||0)+(a.byteOffset||0)+vertex*stride;
+  const values=[];
+  for(let c=0;c<4;c++) {
+    const p=offset+c*width;
+    let v;
+    switch(a.componentType) {
+      case 5126:v=gltf.bin.readFloatLE(p);break;
+      case 5125:v=gltf.bin.readUInt32LE(p);break;
+      case 5123:v=gltf.bin.readUInt16LE(p);break;
+      case 5121:v=gltf.bin.readUInt8(p);break;
+      default:throw new Error('Unsupported joint component '+a.componentType);
+    }
+    if(a.normalized && a.componentType===5121)v/=255;
+    if(a.normalized && a.componentType===5123)v/=65535;
+    values.push(v);
+  }
+  return values;
+}
+function countUpperArmTriangles(gltf) {
+  const p=gltf.doc.meshes[0].primitives[0];
+  const skin=gltf.doc.skins[0];
+  const a=p.attributes, n=gltf.doc.accessors[a.POSITION].count;
+  const score=new Float32Array(n);
+  for(let set=0;set<3;set++) {
+    const ji=a['JOINTS_'+set], wi=a['WEIGHTS_'+set];
+    if(ji===undefined||wi===undefined)continue;
+    for(let i=0;i<n;i++) {
+      const joints=readFour(gltf,ji,i),weights=readFour(gltf,wi,i);
+      for(let c=0;c<4;c++) {
+        const name=gltf.doc.nodes[skin.joints[joints[c]]]?.name||'';
+        if(/(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i.test(name))score[i]+=weights[c];
+      }
+    }
+  }
+  const indices=gltf.doc.accessors[p.indices];
+  const view=gltf.doc.bufferViews[indices.bufferView];
+  const offset=(view.byteOffset||0)+(indices.byteOffset||0);
+  const count=indices.count;
+  let kept=0;
+  for(let i=0;i+2<count;i+=3) {
+    const width=indices.componentType===5125?4:2;
+    const at=j=>width===4?gltf.bin.readUInt32LE(offset+j*width):gltf.bin.readUInt16LE(offset+j*width);
+    const x=score[at(i)],y=score[at(i+1)],z=score[at(i+2)];
+    if(Math.max(x,y,z)>=.48&&(x+y+z)/3>=.32)kept++;
+  }
+  return kept;
+}
+const armTriangles=countUpperArmTriangles(full);
+assert(armTriangles>100,'Body GLB must expose skinned upper-arm geometry that can be reattached');
+console.log('PASS: Nexa full-body upper-arm triangles available='+armTriangles);
+const polish=fs.readFileSync('src/lib/nexa-composite.ts','utf8');
+assert(polish.includes('preserveOriginalArms(THREE, body, upperArmsPlane)'),
+  'The complete upper arms must be preserved above the Studio seam');
+assert(polish.includes('relaxBodyPose(THREE, body)'),'Hands and shoe pose must be calibrated');
+assert(polish.includes('finishBoots(THREE, body, studioEyes.width, lower.min.y)'),
+  'Shoe finishing must accompany the full body');
