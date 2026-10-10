@@ -14,14 +14,14 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
   if (!head) return { update() {}, dispose() {} };
 
   const matteWhite = new THREE.MeshPhysicalMaterial({
-    color: 0xe9ebfc, metalness: 0.11, roughness: 0.33,
-    clearcoat: 0.32, clearcoatRoughness: 0.24,
+    color: 0xe9ebfc, metalness: 0.07, roughness: 0.43,
+    clearcoat: 0.22, clearcoatRoughness: 0.32,
   });
   const ivory = new THREE.MeshPhysicalMaterial({
     color: 0xf8f2fa, metalness: 0, roughness: 0.65, clearcoat: 0.07,
   });
   const dark = new THREE.MeshPhysicalMaterial({
-    color: 0x141427, metalness: 0.40, roughness: 0.32, clearcoat: 0.4,
+    color: 0x141427, metalness: 0.25, roughness: 0.49, clearcoat: 0.18,
   });
   const hairMat = new THREE.MeshPhysicalMaterial({
     color: 0x100d20, metalness: 0.12, roughness: 0.32,
@@ -86,7 +86,7 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
       c.strokeStyle='#a38bff';c.lineWidth=10;
       c.beginPath();c.arc(128,128,111,0,Math.PI*2);c.stroke();
       c.shadowColor='#9369ff';c.shadowBlur=12;
-      c.strokeStyle='#eeeaff';c.lineWidth=12;c.lineCap='round';c.lineJoin='round';
+      c.strokeStyle='#ffffff';c.lineWidth=18;c.lineCap='round';c.lineJoin='round';
       c.beginPath();c.moveTo(78,177);c.lineTo(78,78);c.lineTo(176,177);c.lineTo(176,78);c.stroke();
     }
     const t=new THREE.CanvasTexture(canvas);
@@ -157,7 +157,9 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
   pill(look,[0,0.086,0.076],[0.167,0.012,0.103],dark,'Visor black underside');
   pill(look,[0,0.090,0.085],[0.165,0.012,0.107],matteWhite,'Visor upper plate');
   tube(look,[[-0.15,0.09,0.10],[-0.09,0.092,0.166],[0,0.093,0.186],[0.09,0.092,0.166],[0.15,0.09,0.10]],0.003,glow,'Visor LED line');
-  logo(look,[0,0.156,0.094],0.030);
+  // Keep the N badge just ahead of the cap surface; the prior badge was
+  // partially embedded, so it looked like an unreadable dark oval.
+  logo(look,[0,0.134,0.124],0.038);
 
   // Rounded earpieces and integrated N branding.
   for(const side of [-1,1]){
@@ -165,7 +167,7 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
     pill(look,[side*0.172,0.001,0.004],[0.029,0.062,0.062],matteWhite,'Headset metal plate');
     const circleCenter=[side*0.193,0.001,0.004];
     torus(look,circleCenter,0.055,glow,[0,Math.PI/2,0],'Earpiece violet ring');
-    logo(look,[side*0.196,0.001,0.004],0.048,side<0?'left':'right');
+    logo(look,[side*0.215,0.001,0.004],0.047,side<0?'left':'right');
   }
 
   // Eye color comes from the deforming facial surface. Detached iris spheres
@@ -206,7 +208,7 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
         material.map=texture;
         material.color.set(0xffffff);
         material.metalness=0;
-        material.roughness=0.78;
+        material.roughness=0.9;
         material.normalMap=null;
         material.needsUpdate=true;
         mesh.geometry=geometry;
@@ -218,9 +220,9 @@ export function installNexaPremiumLook(THREE: any, root: any, scene: any, refere
 
   // Chest insignia belongs to the body so it doesn't sway with the head.
   const badge=new THREE.Group();
-  badge.position.set(0.117,1.28,0.145);
+  badge.position.set(0.117,1.28,0.19);
   root.add(badge);
-  logo(badge,[0,0,0],0.043,'front');
+  logo(badge,[0,0,0],0.055,'front');
 
   let sway=0;
   let velocity=0;
