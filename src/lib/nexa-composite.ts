@@ -193,8 +193,83 @@ function studioHasRiggedArms(studio: any): boolean {
   return required.every(name => weightedJoints.has(name) && studio.getObjectByName(name));
 }
 
+/**
+ * Meshy's Studio export gives part of the sleeves weights on the otherwise
+ * invisible LEG bones (and Bone_009/Bone_007). Rotating Arm alone therefore
+ * leaves large sleeve patches stretched in their original horizontal pose.
+ * Reassign ONLY geometrically identified sleeve vertices to their own arm
+ * bones. Neck, face and the approved central chest keep their original skin.
+ */
+function repairStudioSleeveWeights(studio: any): number {
+  if (studio.userData.nexaSleeveWeightsRepaired) return 0;
+  let repaired = 0;
+  studio.traverse((mesh: any) => {
+    if (!mesh.isSkinnedMesh || !mesh.skeleton?.bones?.length) return;
+    const geometry = mesh.geometry;
+    const points = geometry?.getAttribute('position');
+    const joints = geometry?.getAttribute('skinIndex');
+    const weights = geometry?.getAttribute('skinWeight');
+    if (!points || !joints || !weights || joints.itemSize < 4 || weights.itemSize < 4) return;
+    geometry.computeBoundingBox();
+    const limits = geometry.boundingBox;
+    const cx = (limits.min.x + limits.max.x) / 2;
+    const halfWidth = Math.max(0.01,(limits.max.x-limits.min.x)/2);
+    const fullHeight = Math.max(0.01,limits.max.y-limits.min.y);
+    const boneNames = mesh.skeleton.bones.map((b: any) => b.name ?? '');
+    const byName = new Map<string,number>();
+    boneNames.forEach((name: string,i: number) => byName.set(name,i));
+    for (let i=0; i<points.count; i++) {
+      const sideCoordinate = (points.getX(i)-cx)/halfWidth;
+      const extension = Math.abs(sideCoordinate);
+      const height = (points.getY(i)-limits.min.y)/fullHeight;
+      if (extension < 0.53 || height > 0.46) continue;
+      const side = sideCoordinate > 0 ? 'Left' : 'Right';
+      const entries: {id:number;weight:number}[] = [];
+      let activeArm=0;
+      for (let k=0;k<4;k++) {
+        const id=joints.getComponent(i,k);
+        const weight=weights.getComponent(i,k);
+        const name=boneNames[id]||'';
+        if (name.startsWith('mixamorig:'+side) &&
+            /(?:Shoulder|Arm|ForeArm|Hand)$/.test(name)) activeArm += weight;
+        if (weight>0) entries.push({id,weight});
+      }
+      // A waist vertex close to the outer contour is not a sleeve unless it
+      // already has some arm influence or is well beyond the rib cage.
+      if (activeArm < 0.065 && extension < 0.76) continue;
+      const target = 'mixamorig:'+side+
+        (height > 0.31 ? 'Arm' : height > 0.135 ? 'ForeArm' : 'Hand');
+      const targetId = byName.get(target);
+      if (targetId === undefined) continue;
+      const merged = new Map<number,number>();
+      let changed = false;
+      for (const entry of entries) {
+        const name = boneNames[entry.id]||'';
+        const wrongLeg = name.startsWith('mixamorig:'+side) &&
+          /(?:UpLeg|Leg|Foot|ToeBase|Toe_End)$/.test(name);
+        const wrongAux = side==='Left'?name==='Bone_009':name==='Bone_007';
+        const id = (wrongLeg||wrongAux) ? targetId : entry.id;
+        if (id!==entry.id) changed = true;
+        merged.set(id,(merged.get(id)||0)+entry.weight);
+      }
+      if (!changed) continue;
+      const pairs = [...merged.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4);
+      const sum = pairs.reduce((n,p)=>n+p[1],0)||1;
+      while (pairs.length < 4) pairs.push([targetId,0]);
+      joints.setXYZW(i,pairs[0][0],pairs[1][0],pairs[2][0],pairs[3][0]);
+      weights.setXYZW(i,pairs[0][1]/sum,pairs[1][1]/sum,pairs[2][1]/sum,pairs[3][1]/sum);
+      repaired++;
+    }
+    if (repaired) { joints.needsUpdate = true; weights.needsUpdate = true; }
+  });
+  studio.userData.nexaSleeveWeightsRepaired = true;
+  return repaired;
+}
+
 export function poseNexaStudioArms(THREE: any, studio: any): boolean {
   if (!studioHasRiggedArms(studio)) return false;
+  const repaired = repairStudioSleeveWeights(studio);
+  if (repaired) console.info('[Nexa 3D] Reasignados pesos de las mangas:', repaired);
   relaxBodyPose(THREE, studio);
   return true;
 }
