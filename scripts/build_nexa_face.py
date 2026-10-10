@@ -147,6 +147,20 @@ for name,cx in [('EyeBlinkLeft',-.050),('EyeBlinkRight',.050)]:
  v=blank();v[:,1]=eye*np.where(y>=1.594,-.0075,.0035)
  v[:,2]=eye*.0002
  targets[name]=v
+# Eye direction targets move only the central painted iris region, not the skull.
+# These tracks are independent of blink and brow movement.
+iris=np.zeros_like(x,dtype=np.float32)
+for cx in (-.050,.050):
+ pupil=np.exp(-.5*((x-cx)/.014)**2-.5*((y-1.594)/.009)**2)
+ pupil*=np.clip((z-.101)/.020,0,1)*head
+ iris+=pupil
+iris=np.clip(iris,0,1)
+for name,axis,delta in [
+ ('EyeLookLeft',0,-.003),('EyeLookRight',0,.003),
+ ('EyeLookUp',1,.0018),('EyeLookDown',1,-.0018)]:
+ v=blank()
+ v[:,axis]=iris*delta
+ targets[name]=v
 for name,cx in [('BrowRaiseLeft',-.050),('BrowRaiseRight',.050)]:
  brow=spot(cx,1.630,.121,.032,.016,.052)
  v=blank();v[:,1]=brow*.0037;v[:,2]=brow*.0003
@@ -223,7 +237,7 @@ mesh_node=next(i for i,n in enumerate(doc['nodes']) if n.get('mesh')==0)
 doc['animations'].append({'name':'Nexa_FacialDemo','samplers':[{'input':input_a,'output':output_a,'interpolation':'LINEAR'}],'channels':[{'sampler':0,'target':{'node':mesh_node,'path':'weights'}}]})
 
 doc['buffers'][0]['byteLength']=len(binary)
-doc['asset'].setdefault('extras',{})['facialRig']='Nexa v5: localized eyelids, restrained brows, visible lip articulation, 9 native morph targets, soft facial material'
+doc['asset'].setdefault('extras',{})['facialRig']='Nexa v5: localized eyelids, restrained brows, visible lip articulation, 13 native morph targets, soft facial material'
 j=json.dumps(doc,separators=(',',':')).encode('utf8')
 j+=b' '*((-len(j))%4)
 binary.extend(b'\0'*(-len(binary)%4))
