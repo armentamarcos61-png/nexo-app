@@ -152,7 +152,18 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   // Everything above the join belongs exclusively to Studio. The original
   // body face, cap, upper bust, and hair are not rendered at all.
   const seamY = upper.min.y + Math.max(0.002, studioHeight * 0.009);
-  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -seamY);
+  // Three.js discards the NEGATIVE half-space of a clipping plane.
+  // Therefore the normal MUST point downward: discard y > seamY (the
+  // duplicate face/chest) and preserve y <= seamY (hips, legs, feet).
+  // The previous upward normal hid precisely the part we needed to keep.
+  const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), seamY);
+  if (plane.distanceToPoint(new THREE.Vector3(0, seamY - studioHeight * 0.1, 0)) <= 0 ||
+      plane.distanceToPoint(new THREE.Vector3(0, seamY + studioHeight * 0.1, 0)) >= 0) {
+    throw new Error('El recorte 3D está invertido: ocultaría las piernas de Nexa');
+  }
+  if (lower.min.y >= seamY - studioHeight * 0.2) {
+    throw new Error('El cuerpo importado no tiene geometría suficiente bajo el busto');
+  }
   renderer.localClippingEnabled = true;
   body.traverse((object: any) => {
     if (!object.isMesh) return;
