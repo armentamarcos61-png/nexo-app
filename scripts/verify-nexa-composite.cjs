@@ -107,3 +107,23 @@ assert(planeDistance(seamY-.1)>0 && planeDistance(seamY+.1)<0,
 console.log('PASS: lower-body clipping keeps legs and removes the duplicated chest');
 console.log('PASS: native 3D eyes align; eyelid spacing ratio='+ratio.toFixed(3)+
   ', Studio bust='+studioHeight.toFixed(3)+', matching body='+bodyHeight.toFixed(3));
+
+function describeRig(label, glb) {
+  const doc=glb.doc;
+  const joints=(doc.nodes||[]).filter(n=>/mixamorig:(Left|Right)(Shoulder|Arm|ForeArm|Hand|UpLeg|Leg|Foot|ToeBase)|mixamorig:(Spine|Hips)/i.test(n.name||''));
+  console.log('NEXA RIG '+label+': meshes='+(doc.meshes||[]).map(m=>m.name+'('+m.primitives.length+')').join(', '));
+  console.log('NEXA BONES '+label+': '+joints.map(n=>(n.name||'?')+':'+(n.translation||[]).map(x=>x.toFixed(3)).join(',')).join(' | '));
+  console.log('NEXA SKINS '+label+': '+(doc.skins||[]).map(s=>s.joints.length).join(','));
+  for(const mesh of doc.meshes||[]) {
+    for(const p of mesh.primitives||[]) {
+      const attrs=p.attributes||{};
+      const a=doc.accessors[attrs.POSITION];
+      console.log('NEXA MESH '+label+' '+(mesh.name||'unnamed')+
+        ' pos='+a.count+' min='+JSON.stringify(a.min)+' max='+JSON.stringify(a.max)+
+        ' skinAttr='+['JOINTS_0','JOINTS_1','JOINTS_2'].filter(x=>x in attrs).join('/')+
+        ' material='+(doc.materials?.[p.material]?.name||p.material));
+    }
+  }
+}
+describeRig('studio',studio);
+describeRig('full',full);
