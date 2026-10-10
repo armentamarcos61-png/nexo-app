@@ -367,9 +367,13 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             }
           });
           scene.add(modelRoot);
-          // The Studio asset contains complete rigged arms. Lower them into
-          // a quiet, natural pose before capturing animation baselines; the
-          // previous T-pose remained visible even after posing the second GLB.
+          // The chest trim is measured BEFORE the hands are lowered.
+          // Otherwise the hands become the lowest point of Studio, and the
+          // compositor mistakenly cuts the lower body at wrist height.
+          if (studio) {
+            modelRoot.userData.nexaBustOriginalBounds =
+              new THREE.Box3().setFromObject(modelRoot).clone();
+          }
           const studioHasNativeArms = studio && poseNexaStudioArms(THREE, modelRoot);
           // New visible 3D cap, hair, Nexo emblems and violet eyes follow the
           // existing animated head bone; original five motion clips remain.
