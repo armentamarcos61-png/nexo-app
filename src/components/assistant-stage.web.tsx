@@ -400,18 +400,11 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               if (disposed || download.signal.aborted) return;
               composite = composeNexaBody(THREE,modelRoot,bodyGltf.scene,renderer);
               scene.add(composite.body);
-              // The imported rig rests in a modelling pose without its native
-              // idle clip. Animate only the arms and legs, never hips or skull,
-              // so the cut torso seam remains stationary as Nexa blinks/talks.
-              const lowerIdle = bodyGltf.animations.find((clip:any)=>clip.name==='Idle');
-              if (lowerIdle) {
-                const safeIdle = lowerIdle.clone();
-                safeIdle.tracks = safeIdle.tracks.filter((track:any) =>
-                  /(?:Left|Right)(?:Arm|ForeArm|Hand|UpLeg|Leg|Foot|Toe)/i.test(track.name)
-                    && /(?:quaternion|rotation)/i.test(track.name));
-                lowerBodyMixer = new THREE.AnimationMixer(composite.body);
-                if (safeIdle.tracks.length) lowerBodyMixer.clipAction(safeIdle).play();
-              }
+              // Keep the lower rig's calibrated neutral pose. Its old Idle
+              // clip overwrote our corrected shoulder/ankle rotations and raised
+              // the hands again. Nexa's face keeps animating independently.
+              // Subtle arm motion is driven by the composite itself, not the
+              // incompatible legacy keyframes.
               const completed = composite.bounds;
               const fullHeight = completed.getSize(new THREE.Vector3()).y;
               const fullFocus = completed.getCenter(new THREE.Vector3()).y;
