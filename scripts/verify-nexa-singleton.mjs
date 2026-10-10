@@ -39,12 +39,12 @@ if (existsSync(file)) {
     assert.ok(animationNames.includes(name), 'Missing GLB animation '+name);
   }
   const targets = gltf.meshes?.[0]?.extras?.targetNames ?? [];
-  for (const name of ['MouthOpen','MouthO','MouthWide','MouthSmile','EyeBlinkLeft','EyeBlinkRight','BrowRaiseLeft','BrowRaiseRight','BrowFrown']) {
+  for (const name of ['MouthOpen','MouthO','MouthWide','MouthSmile','EyeBlinkLeft','EyeBlinkRight','EyeLookLeft','EyeLookRight','EyeLookUp','EyeLookDown','BrowRaiseLeft','BrowRaiseRight','BrowFrown']) {
     assert.ok(targets.includes(name), 'Falta control facial: '+name);
   }
   assert.equal(gltf.meshes[0].primitives.length,3,'Debe incluir piel y cavidad oral independientes');
   assert.ok(animationNames.includes('Nexa_FacialDemo'),'Falta la demostración facial');
-  console.log('PASS: Nexa única, cinco movimientos y nueve controles faciales reales');
+  console.log('PASS: Nexa única, cinco movimientos y trece controles faciales reales');
 } else {
   console.log('PASS: Nexa único y visor preparado; GLB aún pendiente de publicarse');
 }
