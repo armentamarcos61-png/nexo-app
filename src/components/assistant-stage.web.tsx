@@ -55,7 +55,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const [variant, setVariant] = useState<ModelVariant>('studio');
   const [hasBody, setHasBody] = useState(false);
   const [viewMode, setViewMode] = useState<'body' | 'face'>('body');
-  const cameraPresetsRef = useRef({
+  const cameraPresetsRef = useRef<{
+    face: { focus: number; distance: number };
+    body: { focus: number; distance: number };
+  }>({
     face: { focus: STUDIO_FRAMING.focus, distance: STUDIO_FRAMING.distance },
     body: { focus: STUDIO_FRAMING.focus, distance: STUDIO_FRAMING.distance },
   });
