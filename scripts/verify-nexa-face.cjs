@@ -7,7 +7,7 @@ const result = ts.transpileModule(fs.readFileSync('src/lib/nexa-face-rig.ts', 'u
 });
 const exportsObject = {};
 new Function('exports', result.outputText)(exportsObject);
-const names = ['MouthOpen','MouthO','MouthWide','MouthSmile','EyeBlinkLeft','EyeBlinkRight','BrowRaiseLeft','BrowRaiseRight','BrowFrown'];
+const names = ['MouthOpen','MouthO','MouthWide','MouthSmile','EyeBlinkLeft','EyeBlinkRight','BrowRaiseLeft','BrowRaiseRight','BrowFrown','EyeLookLeft','EyeLookRight','EyeLookUp','EyeLookDown'];
 for (const fps of [20, 30, 60, 120]) {
   const head = { name: 'mixamorig:Head', rotation: { x: 0, y: 0 } };
   const mesh = { isSkinnedMesh: true, morphTargetDictionary: Object.fromEntries(names.map((n,i)=>[n,i])), morphTargetInfluences: names.map(()=>0) };
@@ -21,6 +21,7 @@ for (const fps of [20, 30, 60, 120]) {
     assert.ok(weights.every(v => Number.isFinite(v) && v>=0 && v<=1));
     if (weights[4] === 1 && weights[5] === 1) closed++;
     largestOpening=Math.max(largestOpening,weights[0]);
+    largestGaze=Math.max(largestGaze, ...weights.slice(9,13));
     assert.ok(Math.abs(head.rotation.x)<=0.012 && Math.abs(head.rotation.y)<=0.009,
       'Micro head motion must stay below one degree');
     rig.beforeUpdate();
@@ -29,6 +30,7 @@ for (const fps of [20, 30, 60, 120]) {
   }
   assert.ok(closed>0, 'Blink must reach full closure at '+fps+' fps');
   assert.ok(largestOpening>.28, 'Speech must articulate the lips');
+  assert.ok(largestGaze>.02, 'Eyes must change gaze without moving brows or skull');
   assert.ok(mesh.morphTargetInfluences[0]<.001, 'Lips must settle after speech');
 }
 console.log('PASS: deterministic blinks, expressive speech and reversible sub-degree head motion at 20–120 fps');
