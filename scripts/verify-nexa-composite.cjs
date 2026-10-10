@@ -189,3 +189,27 @@ assert(polish.includes('preserveOriginalArms(THREE, body, upperArmsPlane)'),
 assert(polish.includes('relaxBodyPose(THREE, body)'),'Hands and shoe pose must be calibrated');
 assert(polish.includes('finishBoots(THREE, body, studioEyes.width, lower.min.y)'),
   'Shoe finishing must accompany the full body');
+
+/**
+ * Regression for the two-arm, two-torso bug seen on Android: Studio has
+ * complete native skinned hands, so the lower GLB must not draw its own arms.
+ * Its arm bind pose must also be relaxed before animation tracks are built.
+ */
+const studioSkinNames = new Set((studio.doc.skins||[]).flatMap(skin =>
+  skin.joints.map(index=>studio.doc.nodes[index]?.name||'')));
+for (const side of ['Left','Right']) {
+  for (const joint of ['Arm','ForeArm','Hand']) {
+    assert(studioSkinNames.has('mixamorig:'+side+joint),
+      'Studio must supply skinned '+side+joint+' for natural arm posing');
+  }
+}
+assert(polish.includes('removeLegacyArmSurfaces(body)'),
+  'Composite must remove legacy arms when Studio arms are available');
+assert(polish.includes('studioHasRiggedArms(studio)'),
+  'The native Studio arm selection must be rig-aware');
+const stage = fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
+assert(stage.includes('poseNexaStudioArms(THREE, modelRoot)'),
+  'Studio arms must be relaxed before creating action baselines');
+assert(stage.includes('gentleStudioGesture'),
+  'Talking must not restore the original horizontal bind pose');
+console.log('PASS: Studio keeps its own naturally posed arms; legacy duplicate arms are excluded');
