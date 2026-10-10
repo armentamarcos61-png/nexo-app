@@ -122,6 +122,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let faceRig: NexaFaceRig | null = null;
     let premiumLook: PremiumNexaLook | null = null;
     let composite: ReturnType<typeof composeNexaBody> | null = null;
+    let lowerBodyMixer: any = null;
     let unregisterResize: (() => void) | undefined;
     let previousTime = 0;
     let totalTime = 0;
@@ -352,6 +353,18 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               if (disposed || download.signal.aborted) return;
               composite = composeNexaBody(THREE,modelRoot,bodyGltf.scene,renderer);
               scene.add(composite.body);
+              // The imported rig rests in a modelling pose without its native
+              // idle clip. Animate only the arms and legs, never hips or skull,
+              // so the cut torso seam remains stationary as Nexa blinks/talks.
+              const lowerIdle = bodyGltf.animations.find((clip:any)=>clip.name==='Idle');
+              if (lowerIdle) {
+                const safeIdle = lowerIdle.clone();
+                safeIdle.tracks = safeIdle.tracks.filter((track:any) =>
+                  /(?:Left|Right)(?:Arm|ForeArm|Hand|UpLeg|Leg|Foot|Toe)/i.test(track.name)
+                    && /(?:quaternion|rotation)/i.test(track.name));
+                lowerBodyMixer = new THREE.AnimationMixer(composite.body);
+                if (safeIdle.tracks.length) lowerBodyMixer.clipAction(safeIdle).play();
+              }
               const completed = composite.bounds;
               const fullHeight = completed.getSize(new THREE.Vector3()).y;
               focus = completed.getCenter(new THREE.Vector3()).y;
@@ -434,6 +447,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             totalTime+=dt;
             faceRig?.beforeUpdate();
             controllerRef.current?.update(dt);
+            lowerBodyMixer?.update(dt);
             faceRig?.update(dt,totalTime,speakingRef.current);
             composite?.update(dt,speakingRef.current);
             premiumLook?.update(dt,totalTime);
@@ -491,6 +505,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       controllerRef.current=null;
       premiumLook?.dispose();
       premiumLook=null;
+      lowerBodyMixer?.stopAllAction?.();
+      lowerBodyMixer=null;
       composite?.dispose();
       composite=null;
       modelRoot?.traverse((node:any)=>{
