@@ -37,6 +37,9 @@ jobs:
       - name: Restaurar y validar Nexa Studio 3D
         run: node scripts/restore-nexa-studio.cjs
 
+      - name: Comprobar geometría de unión Nexa Studio + cuerpo completo
+        run: node scripts/verify-nexa-composite.cjs
+
       - name: Verificar TypeScript
         run: npx tsc --noEmit
 
