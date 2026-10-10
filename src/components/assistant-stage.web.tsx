@@ -263,9 +263,6 @@ export function AssistantStage({ profile, speaking = false }: Props) {
         const gltf = await loader.parseAsync(bytes, modelBase);
         if (disposed || download.signal.aborted) return;
           const names=['Idle','Walking','Running','Greeting','Talking'];
-          if (!names.every(name=>gltf.animations.some((a:any)=>a.name===name))) {
-            throw new Error('El modelo no contiene las animaciones necesarias');
-          }
           modelRoot=gltf.scene;
           const bounds=new THREE.Box3().setFromObject(modelRoot);
           const center=bounds.getCenter(new THREE.Vector3());
@@ -300,12 +297,41 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           }
           const mixer=new THREE.AnimationMixer(modelRoot);
           const actions: any={};
+          // Animations must only touch their own articulated joints. Head,
+          // neck and jaw are owned by the stable facial controller.
+          const syntheticGesture=(name:string)=>{
+            const tracks:any[]=[];
+            for(const side of ['Left','Right']){
+              const bone=modelRoot.getObjectByName('mixamorig:'+side+'Arm');
+              if(!bone) continue;
+              const times=[0,0.6,1.2,1.8,2.4];
+              const angles=name==='Talking'
+                ? [0,0.07,0.015,-0.055,0] : [0,0.11,0.17,0.05,0];
+              const base=bone.quaternion.clone();
+              const axis=new THREE.Vector3(0,0,side==='Left'?1:-1);
+              const values:number[]=[];
+              for(const angle of angles){
+                const q=base.clone().multiply(
+                  new THREE.Quaternion().setFromAxisAngle(axis,angle));
+                values.push(q.x,q.y,q.z,q.w);
+              }
+              tracks.push(new THREE.QuaternionKeyframeTrack(bone.name+'.quaternion',times,values));
+            }
+            return new THREE.AnimationClip(name,2.4,tracks);
+          };
           for(const name of names){
-            const sourceClip=gltf.animations.find((a:any)=>a.name===name)!;
-            // Do not play imported head/neck/jaw bone tracks. Their motions
-            // visibly warp the portrait when the facial expressions run.
-            const safeClip=sourceClip.clone();
-            safeClip.tracks=safeClip.tracks.filter((track:any) => !/(?:head|neck|jaw)/i.test(track.name));
+            const sourceClip=gltf.animations.find((a:any)=>a.name===name);
+            const safeClip=sourceClip?.clone() ??
+              (name==='Talking'||name==='Greeting'
+                ? syntheticGesture(name) : new THREE.AnimationClip(name,1,[]));
+            safeClip.tracks=safeClip.tracks.filter((track:any)=>{
+              const forbidden=/(?:head|neck|jaw|hips|pelvis)/i.test(track.name);
+              if(forbidden)return false;
+              if(name==='Talking'||name==='Greeting')
+                return /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)
+                  && /quaternion|rotation/i.test(track.name);
+              return true;
+            });
             actions[name]=mixer.clipAction(safeClip);
             actions[name].enabled=true;
             if(name==='Greeting'){
