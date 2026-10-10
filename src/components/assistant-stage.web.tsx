@@ -16,7 +16,7 @@ const STALL_TIMEOUT_MS = 75_000;
 const MAX_LOAD_TIME_MS = 360_000;
 const MODEL_VARIANTS = {
   studio: { file: 'Nexa_Studio_Busto_v1.glb', size: 5_322_192 },
-  full: { file: 'Nexa_FacialRig_V2.glb', size: 15_453_484 },
+  full: { file: 'Nexa_FacialRig_V2.glb', size: 16_739_064 },
   light: { file: 'Nexa_Unica_Interactiva.glb', size: 9_336_320 },
 } as const;
 type ModelVariant = keyof typeof MODEL_VARIANTS;
@@ -54,6 +54,21 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const [attempt, setAttempt] = useState(0);
   const [variant, setVariant] = useState<ModelVariant>('studio');
   const [hasBody, setHasBody] = useState(false);
+  const [viewMode, setViewMode] = useState<'body' | 'face'>('body');
+  const cameraPresetsRef = useRef({
+    face: { focus: STUDIO_FRAMING.focus, distance: STUDIO_FRAMING.distance },
+    body: { focus: STUDIO_FRAMING.focus, distance: STUDIO_FRAMING.distance },
+  });
+  const viewModeRef = useRef<'body' | 'face'>('body');
+  const changeView = (mode: 'body' | 'face') => {
+    viewModeRef.current = mode;
+    setViewMode(mode);
+    orbitRef.current = {
+      yaw: 0,
+      pitch: 0,
+      distance: cameraPresetsRef.current[mode].distance,
+    };
+  };
 
   // Studio is the default after publication; use the previous fully rigged model
   // only if an old browser cache or unavailable asset prevents Studio loading.
@@ -74,11 +89,14 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let homeDistance = studio ? STUDIO_FRAMING.distance : CLASSIC_DISTANCE;
     let minDistance = studio ? STUDIO_FRAMING.minDistance : 1.08;
     let maxDistance = studio ? STUDIO_FRAMING.maxDistance : 1.90;
-    let focus = studio ? STUDIO_FRAMING.focus : 0.99;
+    let focus = studio ? STUDIO_FRAMING.focus : 0;
+    let currentFocus = focus;
     orbitRef.current = { yaw: 0, pitch: 0, distance: homeDistance };
 
     setLoaded(false);
     setHasBody(false);
+    viewModeRef.current = 'body';
+    setViewMode('body');
     setUnavailable(false);
     setLoadMessage('Preparando visor 3D…');
     let disposed = false;
@@ -302,6 +320,28 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             -center.y*scale+(studio ? STUDIO_FRAMING.focus : 0.06),
             -center.z*scale,
           );
+          // Separate camera presets: the compact portrait must not conceal
+          // the legs of the full 3D model. The face remains independently zoomable.
+          const modelBounds = new THREE.Box3().setFromObject(modelRoot);
+          const modelSize = modelBounds.getSize(new THREE.Vector3());
+          const faceFocus = modelBounds.max.y - modelSize.y*(studio ? 0.34 : 0.18);
+          const fullFocus = modelBounds.getCenter(new THREE.Vector3()).y;
+          const fullDistance = clamp(
+            modelSize.y/(2*Math.tan(THREE.MathUtils.degToRad(16)))*1.14,
+            2.8, 16,
+          );
+          cameraPresetsRef.current.face = {
+            focus: faceFocus,
+            distance: studio ? STUDIO_FRAMING.distance : CLASSIC_DISTANCE,
+          };
+          cameraPresetsRef.current.body = {
+            focus: studio ? faceFocus : fullFocus,
+            distance: studio ? STUDIO_FRAMING.distance : fullDistance,
+          };
+          focus = cameraPresetsRef.current.body.focus;
+          currentFocus = focus;
+          distance = cameraPresetsRef.current.body.distance;
+          orbitRef.current.distance = distance;
           modelRoot.traverse((node:any)=>{
             if (!node.isMesh) return;
             node.frustumCulled=false;
@@ -367,13 +407,17 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               }
               const completed = composite.bounds;
               const fullHeight = completed.getSize(new THREE.Vector3()).y;
-              focus = completed.getCenter(new THREE.Vector3()).y;
-              // An entire person needs an optically wider frame than the old bust.
-              homeDistance = clamp(fullHeight / (2*Math.tan(THREE.MathUtils.degToRad(16))) * 1.14,3.5,16);
-              minDistance = Math.max(1.75,homeDistance*0.26);
+              const fullFocus = completed.getCenter(new THREE.Vector3()).y;
+              // Frame the entire composite, including shoes, without distorting
+              // the original Studio face. Users can return to portrait view.
+              homeDistance = clamp(
+                fullHeight / (2*Math.tan(THREE.MathUtils.degToRad(16)))*1.16,
+                3.5, 18,
+              );
+              minDistance = Math.max(1.75,homeDistance*0.25);
               maxDistance = Math.max(homeDistance*1.65,7);
-              orbitRef.current = {yaw:0,pitch:0,distance:homeDistance};
-              distance = homeDistance;
+              cameraPresetsRef.current.body = { focus: fullFocus, distance: homeDistance };
+              changeView('body');
               setHasBody(true);
             } catch (error) {
               if (disposed || download.signal.aborted) return;
@@ -453,15 +497,17 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             premiumLook?.update(dt,totalTime);
             // Camera lags slightly behind gesture; still within the circular portrait.
             const alpha=1-Math.exp(-dt*8);
+            focus=cameraPresetsRef.current[viewModeRef.current].focus;
+            currentFocus+=(focus-currentFocus)*alpha;
             distance+=(orbitRef.current.distance-distance)*alpha;
             yaw+=(orbitRef.current.yaw-yaw)*alpha;
             pitch+=(orbitRef.current.pitch-pitch)*alpha;
             perspectiveCamera.position.set(
               Math.sin(yaw)*distance,
-              focus+pitch*0.35+0.025,
+              currentFocus+pitch*0.35+0.025,
               Math.cos(yaw)*distance,
             );
-            perspectiveCamera.lookAt(0,focus+pitch*0.12,0);
+            perspectiveCamera.lookAt(0,currentFocus+pitch*0.12,0);
             // Relaxed waves are generated by facial expressions, not locomotion.
             renderer.render(scene,perspectiveCamera);
           }
@@ -524,7 +570,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   },[isNexa,profile.id,attempt,variant]);
 
   return (
-    <View style={[styles.stage, unavailable && {height: 470}]}>
+    <View style={styles.stage}>
       <View style={styles.portrait}>
         <LinearGradient colors={['#19102D','#121C36','#080D1A']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} pointerEvents="none" />
         <View pointerEvents="none" style={styles.halo}/>
@@ -553,6 +599,26 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       <Text style={styles.hint}>
         {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza para girar · pellizca con dos dedos para acercar') : 'Imagen de referencia mientras se prepara el modelo 3D'}
       </Text>
+      {loaded && (hasBody || variant !== 'studio') && (
+        <View style={styles.cameraModes}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mostrar el cuerpo completo de Nexa"
+            onPress={() => changeView('body')}
+            style={[styles.cameraMode, viewMode === 'body' && styles.cameraModeActive]}
+          >
+            <Text style={[styles.cameraModeText, viewMode === 'body' && styles.cameraModeTextActive]}>Cuerpo completo</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Acercar el rostro de Nexa"
+            onPress={() => changeView('face')}
+            style={[styles.cameraMode, viewMode === 'face' && styles.cameraModeActive]}
+          >
+            <Text style={[styles.cameraModeText, viewMode === 'face' && styles.cameraModeTextActive]}>Rostro y gestos</Text>
+          </Pressable>
+        </View>
+      )}
       {unavailable && (
         <View style={{flexDirection:'row',justifyContent:'center',alignItems:'center',flexWrap:'wrap',gap:8}}>
           <Pressable accessibilityRole="button" onPress={() => setAttempt(value => value + 1)} style={{padding: 10}}>
@@ -576,11 +642,11 @@ export function AssistantStage({ profile, speaking = false }: Props) {
 
 const styles=StyleSheet.create({
   stage:{
-    width:'100%',height:412,alignItems:'center',justifyContent:'flex-start',
+    width:'100%',height:605,alignItems:'center',justifyContent:'flex-start',
     backgroundColor:'transparent',paddingTop:8,
   },
   portrait:{
-    width:'91%',maxWidth:340,aspectRatio:1,borderRadius:9999,
+    width:'91%',maxWidth:350,aspectRatio:0.78,borderRadius:28,
     overflow:'hidden',position:'relative',
     borderWidth:2,borderColor:'rgba(160,131,255,0.78)',
     backgroundColor:'#16152F',
@@ -596,4 +662,17 @@ const styles=StyleSheet.create({
   name:{fontSize:12,fontWeight:'900',letterSpacing:1.6,color:'#E5DEFF'},
   status:{fontSize:10,fontWeight:'700',color:'#AFC3E0'},
   hint:{marginTop:7,fontSize:11,color:'#C3C9E2',textAlign:'center'},
+  cameraModes:{
+    flexDirection:'row',justifyContent:'center',gap:8,marginTop:10,
+  },
+  cameraMode:{
+    borderRadius:13,borderWidth:1,borderColor:'rgba(174,155,250,0.40)',
+    paddingVertical:8,paddingHorizontal:13,
+    backgroundColor:'rgba(37,43,75,0.55)',
+  },
+  cameraModeActive:{
+    borderColor:'#BBA1FF',backgroundColor:'rgba(105,72,195,0.55)',
+  },
+  cameraModeText:{fontSize:12,fontWeight:'700',color:'#C4C9E0'},
+  cameraModeTextActive:{color:'#FFFFFF'},
 });
