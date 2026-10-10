@@ -14,6 +14,7 @@ type Props = { profile: AssistantProfile; speaking?: boolean };
 const STALL_TIMEOUT_MS = 75_000;
 const MAX_LOAD_TIME_MS = 360_000;
 const MODEL_VARIANTS = {
+  studio: { file: 'Nexa_Studio_Busto_v1.glb', size: 5_322_192 },
   full: { file: 'Nexa_FacialRig_V2.glb', size: 15_453_484 },
   light: { file: 'Nexa_Unica_Interactiva.glb', size: 9_336_320 },
 } as const;
@@ -41,6 +42,17 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
   const [attempt, setAttempt] = useState(0);
   const [variant, setVariant] = useState<ModelVariant>('full');
+
+  // When the optimized Meshy bust is present in published models/, prefer
+  // its actual 3D geometry. Until then retain the verified old model.
+  useEffect(() => {
+    if (!isNexa || typeof window === 'undefined') return;
+    const probe=new AbortController();
+    void fetch(getModelUrl('studio'),{method:'HEAD',signal:probe.signal})
+      .then(res=>{if(res.ok&&!probe.signal.aborted)setVariant('studio');})
+      .catch(()=>{ /* Studio binary has not been published yet. */ });
+    return ()=>probe.abort();
+  },[isNexa]);
 
   useEffect(() => {
     speakingRef.current = speaking;
@@ -290,9 +302,14 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           scene.add(modelRoot);
           // New visible 3D cap, hair, Nexo emblems and violet eyes follow the
           // existing animated head bone; original five motion clips remain.
-          premiumLook=installNexaPremiumLook(THREE,modelRoot,scene,modelUrl.replace(MODEL_VARIANTS[variant].file,'nexa-reference-face.webp'));
+          // The Studio model already has accurate baked cap/hair/N logos.
+          // Adding procedural legacy hair over it would visibly duplicate them.
+          premiumLook=variant==='studio'
+            ? null
+            : installNexaPremiumLook(THREE,modelRoot,scene,
+                modelUrl.replace(MODEL_VARIANTS[variant].file,'nexa-reference-face.webp'));
           faceRig=installNexaFaceRig(THREE,modelRoot);
-          if (variant === 'full' && !faceRig.available) {
+          if (variant !== 'light' && !faceRig.available) {
             throw new Error('El modelo cargado no contiene los controles faciales de Nexa');
           }
           const mixer=new THREE.AnimationMixer(modelRoot);
@@ -451,7 +468,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       <View style={styles.identity}>
         <View style={[styles.dot, {backgroundColor:unavailable?'#E6BB85':'#73EBC4'}]}/>
         <Text style={styles.name}>NEXA</Text>
-        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
+        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'studio' ? 'Nexa Studio 3D' : variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
       </View>
       <Text style={styles.hint}>
         {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza para girar · pellizca con dos dedos para acercar') : 'Imagen de referencia mientras se prepara el modelo 3D'}
@@ -461,7 +478,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           <Pressable accessibilityRole="button" onPress={() => setAttempt(value => value + 1)} style={{padding: 10}}>
             <Text style={{color:'#D5C4FF',fontWeight:'700'}}>Reintentar 3D</Text>
           </Pressable>
-          {variant === 'full' && (
+          {variant !== 'light' && (
             <Pressable accessibilityRole="button" onPress={() => setVariant('light')} style={{padding: 10}}>
               <Text style={{color:'#A9E9FF',fontWeight:'700'}}>Probar 3D ligero</Text>
             </Pressable>
