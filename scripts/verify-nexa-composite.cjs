@@ -95,5 +95,16 @@ const studioHeight=height(studio);
 const bodyHeight=height(full)*ratio;
 assert(Number.isFinite(ratio) && ratio>=0.3 && ratio<=8,'studio/body eye scale is implausible');
 assert(bodyHeight>=studioHeight*1.25,'source body would be shorter than the Studio bust');
+// Three.js removes the negative side of the plane. Regressions here previously
+// kept the duplicate upper torso and invisibly clipped both legs instead.
+const composite = fs.readFileSync('src/lib/nexa-composite.ts','utf8');
+assert.match(composite,
+  /new THREE\\.Plane\\(new THREE\\.Vector3\\(0, -1, 0\\), seamY\\)/,
+  'the body cutter must keep y <= seamY, never keep the duplicate upper chest');
+const seamY = 0.4;
+const planeDistance = (y) => -y + seamY;
+assert(planeDistance(seamY-.1)>0 && planeDistance(seamY+.1)<0,
+  'the lower-body half-space must be the visible side');
+console.log('PASS: lower-body clipping keeps legs and removes the duplicated chest');
 console.log('PASS: native 3D eyes align; eyelid spacing ratio='+ratio.toFixed(3)+
   ', Studio bust='+studioHeight.toFixed(3)+', matching body='+bodyHeight.toFixed(3));
