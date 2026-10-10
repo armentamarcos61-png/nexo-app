@@ -13,7 +13,9 @@ assert.ok(!choose.includes('Object.keys(assistantProfiles)'), 'No second assista
 assert.ok(choose.includes("selectAssistant('nexa')"), 'Nexa must be the sole offered choice');
 assert.equal((screen.match(/<AssistantStage\b/g) || []).length, 1, 'Only one Nexa stage on the assistant screen');
 assert.ok(shell.includes("pathname === '/asistente' || pathname === '/elegir-asistente'"), 'No duplicate header avatar on stage screens');
-assert.ok(stage.includes('models/Nexa_FacialRig_V2.glb'), 'Single Nexa GLB path is required');
+assert.ok(stage.includes("'Nexa_FacialRig_V2.glb'"), 'The full Nexa facially-rigged GLB must remain available');
+assert.ok(stage.includes("'Nexa_Unica_Interactiva.glb'"), 'The lightweight original 3D model must remain available as fallback');
+assert.ok(stage.includes("'models/'"), 'Both 3D variants must load from the bundled models directory');
 assert.ok(stage.includes('installNexaPremiumLook'), 'Nexa premium 3D head / hair must be integrated');
 const premium = readFileSync('src/lib/nexa-premium-look.ts', 'utf8');
 assert.ok(premium.includes('Nexo N emblem'), 'Nexo N monograms must remain in the 3D model');
