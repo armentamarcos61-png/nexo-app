@@ -127,7 +127,7 @@ function addRearHair(THREE: any, studio: any, eyes: Landmark | null): (dt?: numb
  * next to the chest and tipping the boots. A quiet bind pose is more stable
  * than letting two independent skeletons fight over the same portrait.
  */
-function relaxBodyPose(THREE: any, body: any): void {
+function relaxBodyPose(THREE: any, body: any, studioArms = false): void {
   const vector = () => new THREE.Vector3();
   const rotateToward = (bone: any, next: any, desired: any, limit: number) => {
     if (!bone || !next || !bone.parent) return;
@@ -155,12 +155,22 @@ function relaxBodyPose(THREE: any, body: any): void {
     if (!shoulder || !elbow || !wrist) continue;
     const sideSign = Math.sign(shoulder.getWorldPosition(vector()).x) ||
       (side === 'Left' ? 1 : -1);
-    // A-pose with slightly separated elbows and hands beside the thighs.
+    // The approved Studio sleeves were built around an open arm pose.
+    // Dropping them to the thighs pulls incorrectly weighted sleeve patches
+    // through the bust. Keep Studio near the reference A/T pose; the separate
+    // legacy body (hidden above the waist) can rest its arms at its sides.
     rotateToward(shoulder, elbow,
-      new THREE.Vector3(sideSign * 0.22, -1, 0.025), 1.55);
+      studioArms
+        ? new THREE.Vector3(sideSign, -0.16, 0.015)
+        : new THREE.Vector3(sideSign * 0.22, -1, 0.025),
+      studioArms ? 0.30 : 1.55);
     rotateToward(elbow, wrist,
-      new THREE.Vector3(sideSign * 0.07, -1, 0.065), 1.20);
+      studioArms
+        ? new THREE.Vector3(sideSign, -0.13, 0.015)
+        : new THREE.Vector3(sideSign * 0.07, -1, 0.065),
+      studioArms ? 0.25 : 1.20);
   }
+  if (studioArms) return; // No Studio legs or shoes to correct.
   for (const side of ['Left', 'Right']) {
     const ankle = body.getObjectByName('mixamorig:' + side + 'Foot');
     const toe = body.getObjectByName('mixamorig:' + side + 'ToeBase');
@@ -222,7 +232,10 @@ function repairStudioSleeveWeights(studio: any): number {
       const sideCoordinate = (points.getX(i)-cx)/halfWidth;
       const extension = Math.abs(sideCoordinate);
       const height = (points.getY(i)-limits.min.y)/fullHeight;
-      if (extension < 0.53 || height > 0.46) continue;
+      // Meshy's shoulder/sleeve vertices sit ABOVE the middle of the bust.
+      // Cutting off y>46% omitted precisely the patches visible on Android.
+      // Restrict the fix to outer limbs, away from the face, cap and chest.
+      if (extension < 0.53 || height > 0.79) continue;
       const side = sideCoordinate > 0 ? 'Left' : 'Right';
       const entries: {id:number;weight:number}[] = [];
       let activeArm=0;
@@ -237,8 +250,10 @@ function repairStudioSleeveWeights(studio: any): number {
       // A waist vertex close to the outer contour is not a sleeve unless it
       // already has some arm influence or is well beyond the rib cage.
       if (activeArm < 0.065 && extension < 0.76) continue;
+      // The sleeves extend horizontally: choose their joint by distance
+      // along the arm, NOT by height (which changes when Nexa moves).
       const target = 'mixamorig:'+side+
-        (height > 0.31 ? 'Arm' : height > 0.135 ? 'ForeArm' : 'Hand');
+        (extension < 0.67 ? 'Arm' : extension < 0.86 ? 'ForeArm' : 'Hand');
       const targetId = byName.get(target);
       if (targetId === undefined) continue;
       const merged = new Map<number,number>();
@@ -310,8 +325,9 @@ export function tailorNexaStudioLowerTorso(studio: any): number {
         (1-smoothstep(0.76,0.94,radial));
       const influence = vertical*sides;
       if (influence < 0.0001) continue;
-      // Up to 16% narrower at the two lower corners, symmetrically.
-      positions.setX(i, centerX+(x-centerX)*(1-0.16*influence));
+      // More pronounced, gradual taper of the two LOWER flaps only.
+      // The approved face, central bust, emblems and shoulders are untouched.
+      positions.setX(i, centerX+(x-centerX)*(1-0.23*influence));
       changed++;
       modified = true;
     }
@@ -331,7 +347,7 @@ export function poseNexaStudioArms(THREE: any, studio: any): boolean {
   if (!studioHasRiggedArms(studio)) return false;
   const repaired = repairStudioSleeveWeights(studio);
   if (repaired) console.info('[Nexa 3D] Reasignados pesos de las mangas:', repaired);
-  relaxBodyPose(THREE, studio);
+  relaxBodyPose(THREE, studio, true);
   return true;
 }
 
@@ -372,6 +388,7 @@ function removeLegacyArmSurfaces(body: any): number {
       [{ start: 0, count: indexCount, materialIndex: 0 }];
     const kept: number[] = [];
     const sections: { start: number; count: number; materialIndex: number }[] = [];
+    let removedHere = 0;
     for (const group of groups) {
       const first = kept.length;
       const stop = Math.min(indexCount, group.start + group.count);
@@ -379,8 +396,10 @@ function removeLegacyArmSurfaces(body: any): number {
         const a = indexAt(i), b = indexAt(i + 1), c = indexAt(i + 2);
         const max = Math.max(scores[a], scores[b], scores[c]);
         const avg = (scores[a] + scores[b] + scores[c]) / 3;
-        if (max >= 0.48 && avg >= 0.32) {
-          removed++;
+        // Eliminate seam fragments as well as the limb core. Previously the
+        // strict threshold left detached legacy sleeve triangles on display.
+        if (max >= 0.24 && avg >= 0.14) {
+          removedHere++;
         } else {
           kept.push(a, b, c);
         }
@@ -389,8 +408,15 @@ function removeLegacyArmSurfaces(body: any): number {
         sections.push({ start: first, count: kept.length-first, materialIndex: group.materialIndex ?? 0 });
       }
     }
-    // Do not turn an unexpected/unweighted mesh invisible.
-    if (!removed || !kept.length) return;
+    if (!removedHere) return;
+    removed += removedHere;
+    // A standalone arm mesh may contain no torso triangles at all. Clearing
+    // its indices is essential: leaving it intact would draw duplicate arms.
+    if (!kept.length) {
+      geometry.setIndex([]);
+      geometry.clearGroups();
+      return;
+    }
     geometry.setIndex(kept);
     geometry.clearGroups();
     for (const group of sections) geometry.addGroup(group.start, group.count, group.materialIndex);
@@ -565,7 +591,7 @@ function torsoSection(THREE: any, root: any, y: number, band: number): any | nul
     if (live) {
       for (let i = 0; i < geometry.index.count; i++) live[geometry.index.getX(i)] = 1;
     }
-    const step = Math.max(1, Math.floor(position.count / 27000));
+    const step = Math.max(1, Math.floor(position.count / 40000));
     for (let i = 0; i < position.count; i += step) {
       if (live && !live[i]) continue;
       if (joints && weights) {
@@ -604,11 +630,15 @@ function tailoredWaistPanel(
 ): any | null {
   const topY = upperMinY + height * 0.012;
   const bottomY = lowerCutY - height * 0.025;
-  const upper = torsoSection(THREE, studio, topY, height * 0.04);
-  const lower = torsoSection(THREE, body, bottomY, height * 0.04);
+  // A narrow slice can contain too few vertices in the exported low-poly
+  // suit. Sample progressively wider bands before giving up on the join.
+  const upper = torsoSection(THREE, studio, topY, height * 0.055) ??
+    torsoSection(THREE, studio, topY + height * 0.028, height * 0.09);
+  const lower = torsoSection(THREE, body, bottomY, height * 0.055) ??
+    torsoSection(THREE, body, bottomY - height * 0.025, height * 0.09);
   if (!upper || !lower ||
-      upper.rx / lower.rx > 2.5 || lower.rx / upper.rx > 2.0 ||
-      upper.rz / lower.rz > 2.5 || lower.rz / upper.rz > 2.0) return null;
+      upper.rx / lower.rx > 3.25 || lower.rx / upper.rx > 3.0 ||
+      upper.rz / lower.rz > 3.25 || lower.rz / upper.rz > 3.0) return null;
 
   const segments = 32;
   const rings = 7;
@@ -712,9 +742,11 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
   const waistPanel = tailoredWaistPanel(
     THREE, studio, body, upper.min.y, studioHeight, candidateCut,
   );
+  // Never let the older bust rise into Studio when profile measurement
+  // fails. The earlier ABOVE-the-cut fallback created the floating chest band.
   const seamY = waistPanel
     ? candidateCut
-    : upper.min.y + Math.max(0.002, studioHeight * 0.009);
+    : upper.min.y - Math.max(0.002, studioHeight * 0.012);
   // Three.js discards the NEGATIVE half-space of a clipping plane.
   // Therefore the normal MUST point downward: discard y > seamY (the
   // duplicate face/chest) and preserve y <= seamY (hips, legs, feet).
