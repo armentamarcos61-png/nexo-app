@@ -338,6 +338,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             focus: studio ? faceFocus : fullFocus,
             distance: studio ? STUDIO_FRAMING.distance : fullDistance,
           };
+          if (!studio) {
+            minDistance = 1.05;
+            maxDistance = Math.max(7, fullDistance*1.75);
+          }
           focus = cameraPresetsRef.current.body.focus;
           currentFocus = focus;
           distance = cameraPresetsRef.current.body.distance;
