@@ -213,3 +213,14 @@ assert(stage.includes('poseNexaStudioArms(THREE, modelRoot)'),
 assert(stage.includes('gentleStudioGesture'),
   'Talking must not restore the original horizontal bind pose');
 console.log('PASS: Studio keeps its own naturally posed arms; legacy duplicate arms are excluded');
+
+assert(stage.includes('nexaBustOriginalBounds'),
+  'The chest edge must be measured before lowering the arms');
+assert(polish.includes('tailoredWaistPanel(') && polish.includes('body.add(waistPanel)'),
+  'The chest-to-waist join needs a real 3D connecting surface');
+assert(polish.includes('const seamY = waistPanel'),
+  'The lower-body cut must be lowered only when the waist panel exists');
+assert(stage.includes('const safeClip=studio') &&
+       stage.includes('new THREE.AnimationClip(name,1,[])'),
+  'Studio Idle must not restore the old T-pose through imported animations');
+console.log('PASS: anatomically anchored chest join, tapered 3D waist and neutral Studio arms');
