@@ -210,8 +210,12 @@ assert(polish.includes('studioHasRiggedArms(studio)'),
 const stage = fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
 assert(stage.includes('poseNexaStudioArms(THREE, modelRoot)'),
   'Studio arms must be relaxed before creating action baselines');
-assert(stage.includes('gentleStudioGesture'),
-  'Talking must not restore the original horizontal bind pose');
+assert(stage.includes("avatarRoot.name = 'Nexa unified 3D avatar'") &&
+       stage.includes('avatarRoot.add(composite.body)'),
+  'both source GLBs must be one articulated visible 3D scene hierarchy');
+assert(stage.includes('const safeClip=studio') &&
+       stage.includes('? new THREE.AnimationClip(name,1,[])'),
+  'studio speech must not animate broken shoulder panels');
 console.log('PASS: Studio keeps its own naturally posed arms; legacy duplicate arms are excluded');
 
 assert(stage.includes('nexaBustOriginalBounds'),
@@ -299,17 +303,50 @@ console.log('PASS: lower chest flaps taper smoothly up to 23%; upper chest/face/
 // The Android issue was two distinct rigs fighting over sleeve geometry.
 // Studio must keep a shallow open-arm pose, and the old body must be stripped
 // of every duplicate arm shell (including meshes consisting entirely of arms).
-assert(polish.includes('relaxBodyPose(THREE, studio, true)'),
-  'Studio arms must be posed independently of legacy body arms');
-assert(polish.includes('studioArms ? 0.30 : 1.55') &&
-       polish.includes('studioArms ? 0.25 : 1.20'),
-  'Studio shoulders and elbows must use a small bounded correction');
+assert(!polish.includes('relaxBodyPose(THREE, studio, true)'),
+  'Never rotate Studio arms: its baked sleeve panels use incompatible skinning');
+assert(polish.includes('studio.updateMatrixWorld(true);\n  return true;'),
+  'Studio arm function must retain original imported bind pose');
 assert(polish.includes('height > 0.79'),
   'upper sleeve patches must be eligible for weight correction');
-assert(polish.includes("extension < 0.67 ? 'Arm' : extension < 0.86 ? 'ForeArm' : 'Hand'"),
-  'sleeve joint assignment must follow the horizontal arm, not vertex height');
+assert(polish.includes("extension < 0.70 ? 'Arm' : extension < 0.89 ? 'ForeArm' : 'Hand'"),
+  'sleeve joint assignment must follow horizontal arm reach');
 assert(polish.includes('if (!kept.length) {') && polish.includes('geometry.setIndex([])'),
   'fully detached duplicate legacy sleeves must render zero triangles');
 assert(polish.includes('studioHeight * 0.012'),
   'without a measured waist join, legacy torso must stay BELOW Studio');
-console.log('PASS: no double arms, no abrupt studio arm drop, no fallback double torso');
+console.log('PASS: preserved Studio bind pose, one scene avatar, clipped legacy arms');
+
+
+// Regression: fingertips can extend lower than the actual bust edge.
+// They must never drag the chest-to-waist connector down to hand level.
+const torsoBottom = runtime.exports.studioTorsoBottomY;
+assert.equal(typeof torsoBottom, 'function');
+class Vec3 {
+  constructor(x=0,y=0,z=0) { this.x=x;this.y=y;this.z=z; }
+  fromBufferAttribute(attr,i) {
+    const p=attr.rows[i];this.x=p[0];this.y=p[1];this.z=p[2];return this;
+  }
+}
+const torsoRows=Array.from({length:140},(_,i)=>[
+  .09 * Math.sin(i*0.37), -.46+(i/139)*.16, .05*Math.cos(i*0.41),
+]);
+const danglingHands=Array.from({length:30},(_,i)=>[
+  i%2===0 ? .73 : -.73, -.68+(i/29)*.14, 0,
+]);
+const seamMesh = {
+  isSkinnedMesh:true,
+  geometry:{attributes:{position:{count:torsoRows.length+danglingHands.length,
+    rows:torsoRows.concat(danglingHands)}}},
+  localToWorld(point){return point;},
+  applyBoneTransform(_index,point){return point;},
+};
+const seamStudio = {
+  updateMatrixWorld(){},
+  traverse(cb){cb(seamMesh);},
+};
+const measured = torsoBottom({Vector3:Vec3},seamStudio,
+  {width:.18,center:{x:0,y:.35}}, {min:{y:-.7},max:{y:.7}});
+assert(measured>-.49 && measured<-.41,
+  'Chest join must follow real torso hem, not fingers (actual '+measured+')');
+console.log('PASS: central bust hem measured independently of dangling hands');
