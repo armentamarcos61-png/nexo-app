@@ -35,7 +35,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const hostRef = useRef<any>(null);
   const controllerRef = useRef<NexaAnimationController | null>(null);
   const speakingRef = useRef(speaking);
-  const orbitRef = useRef({ yaw: 0, pitch: 0, distance: 1.37 });
+  const orbitRef = useRef({ yaw: 0, pitch: 0, distance: 1.55 });
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
@@ -121,7 +121,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       event.preventDefault();
       const now = performance.now();
       if (event.pointerType === 'touch' && now-lastTap < 300) {
-        orbitRef.current = { yaw: 0, pitch: 0, distance: 1.37 };
+        orbitRef.current = { yaw: 0, pitch: 0, distance: 1.55 };
       }
       lastTap = now;
       pointers.set(event.pointerId, {x:event.clientX,y:event.clientY});
@@ -183,10 +183,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           return;
         }
         // Keep sharp enough for the close-up without exhausting mobile GPUs.
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.97;
+        renderer.toneMappingExposure = 1.01;
         renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;pointer-events:none';
         host.appendChild(renderer.domElement);
         renderer.domElement.addEventListener('webglcontextlost', (event: Event) => {
@@ -195,14 +195,14 @@ export function AssistantStage({ profile, speaking = false }: Props) {
         });
 
         // Soft studio lighting: skin detail first, gentle lavender rim.
-        scene.add(new THREE.HemisphereLight(0xf0efff,0x24203d,1.65));
-        const softKey = new THREE.DirectionalLight(0xfff5f3,2.6);
+        scene.add(new THREE.HemisphereLight(0xf0efff,0x24203d,1.28));
+        const softKey = new THREE.DirectionalLight(0xfff5f3,1.90);
         softKey.position.set(1.1,2.5,3.5);
         scene.add(softKey);
-        const softFill = new THREE.DirectionalLight(0xc4cbff,0.9);
+        const softFill = new THREE.DirectionalLight(0xc4cbff,0.67);
         softFill.position.set(-2.2,1.5,2.6);
         scene.add(softFill);
-        const rim = new THREE.DirectionalLight(0x956fff,2.0);
+        const rim = new THREE.DirectionalLight(0x956fff,1.28);
         rim.position.set(-2.3,2.0,-1.6);
         scene.add(rim);
 
@@ -295,11 +295,18 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           // existing animated head bone; original five motion clips remain.
           premiumLook=installNexaPremiumLook(THREE,modelRoot,scene,modelUrl.replace(MODEL_VARIANTS[variant].file,'nexa-reference-face.webp'));
           faceRig=installNexaFaceRig(THREE,modelRoot);
+          if (variant === 'full' && !faceRig.available) {
+            throw new Error('El modelo cargado no contiene los controles faciales de Nexa');
+          }
           const mixer=new THREE.AnimationMixer(modelRoot);
           const actions: any={};
           for(const name of names){
-            const clip=gltf.animations.find((a:any)=>a.name===name)!;
-            actions[name]=mixer.clipAction(clip);
+            const sourceClip=gltf.animations.find((a:any)=>a.name===name)!;
+            // Do not play imported head/neck/jaw bone tracks. Their motions
+            // visibly warp the portrait when the facial expressions run.
+            const safeClip=sourceClip.clone();
+            safeClip.tracks=safeClip.tracks.filter((track:any) => !/(?:head|neck|jaw)/i.test(track.name));
+            actions[name]=mixer.clipAction(safeClip);
             actions[name].enabled=true;
             if(name==='Greeting'){
               actions[name].setLoop(THREE.LoopOnce,1);
@@ -310,8 +317,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           if(speakingRef.current) controllerRef.current.startSpeaking();
           // Portrait should remain calm; no forced walk/run or abrupt greetings.
           // Show 3D only after its first successful rendered frame.
-          perspectiveCamera.position.set(0, 0.965, distance);
-          perspectiveCamera.lookAt(0, 0.94, 0);
+          perspectiveCamera.position.set(0, 1.01, distance);
+          perspectiveCamera.lookAt(0, 0.99, 0);
           currentStage = 'rendering';
           renderer.render(scene, perspectiveCamera);
           ready = true;
@@ -334,7 +341,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             distance+=(orbitRef.current.distance-distance)*alpha;
             yaw+=(orbitRef.current.yaw-yaw)*alpha;
             pitch+=(orbitRef.current.pitch-pitch)*alpha;
-            const focus=0.94;
+            const focus=0.99;
             perspectiveCamera.position.set(
               Math.sin(yaw)*distance,
               focus+pitch*0.35+0.025,
