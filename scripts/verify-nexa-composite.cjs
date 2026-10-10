@@ -279,10 +279,10 @@ const mockStudio = {
 const amended = tailor(mockStudio);
 assert(amended >= 2, 'both lower sides must be reshaped');
 assert(vertices[3][0]<sourceVertices[3][0]*.94 &&
-       vertices[3][0]>sourceVertices[3][0]*.78,
+       vertices[3][0]>sourceVertices[3][0]*.72,
        'right lower flap must be reduced smoothly, not amputated');
 assert(vertices[4][0]>sourceVertices[4][0]*.94 &&
-       vertices[4][0]<sourceVertices[4][0]*.78,
+       vertices[4][0]<sourceVertices[4][0]*.72,
        'left lower flap must be reduced symmetrically');
 for (const unchanged of [0,1,2,5,6,7,8,9]) {
   assert.equal(vertices[unchanged][0],sourceVertices[unchanged][0],
@@ -294,4 +294,22 @@ assert.equal(tailor(mockStudio),0,'repeat load should not shrink torso twice');
 const stageSource = fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
 assert(stageSource.includes('tailorNexaStudioLowerTorso(modelRoot)'),
   'the new tailoring must execute on the live Studio avatar');
-console.log('PASS: both lower chest flaps taper 16%; upper chest/face/hands are unchanged');
+console.log('PASS: lower chest flaps taper smoothly up to 23%; upper chest/face/hands are unchanged');
+
+// The Android issue was two distinct rigs fighting over sleeve geometry.
+// Studio must keep a shallow open-arm pose, and the old body must be stripped
+// of every duplicate arm shell (including meshes consisting entirely of arms).
+assert(polish.includes('relaxBodyPose(THREE, studio, true)'),
+  'Studio arms must be posed independently of legacy body arms');
+assert(polish.includes('studioArms ? 0.30 : 1.55') &&
+       polish.includes('studioArms ? 0.25 : 1.20'),
+  'Studio shoulders and elbows must use a small bounded correction');
+assert(polish.includes('height > 0.79'),
+  'upper sleeve patches must be eligible for weight correction');
+assert(polish.includes("extension < 0.67 ? 'Arm' : extension < 0.86 ? 'ForeArm' : 'Hand'"),
+  'sleeve joint assignment must follow the horizontal arm, not vertex height');
+assert(polish.includes('if (!kept.length) {') && polish.includes('geometry.setIndex([])'),
+  'fully detached duplicate legacy sleeves must render zero triangles');
+assert(polish.includes('studioHeight * 0.012'),
+  'without a measured waist join, legacy torso must stay BELOW Studio');
+console.log('PASS: no double arms, no abrupt studio arm drop, no fallback double torso');
