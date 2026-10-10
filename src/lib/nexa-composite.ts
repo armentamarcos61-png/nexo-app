@@ -122,6 +122,201 @@ function addRearHair(THREE: any, studio: any, eyes: Landmark | null): (dt?: numb
 }
 
 /**
+ * Pose the old fully articulated skeleton independently of the Studio face.
+ * The older clip's arm and foot keyframes were leaving the hands suspended
+ * next to the chest and tipping the boots. A quiet bind pose is more stable
+ * than letting two independent skeletons fight over the same portrait.
+ */
+function relaxBodyPose(THREE: any, body: any): void {
+  const vector = () => new THREE.Vector3();
+  const rotateToward = (bone: any, next: any, desired: any, limit: number) => {
+    if (!bone || !next || !bone.parent) return;
+    body.updateMatrixWorld(true);
+    const a = bone.getWorldPosition(vector());
+    const b = next.getWorldPosition(vector());
+    const current = b.sub(a);
+    if (current.lengthSq() < 1e-7) return;
+    current.normalize();
+    const goal = desired.clone().normalize();
+    const desiredRotation = new THREE.Quaternion().setFromUnitVectors(current, goal);
+    const angle = 2 * Math.acos(Math.min(1, Math.abs(desiredRotation.w)));
+    if (angle < 0.015) return;
+    const correction = new THREE.Quaternion().slerp(desiredRotation, Math.min(1, limit / angle));
+    const parentOrientation = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+    const localCorrection = parentOrientation.clone().invert()
+      .multiply(correction).multiply(parentOrientation);
+    bone.quaternion.premultiply(localCorrection).normalize();
+    body.updateMatrixWorld(true);
+  };
+  for (const side of ['Left', 'Right']) {
+    const shoulder = body.getObjectByName('mixamorig:' + side + 'Arm');
+    const elbow = body.getObjectByName('mixamorig:' + side + 'ForeArm');
+    const wrist = body.getObjectByName('mixamorig:' + side + 'Hand');
+    if (!shoulder || !elbow || !wrist) continue;
+    const sideSign = Math.sign(shoulder.getWorldPosition(vector()).x) ||
+      (side === 'Left' ? 1 : -1);
+    // A-pose with slightly separated elbows and hands beside the thighs.
+    rotateToward(shoulder, elbow,
+      new THREE.Vector3(sideSign * 0.22, -1, 0.025), 1.55);
+    rotateToward(elbow, wrist,
+      new THREE.Vector3(sideSign * 0.07, -1, 0.065), 1.20);
+  }
+  for (const side of ['Left', 'Right']) {
+    const ankle = body.getObjectByName('mixamorig:' + side + 'Foot');
+    const toe = body.getObjectByName('mixamorig:' + side + 'ToeBase');
+    if (!ankle || !toe) continue;
+    body.updateMatrixWorld(true);
+    const axis = toe.getWorldPosition(vector()).sub(ankle.getWorldPosition(vector()));
+    const horizontal = new THREE.Vector3(axis.x, 0, axis.z);
+    if (horizontal.lengthSq() > 1e-5) {
+      rotateToward(ankle, toe, horizontal, 0.30);
+    }
+  }
+}
+
+/**
+ * Keep the original body's articulated upper arms while clipping the duplicate
+ * head and chest. A global horizontal clipping plane used to amputate the
+ * shoulder region, making the detached hands float beside the Studio bust.
+ * Here two complementary clipping planes divide the very same skinned mesh:
+ * upper-limb triangles above the seam, original full geometry below it.
+ */
+function preserveOriginalArms(THREE: any, body: any, upperPlane: any): number {
+  const originals: any[] = [];
+  body.traverse((object: any) => {
+    if (object.isSkinnedMesh && object.geometry?.attributes?.skinIndex &&
+        object.geometry?.attributes?.skinWeight && object.skeleton?.bones) {
+      originals.push(object);
+    }
+  });
+  let preserved = 0;
+  for (const source of originals) {
+    const geometry = source.geometry;
+    const originalIndex = geometry.index;
+    const vertexCount = geometry.attributes.position?.count ?? 0;
+    if (!vertexCount) continue;
+    const jointNames = source.skeleton.bones.map((b: any) => b.name ?? '');
+    const scores = new Float32Array(vertexCount);
+    for (let set = 0; set < 3; set++) {
+      const suffix = set ? String(set) : '';
+      const joints = geometry.getAttribute('skinIndex' + suffix);
+      const weights = geometry.getAttribute('skinWeight' + suffix);
+      if (!joints || !weights) continue;
+      const width = Math.min(4, joints.itemSize, weights.itemSize);
+      for (let i = 0; i < vertexCount; i++) {
+        for (let channel = 0; channel < width; channel++) {
+          const index = joints.getComponent(i, channel);
+          const weight = weights.getComponent(i, channel);
+          if (weight > 0 && /(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i.test(jointNames[index] ?? '')) {
+            scores[i] += weight;
+          }
+        }
+      }
+    }
+    const indexAt = (i: number) => originalIndex ? originalIndex.getX(i) : i;
+    const indexCount = originalIndex ? originalIndex.count : vertexCount;
+    const groups = geometry.groups.length ? geometry.groups :
+      [{ start: 0, count: indexCount, materialIndex: 0 }];
+    const kept: number[] = [];
+    const sections: { start: number; count: number; materialIndex: number }[] = [];
+    for (const group of groups) {
+      const first = kept.length;
+      const stop = Math.min(indexCount, group.start + group.count);
+      for (let i = group.start; i + 2 < stop; i += 3) {
+        const a = indexAt(i), b = indexAt(i + 1), c = indexAt(i + 2);
+        const max = Math.max(scores[a], scores[b], scores[c]);
+        const avg = (scores[a] + scores[b] + scores[c]) / 3;
+        if (max >= 0.48 && avg >= 0.32) kept.push(a, b, c);
+      }
+      if (kept.length > first) {
+        sections.push({ start: first, count: kept.length - first, materialIndex: group.materialIndex ?? 0 });
+      }
+    }
+    if (!kept.length) continue;
+    const segmentGeometry = new THREE.BufferGeometry();
+    for (const [name, attribute] of Object.entries(geometry.attributes)) {
+      segmentGeometry.setAttribute(name, attribute);
+    }
+    segmentGeometry.morphAttributes = geometry.morphAttributes;
+    segmentGeometry.morphTargetsRelative = geometry.morphTargetsRelative;
+    segmentGeometry.setIndex(kept);
+    for (const section of sections) {
+      segmentGeometry.addGroup(section.start, section.count, section.materialIndex);
+    }
+    const segment = source.clone(false);
+    segment.name = 'Nexa connected shoulders and articulated arms';
+    segment.geometry = segmentGeometry;
+    const materials = Array.isArray(source.material) ? source.material : [source.material];
+    const upperMaterials = materials.map((material: any) => {
+      const copy = material.clone();
+      copy.clippingPlanes = [upperPlane];
+      copy.clipShadows = true;
+      copy.side = THREE.DoubleSide;
+      copy.needsUpdate = true;
+      return copy;
+    });
+    segment.material = Array.isArray(source.material) ? upperMaterials : upperMaterials[0];
+    segment.frustumCulled = false;
+    source.parent.add(segment);
+    preserved += kept.length / 3;
+  }
+  if (preserved === 0) {
+    console.warn('[Nexa 3D] El modelo no contiene triángulos de brazos identificables');
+  }
+  return preserved;
+}
+
+/** Gently round the existing boots and provide a slim level outsole.
+ *  Shoe details use real Three.js meshes, never a 2D overlay.
+ */
+function finishBoots(THREE: any, body: any, eyeWidth: number, floorY: number): void {
+  const ivory = new THREE.MeshStandardMaterial({ color: 0xececf5, metalness: 0.12, roughness: 0.47 });
+  const sole = new THREE.MeshStandardMaterial({ color: 0x151421, metalness: 0.09, roughness: 0.66 });
+  const geometry = new THREE.SphereGeometry(1, 16, 12);
+  const pieces: any[] = [];
+  let used = 0;
+  body.updateMatrixWorld(true);
+  for (const side of ['Left', 'Right']) {
+    const ankle = body.getObjectByName('mixamorig:' + side + 'Foot');
+    const toe = body.getObjectByName('mixamorig:' + side + 'ToeBase');
+    if (!ankle || !toe) continue;
+    const heel = ankle.getWorldPosition(new THREE.Vector3());
+    const tip = toe.getWorldPosition(new THREE.Vector3());
+    const forward = tip.clone().sub(heel);
+    forward.y = 0;
+    const reach = forward.length();
+    if (!Number.isFinite(reach) || reach < eyeWidth * 0.18 || reach > eyeWidth * 2.7) continue;
+    forward.normalize();
+    const centerWorld = tip.clone().addScaledVector(forward, -reach * 0.19);
+    const y = floorY + eyeWidth * 0.095;
+    const angle = Math.atan2(forward.x, forward.z);
+    const group = new THREE.Group();
+    group.name = 'Nexa rounded ' + side + ' boot tip';
+    centerWorld.y = y;
+    group.position.copy(body.worldToLocal(centerWorld));
+    group.rotation.y = angle;
+    const toeCap = new THREE.Mesh(geometry, ivory);
+    toeCap.scale.set(eyeWidth * 0.31, eyeWidth * 0.16, eyeWidth * 0.43);
+    toeCap.position.y = eyeWidth * 0.06;
+    const outsole = new THREE.Mesh(geometry, sole);
+    outsole.scale.set(eyeWidth * 0.34, eyeWidth * 0.058, eyeWidth * 0.48);
+    outsole.position.y = -eyeWidth * 0.05;
+    group.add(toeCap, outsole);
+    body.add(group);
+    pieces.push(group);
+    used++;
+  }
+  if (!used) {
+    geometry.dispose();
+    ivory.dispose();
+    sole.dispose();
+  } else {
+    // A single resource set shared by both toe pieces: dispose with the body.
+    pieces[0].userData.nexaBootResources = { geometry, ivory, sole };
+  }
+}
+
+/**
  * Both models are genuine rigged GLBs. Alignment is measured from the native
  * blinking eyelid vertices, so no guessed pixel/photo offsets are involved.
  * Throws on invalid proportion instead of publishing a distorted character.
@@ -139,7 +334,11 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
 
   body.scale.setScalar(ratio);
   body.position.copy(studioEyes.center).sub(bodyEyes.center.clone().multiplyScalar(ratio));
+  // Bring the lower suit gently into the open underside of the original Studio
+  // bust. The face and bust are never translated, scaled or replaced.
+  body.position.y += (new THREE.Box3().setFromObject(studio).getSize(new THREE.Vector3()).y) * 0.032;
   body.updateMatrixWorld(true);
+  relaxBodyPose(THREE, body);
   const upper = new THREE.Box3().setFromObject(studio);
   const lower = new THREE.Box3().setFromObject(body);
   const studioHeight = upper.max.y - upper.min.y;
@@ -182,6 +381,10 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
     object.material = isArray ? adjusted : adjusted[0];
   });
 
+  const upperArmsPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -seamY);
+  preserveOriginalArms(THREE, body, upperArmsPlane);
+  finishBoots(THREE, body, studioEyes.width, lower.min.y);
+
   const visibleBounds = new THREE.Box3().setFromObject(studio);
   const lowerVisible = lower.clone();
   lowerVisible.max.y = Math.min(lowerVisible.max.y, seamY);
@@ -202,10 +405,17 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
     dispose() {
       hairMotion();
       body.traverse((object: any) => {
+        if (object.userData?.nexaBootResources) {
+          const resources = object.userData.nexaBootResources;
+          resources.geometry.dispose();
+          resources.ivory.dispose();
+          resources.sole.dispose();
+        }
         if (!object.isMesh) return;
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) material?.dispose?.();
-        object.geometry?.dispose?.();
+        // Boot-cap meshes share a single geometry and material set disposed above.
+        if (!object.parent?.name?.includes('boot tip')) object.geometry?.dispose?.();
       });
       body.removeFromParent();
     },
