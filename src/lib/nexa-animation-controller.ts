@@ -80,10 +80,10 @@ export class NexaAnimationController {
     this.setMotion('Greeting', 5.5);
   }
 
-  /** Voz actual: mover gestos continuamente hasta que termine. */
+  /** Voice uses only facial morphs; the whole-body Talking clip twisted the skull. */
   startSpeaking() {
     this.speaking = true;
-    this.setMotion('Talking');
+    this.setMotion('Idle');
   }
 
   stopSpeaking() {
@@ -109,7 +109,8 @@ export class NexaAnimationController {
     this.elapsed += dt;
 
     if (this.speaking) {
-      this.model.rotation.y += (this.baseYaw + Math.sin(this.elapsed * 0.6) * 0.018 - this.model.rotation.y) * Math.min(1, dt * 1.2);
+      // Talking does not rotate the body or skull. Mouth and brows animate separately.
+      this.model.rotation.y += (this.baseYaw - this.model.rotation.y) * Math.min(1, dt * 1.2);
       return;
     }
 
@@ -127,8 +128,8 @@ export class NexaAnimationController {
       return;
     }
 
-    // Minimal body motion while waiting; no robotic wandering off camera.
-    this.model.rotation.y += (Math.sin(this.elapsed * 0.37) * 0.025 - this.model.rotation.y) * Math.min(1, dt * 0.55);
+    // Neutral portrait pose. Users may orbit the camera without involuntary swaying.
+    this.model.rotation.y += (this.baseYaw - this.model.rotation.y) * Math.min(1, dt * 0.8);
     this.model.position.x += (this.initialX - this.model.position.x) * Math.min(1, dt * 0.8);
     this.model.position.z += (this.initialZ - this.model.position.z) * Math.min(1, dt * 0.8);
   }
