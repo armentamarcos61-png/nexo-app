@@ -21,7 +21,7 @@ for (const fps of [20, 30, 60, 120]) {
     assert.ok(weights.every(v => Number.isFinite(v) && v>=0 && v<=1));
     if (weights[4] === 1 && weights[5] === 1) closed++;
     largestOpening=Math.max(largestOpening,weights[0]);
-    assert.ok(Math.abs(head.rotation.x)<.02 && Math.abs(head.rotation.y)<.02, 'Additive pose must not accumulate');
+    assert.ok(Math.abs(head.rotation.x)<1e-8 && Math.abs(head.rotation.y)<1e-8, 'Facial animations must not rotate the skull');
   }
   assert.ok(closed>0, 'Blink must reach full closure at '+fps+' fps');
   assert.ok(largestOpening>.28, 'Speech must articulate the lips');
