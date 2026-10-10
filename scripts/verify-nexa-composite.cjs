@@ -98,8 +98,7 @@ assert(bodyHeight>=studioHeight*1.25,'source body would be shorter than the Stud
 // Three.js removes the negative side of the plane. Regressions here previously
 // kept the duplicate upper torso and invisibly clipped both legs instead.
 const composite = fs.readFileSync('src/lib/nexa-composite.ts','utf8');
-assert.match(composite,
-  /new THREE\\.Plane\\(new THREE\\.Vector3\\(0, -1, 0\\), seamY\\)/,
+assert.ok(composite.includes('new THREE.Plane(new THREE.Vector3(0, -1, 0), seamY)'),
   'the body cutter must keep y <= seamY, never keep the duplicate upper chest');
 const seamY = 0.4;
 const planeDistance = (y) => -y + seamY;
