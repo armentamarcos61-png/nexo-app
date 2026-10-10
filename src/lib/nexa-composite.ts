@@ -408,8 +408,15 @@ function removeLegacyArmSurfaces(body: any): number {
         sections.push({ start: first, count: kept.length-first, materialIndex: group.materialIndex ?? 0 });
       }
     }
-    if (!removedHere || !kept.length) return;
+    if (!removedHere) return;
     removed += removedHere;
+    // A standalone arm mesh may contain no torso triangles at all. Clearing
+    // its indices is essential: leaving it intact would draw duplicate arms.
+    if (!kept.length) {
+      geometry.setIndex([]);
+      geometry.clearGroups();
+      return;
+    }
     geometry.setIndex(kept);
     geometry.clearGroups();
     for (const group of sections) geometry.addGroup(group.start, group.count, group.materialIndex);
