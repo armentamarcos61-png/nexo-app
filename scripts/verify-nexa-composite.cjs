@@ -224,3 +224,9 @@ assert(stage.includes('const safeClip=studio') &&
        stage.includes('new THREE.AnimationClip(name,1,[])'),
   'Studio Idle must not restore the old T-pose through imported animations');
 console.log('PASS: anatomically anchored chest join, tapered 3D waist and neutral Studio arms');
+
+assert(polish.includes('repairStudioSleeveWeights(studio)'),
+  'Studio sleeves must not remain weighted to hidden lower-leg bones');
+assert(polish.includes('Bone_009') && polish.includes('Bone_007'),
+  'Both misassigned Meshy sleeve tip joints must be handled');
+console.log('PASS: Meshy sleeve weights are remapped without touching the approved face');
