@@ -20,6 +20,16 @@ const MODEL_VARIANTS = {
 } as const;
 type ModelVariant = keyof typeof MODEL_VARIANTS;
 const clamp = (x: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(maximum, x));
+// Studio's mesh is a 0.7-unit bust, not a full-height avatar. Its previous
+// 2.48-unit scaling combined with a 0.99 focus cropped the entire face.
+const STUDIO_FRAMING = {
+  height: 1.40,
+  distance: 3.05,
+  focus: 0.035,
+  minDistance: 2.42,
+  maxDistance: 4.40,
+} as const;
+const CLASSIC_DISTANCE = 1.55;
 
 function getModelUrl(variant: ModelVariant) {
   const filename = MODEL_VARIANTS[variant].file;
@@ -36,7 +46,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const hostRef = useRef<any>(null);
   const controllerRef = useRef<NexaAnimationController | null>(null);
   const speakingRef = useRef(speaking);
-  const orbitRef = useRef({ yaw: 0, pitch: 0, distance: 1.55 });
+  const orbitRef = useRef({ yaw: 0, pitch: 0, distance: STUDIO_FRAMING.distance });
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
@@ -57,6 +67,13 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     const host = hostRef.current;
     controllerRef.current = null;
     if (!host || typeof window === 'undefined' || !isNexa) return;
+    // Reset to the appropriate camera when Studio loads or legacy is restored.
+    const studio = variant === 'studio';
+    const homeDistance = studio ? STUDIO_FRAMING.distance : CLASSIC_DISTANCE;
+    const minDistance = studio ? STUDIO_FRAMING.minDistance : 1.08;
+    const maxDistance = studio ? STUDIO_FRAMING.maxDistance : 1.90;
+    const focus = studio ? STUDIO_FRAMING.focus : 0.99;
+    orbitRef.current = { yaw: 0, pitch: 0, distance: homeDistance };
 
     setLoaded(false);
     setUnavailable(false);
@@ -124,7 +141,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       event.preventDefault();
       const now = performance.now();
       if (event.pointerType === 'touch' && now-lastTap < 300) {
-        orbitRef.current = { yaw: 0, pitch: 0, distance: 1.55 };
+        orbitRef.current = { yaw: 0, pitch: 0, distance: homeDistance };
       }
       lastTap = now;
       pointers.set(event.pointerId, {x:event.clientX,y:event.clientY});
@@ -141,7 +158,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
         if (next > 1 && previousPinchDistance > 1) {
           orbitRef.current.distance = clamp(
             orbitRef.current.distance * previousPinchDistance / next,
-            1.08, 1.90,
+            minDistance, maxDistance,
           );
         }
         previousPinchDistance = next;
@@ -156,7 +173,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     };
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      orbitRef.current.distance = clamp(orbitRef.current.distance+event.deltaY*0.0015, 1.08, 1.90);
+      orbitRef.current.distance = clamp(orbitRef.current.distance+event.deltaY*0.0015, minDistance, maxDistance);
     };
 
     host.replaceChildren();
@@ -270,9 +287,16 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           const bounds=new THREE.Box3().setFromObject(modelRoot);
           const center=bounds.getCenter(new THREE.Vector3());
           const dims=bounds.getSize(new THREE.Vector3());
-          const scale=2.48/Math.max(0.01,dims.y);
+          // Use a real bust portrait framing for Studio, not the 2.48-unit
+          // full-body scale that made only the cap visible.
+          const targetHeight=studio ? STUDIO_FRAMING.height : 2.48;
+          const scale=targetHeight/Math.max(0.01,dims.y);
           modelRoot.scale.setScalar(scale);
-          modelRoot.position.set(-center.x*scale,-center.y*scale+0.06,-center.z*scale);
+          modelRoot.position.set(
+            -center.x*scale,
+            -center.y*scale+(studio ? STUDIO_FRAMING.focus : 0.06),
+            -center.z*scale,
+          );
           modelRoot.traverse((node:any)=>{
             if (!node.isMesh) return;
             node.frustumCulled=false;
@@ -351,8 +375,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           if(speakingRef.current) controllerRef.current.startSpeaking();
           // Portrait should remain calm; no forced walk/run or abrupt greetings.
           // Show 3D only after its first successful rendered frame.
-          perspectiveCamera.position.set(0, 1.01, distance);
-          perspectiveCamera.lookAt(0, 0.99, 0);
+          perspectiveCamera.position.set(0, focus+0.02, distance);
+          perspectiveCamera.lookAt(0, focus, 0);
           currentStage = 'rendering';
           renderer.render(scene, perspectiveCamera);
           ready = true;
@@ -375,7 +399,6 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             distance+=(orbitRef.current.distance-distance)*alpha;
             yaw+=(orbitRef.current.yaw-yaw)*alpha;
             pitch+=(orbitRef.current.pitch-pitch)*alpha;
-            const focus=0.99;
             perspectiveCamera.position.set(
               Math.sin(yaw)*distance,
               focus+pitch*0.35+0.025,
