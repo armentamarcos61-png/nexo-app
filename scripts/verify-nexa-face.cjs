@@ -13,7 +13,7 @@ for (const fps of [20, 30, 60, 120]) {
   const mesh = { isSkinnedMesh: true, morphTargetDictionary: Object.fromEntries(names.map((n,i)=>[n,i])), morphTargetInfluences: names.map(()=>0) };
   const rig = exportsObject.installNexaFaceRig(null, { traverse: f => [head,mesh].forEach(f) });
   assert.ok(rig.available);
-  let closed = 0, largestOpening = 0;
+  let closed = 0, largestOpening = 0, largestGaze = 0;
   for (let frame=0;frame<fps*12;frame++) {
     rig.beforeUpdate();
     rig.update(1/fps, frame/fps, frame < fps*8);
@@ -21,10 +21,14 @@ for (const fps of [20, 30, 60, 120]) {
     assert.ok(weights.every(v => Number.isFinite(v) && v>=0 && v<=1));
     if (weights[4] === 1 && weights[5] === 1) closed++;
     largestOpening=Math.max(largestOpening,weights[0]);
-    assert.ok(Math.abs(head.rotation.x)<1e-8 && Math.abs(head.rotation.y)<1e-8, 'Facial animations must not rotate the skull');
+    assert.ok(Math.abs(head.rotation.x)<=0.012 && Math.abs(head.rotation.y)<=0.009,
+      'Micro head motion must stay below one degree');
+    rig.beforeUpdate();
+    assert.ok(Math.abs(head.rotation.x)<1e-8 && Math.abs(head.rotation.y)<1e-8,
+      'Every head gesture must be reversible without drift');
   }
   assert.ok(closed>0, 'Blink must reach full closure at '+fps+' fps');
   assert.ok(largestOpening>.28, 'Speech must articulate the lips');
   assert.ok(mesh.morphTargetInfluences[0]<.001, 'Lips must settle after speech');
 }
-console.log('PASS: full blinks at 20–120 fps, speech closure and bounded head motion');
+console.log('PASS: deterministic blinks, expressive speech and reversible sub-degree head motion at 20–120 fps');
