@@ -43,6 +43,9 @@ jobs:
       - name: Comprobar que Nexa sea una sola
         run: node scripts/verify-nexa-singleton.mjs
 
+      - name: Probar boca, párpados y cráneo estable
+        run: node scripts/verify-nexa-face.cjs
+
       - name: Verificar empaquetado Android
         run: npx expo export --platform android
 
