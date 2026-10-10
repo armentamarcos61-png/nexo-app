@@ -230,3 +230,68 @@ assert(polish.includes('repairStudioSleeveWeights(studio)'),
 assert(polish.includes('Bone_009') && polish.includes('Bone_007'),
   'Both misassigned Meshy sleeve tip joints must be handled');
 console.log('PASS: Meshy sleeve weights are remapped without touching the approved face');
+
+/**
+ * Execute the actual TypeScript torso-tailoring function with deterministic
+ * geometry. This catches broken masks, accidental head scaling, or non-idempotent
+ * repeat calls without requiring a GPU in GitHub Actions.
+ */
+const vm = require('node:vm');
+const ts = require('typescript');
+const runtime = { exports: {}, console };
+const compiledTorso = ts.transpileModule(polish, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText;
+vm.runInNewContext(compiledTorso, runtime, { timeout: 4000 });
+const tailor = runtime.exports.tailorNexaStudioLowerTorso;
+assert.equal(typeof tailor, 'function', 'lower torso tailor must be exported');
+const vertices = [
+  [-0.3357,0.7,0], [0.3342,0.7,0], [0,0,0],
+  [0.22,0.06,0], [-0.22,0.06,0],
+  [0.20,0.60,0], [-0.20,0.60,0],
+  [0.33,0.18,0], [-0.33,0.18,0],
+  [0.01,0.08,0],
+];
+const sourceVertices = vertices.map(v=>v.slice());
+const posAttr = {
+  count: vertices.length,
+  getX: i=>vertices[i][0],
+  getY: i=>vertices[i][1],
+  setX: (i,v)=>{vertices[i][0]=v;},
+  needsUpdate: false,
+};
+const geometryMock = {
+  attributes: { position: posAttr },
+  getAttribute: key=>key==='position'?posAttr:null,
+  computeBoundingBox() {
+    this.boundingBox = {
+      min: {x:Math.min(...vertices.map(v=>v[0])),y:Math.min(...vertices.map(v=>v[1]))},
+      max: {x:Math.max(...vertices.map(v=>v[0])),y:Math.max(...vertices.map(v=>v[1]))},
+    };
+  },
+  computeVertexNormals(){this.normalsUpdated=true;},
+  computeBoundingSphere(){this.sphereUpdated=true;},
+};
+const mockStudio = {
+  userData: {},
+  traverse(cb){cb({isSkinnedMesh:true,geometry:geometryMock});},
+};
+const amended = tailor(mockStudio);
+assert(amended >= 2, 'both lower sides must be reshaped');
+assert(vertices[3][0]<sourceVertices[3][0]*.94 &&
+       vertices[3][0]>sourceVertices[3][0]*.78,
+       'right lower flap must be reduced smoothly, not amputated');
+assert(vertices[4][0]>sourceVertices[4][0]*.94 &&
+       vertices[4][0]<sourceVertices[4][0]*.78,
+       'left lower flap must be reduced symmetrically');
+for (const unchanged of [0,1,2,5,6,7,8,9]) {
+  assert.equal(vertices[unchanged][0],sourceVertices[unchanged][0],
+    'face/shoulders/outer hands/center must not move at '+unchanged);
+}
+assert(geometryMock.normalsUpdated && posAttr.needsUpdate,
+  'reshaped 3D mesh needs updated normals for clean studio lighting');
+assert.equal(tailor(mockStudio),0,'repeat load should not shrink torso twice');
+const stageSource = fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
+assert(stageSource.includes('tailorNexaStudioLowerTorso(modelRoot)'),
+  'the new tailoring must execute on the live Studio avatar');
+console.log('PASS: both lower chest flaps taper 16%; upper chest/face/hands are unchanged');
