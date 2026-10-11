@@ -91,30 +91,6 @@ const studio=parseGLB('public/models/Nexa_Studio_Busto_v1.glb');
 const full=parseGLB('public/models/Nexa_FacialRig_V2.glb');
 const sw=eyeWidth(studio),fw=eyeWidth(full);
 const ratio=sw/fw;
-// Geometry diagnostics: locate the *real* backside of the two GLBs.
-function nexaVertexBands(gltf,ys,band,xRadius){
-  const records=[];
-  for(const mesh of gltf.doc.meshes){for(const primitive of mesh.primitives||[]){
-    if(primitive.attributes?.POSITION===undefined)continue;
-    const values=accessor(gltf,primitive.attributes.POSITION);
-    for(let i=0;i<values.length;i+=2){const v=values[i];
-      if(Math.abs(v[0])>xRadius)continue;
-      for(const y of ys)if(Math.abs(v[1]-y)<band)records.push([y,v[0],v[2]]);
-    }
-  }}
-  return ys.map(y=>{const recordsAtY=records.filter(p=>p[0]===y);
-    const zz=recordsAtY.map(p=>p[2]).sort((a,b)=>a-b);
-    const xx=recordsAtY.map(p=>p[1]).sort((a,b)=>a-b);
-    const q=(values,n)=>values[Math.floor((values.length-1)*n)]??null;
-    return {y,n:zz.length,z:[q(zz,.02),q(zz,.25),q(zz,.5),q(zz,.75),q(zz,.98)],x:[q(xx,.02),q(xx,.5),q(xx,.98)]};
-  });
-}
-console.log('NEXA_POSITION_DIAG',JSON.stringify({
- studioEyeL:eyes(studio,'EyeBlinkLeft'),studioEyeR:eyes(studio,'EyeBlinkRight'),
- fullEyeL:eyes(full,'EyeBlinkLeft'),fullEyeR:eyes(full,'EyeBlinkRight'),ratio,
- studio:nexaVertexBands(studio,[.25,.30,.35,.4,.45,.5,.55,.60],.015,.24),
- body:nexaVertexBands(full,[.90,1,1.1,1.18,1.25,1.32,1.4,1.48],.025,.3),
-}));
 const studioHeight=height(studio);
 const bodyHeight=height(full)*ratio;
 assert(Number.isFinite(ratio) && ratio>=0.3 && ratio<=8,'studio/body eye scale is implausible');
@@ -476,6 +452,12 @@ assert.equal(connected.userData.nexaHairAnchors.sidePanels,0,
   'rear hair must be one seamless volume, not two disconnected side patches');
 assert.equal(connected.userData.nexaHairAnchors.continuousVolume,true,
   'helmet-to-ponytail join must form a continuous enclosed 3D silhouette');
+assert(connected.userData.nexaHairAnchors.capZ <
+       (.15-.16*1.6),
+  'the 3D connector must start behind the REAL helmet, never in the face'); 
+assert(connected.userData.nexaHairAnchors.tailZ <
+       (.15-.16*1.95),
+  'the 3D connector must reach the actual rear hair depth');
 assert(connected.geometry.index.count > 2000,
   'complete rounded hair surface must span all sides with no planar black cards');
 const hairBounds=new realThree.Box3().setFromBufferAttribute(
@@ -488,7 +470,7 @@ assert(hairBounds.max.x-hairBounds.min.x > .16*.55 &&
        hairBounds.max.z-hairBounds.min.z > .16*.12,
   'rounded join must have real width and depth, not thin invisible side strips');
 assert(connected.userData.nexaHairAnchors.bottomY <
-       connected.userData.nexaHairAnchors.tailTopY,
+       connected.userData.nexaHairAnchors.topOfTail,
   'new hair must physically overlap the native ponytail top, with no loose gap');
 assert(connected.userData.nexaHairAnchors.topY>
        connected.userData.nexaHairAnchors.bottomY,
