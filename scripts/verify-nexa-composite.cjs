@@ -487,6 +487,15 @@ assert.equal(connected.userData.nexaHairAnchors.sidePanels,0,
   'rear hair must be one seamless volume, not two disconnected side patches');
 assert.equal(connected.userData.nexaHairAnchors.continuousVolume,true,
   'helmet-to-ponytail join must form a continuous enclosed 3D silhouette');
+assert.equal(connected.userData.nexaHairAnchors.diagonalSeam,true,
+  'hair bridge must use a slanted attachment, not the old horizontal cutoff');
+const slanted=connected.geometry.getAttribute('position');
+const endRow=connected.userData.nexaHairRows;
+const around=connected.userData.nexaHairColumns;
+const frontEdge=slanted.getY(endRow*(around+1)+Math.floor(around/4));
+const backEdge=slanted.getY(endRow*(around+1)+Math.floor(around*3/4));
+assert(frontEdge-backEdge>.16*.12,
+  'the native ponytail join must be measurably diagonal, not a horizontal ring');
 assert(connected.userData.nexaHairAnchors.capZ <
        (.15-.16*1.6),
   'the 3D connector must start behind the REAL helmet, never in the face'); 
