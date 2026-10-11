@@ -115,6 +115,9 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 </div>
 <label>Orden de la página principal</label><div id="order"></div>
 <button class="btn primary" id="save" style="margin-top:14px">Guardar apariencia</button>
+<h2 style="margin-top:22px">Accesos directos creados por voz</h2>
+<p>Por ejemplo: «Agrega un botón de Portafolios». Aparecerá en el inicio de Nexo sin modificar código.</p>
+<div id="shortcuts"></div>
 </section>
 </div>
 <div id="ideas" data-page="ideas" class="hidden"><section class="panel"><h2>Solicitudes de implementación</h2>
@@ -135,6 +138,11 @@ const KEY='sb_publishable_UY_rNqVKNwofYYv-p8lb0w_DvGkQBXi';
 const STORAGE='nexo.control.admin.session.v1';
 const $=id=>document.getElementById(id);
 const orderNames={employment:'Empleos',services:'Contratar servicio',products:'Productos',offer:'Ofrecer servicio'};
+const allowedScreens={
+ portafolios:'/portafolios',productos:'/productos',empleos:'/explorar',
+ servicios:'/explorar',asistente:'/asistente',perfil:'/perfil',
+ publicar:'/publicar/servicio',
+};
 const supported=['employment','services','products','offer'];
 const statusNames={pending:'Pendiente',review:'Revisión',approved:'Aprobada',implemented:'Implementada',rejected:'Descartada'};
 let dashboard=null,draft=null,proposal=null,busy=false;
@@ -181,7 +189,7 @@ async function load(){
  show('login',false);show('dashboard',true);text('sessionline',data.account.email+' · '+data.account.role);
  text('total',data.metrics.total);text('resolved',data.metrics.resolved);
  text('pending',data.metrics.unresolved);text('searches',data.metrics.searches);
- drawTopics();drawSettings();drawIdeas();drawVersions();return data;
+ drawTopics();drawSettings();drawShortcuts();drawIdeas();drawVersions();return data;
 }
 function drawTopics(){
  const root=$('topics');root.replaceChildren();
@@ -214,6 +222,22 @@ function drawSettings(){
   up.disabled=index===0;down.disabled=index===draft.action_order.length-1;
   moves.append(up,down);parent.append(row((index+1)+'. '+orderNames[id],moves));
  });
+}
+function drawShortcuts(){
+ const parent=$('shortcuts');parent.replaceChildren();
+ const shortcuts=dashboard?.settings?.shortcuts||[];
+ if(!shortcuts.length){
+  const p=document.createElement('p');p.className='note';
+  p.textContent='No has agregado accesos directos todavía.';
+  parent.append(p);return;
+ }
+ for(const item of shortcuts){
+  const remove=button('Quitar',()=>run(async()=>{
+   await request('POST',{action:'remove_shortcut',id:item.id});
+   await load();message('Acceso directo eliminado.');
+  }));
+  parent.append(row(item.title+' · '+item.route,remove));
+ }
 }
 function move(id,by){
  const idx=draft.action_order.indexOf(id),target=idx+by;
@@ -251,6 +275,19 @@ function drawVersions(){
 }
 function getProposal(input){
  const norm=input.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+ // Bounded runtime implementation. These commands change LIVE app data,
+ // rather than generating arbitrary TypeScript in a browser session.
+ if(/\b(agrega|anade|pon|crea|coloca)\b/.test(norm)&&
+    /\b(boton|botones|acceso|tarjeta|enlace)\b/.test(norm)){
+  for(const [word,route] of Object.entries(allowedScreens)){
+   if(norm.includes(word)){
+    const label=word[0].toUpperCase()+word.slice(1);
+    return {type:'shortcut',title:label,route,
+     summary:'Se creará ahora un acceso rápido de '+label+
+     ' hacia '+route+'. Aparecerá en el inicio de Nexo tras confirmar.'};
+   }
+  }
+ }
  let accent=draft.accent;
  if(/\b(naranja|anaranjado)\b/.test(norm))accent='orange';
  else if(/\b(morado|violeta|purpura)\b/.test(norm))accent='violet';
@@ -317,11 +354,15 @@ $('apply').addEventListener('click',()=>run(async()=>{
  if(!proposal)throw Error('Primero prepara una instrucción');
  if(proposal.type==='settings')
   await request('POST',{action:'apply_settings',accent:proposal.accent,action_order:proposal.order});
+ else if(proposal.type==='shortcut')
+  await request('POST',{action:'add_shortcut',title:proposal.title,route:proposal.route});
  else
   await request('POST',{action:'create_idea',title:proposal.title,description:proposal.description,category:proposal.category});
  const kind=proposal.type;proposal=null;show('preview',false);$('command').value='';
  await load();
- message(kind==='settings'?'Orden aplicada en Nexo.':'Solicitud de implementación guardada para desarrollo y pruebas.');
+ message(kind==='settings'?'Orden aplicada en Nexo.':
+  kind==='shortcut'?'El botón nuevo ya está configurado en Nexo.':
+  'Solicitud técnica guardada. Este cambio requiere un agente de programación, pruebas y publicación; todavía no se ha ejecutado.');
 }));
 $('dictate').addEventListener('click',()=>{
  const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
