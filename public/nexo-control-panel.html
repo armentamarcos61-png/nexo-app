@@ -74,9 +74,10 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
  <button class="btn" id="recover">No recuerdo mi contraseña</button>
 </div>
 <div id="verify-zone" class="hidden">
-<label for="code">Pega el enlace de acceso o de recuperación que recibiste</label>
-<textarea id="code" rows="3" placeholder="Pega aquí el enlace completo del mensaje de Supabase; también sirve un código si llega uno"></textarea>
-<button class="btn primary" id="verify">Verificar enlace y abrir panel</button>
+<label for="code">Enlace de Supabase, código o dirección completa de localhost</label>
+<textarea id="code" rows="3" placeholder="Pega el enlace del correo o la dirección COMPLETA de localhost:3000 que quedó después de verificar"></textarea>
+<button class="btn primary" id="verify">Recuperar sesión y abrir panel</button>
+<p class="note">Si ya abriste el enlace y terminaste en localhost:3000, toca la barra de direcciones, copia la URL completa y pégala aquí. No pegues la dirección en este chat. La URL debe contener una sección #access_token=… para recuperar la sesión. Si no la contiene, solicita un enlace nuevo.</p>
 </div>
 <p class="note">Nexo guarda las contraseñas de registro en este navegador, pero este panel usa una cuenta verificada de Supabase. «Vincular mi contraseña de Nexo» comprueba tu clave local y después solicita verificar el correo para que puedas utilizar la misma contraseña en ambos sistemas.</p>
 <p class="note">Actualmente Supabase está enviando un enlace, no un código de seis dígitos. Si al tocarlo aparece localhost:3000, no abras esa dirección: copia el enlace original del correo y pégalo arriba. Nunca compartas tu contraseña ni el enlace.</p>
@@ -251,6 +252,43 @@ async function setSupabasePassword(password){
  }));
 }
 
+/**
+ * Supabase may successfully verify a recovery email and then redirect to
+ * the project's stale Site URL (localhost:3000). That callback commonly has
+ * #access_token and #refresh_token. Read a copy of that URL locally instead
+ * of requiring another email. It is NOT trusted until Supabase validates it.
+ */
+async function recoverVerifiedCallback(raw,claimedEmail){
+ let link;try{link=new URL(raw);}catch{return null;}
+ const allowedOrigin=(
+  (link.hostname==='localhost'&&link.port==='3000'&&['http:','https:'].includes(link.protocol))||
+  (link.hostname==='armentamarcos61-png.github.io'&&link.protocol==='https:')
+ );
+ const fragment=new URLSearchParams(link.hash.replace(/^#/,''));
+ const access=fragment.get('access_token');
+ const refresh=fragment.get('refresh_token');
+ if(!access||!refresh){
+  if(link.hostname==='localhost'){
+   throw Error('Copiaste localhost sin la sesión de recuperación. Toca la barra de direcciones y copia la URL COMPLETA; debe contener #access_token=. Si no aparece, solicita un enlace nuevo y cópialo directamente del correo sin abrirlo.');
+  }
+  return null;
+ }
+ if(!allowedOrigin)throw Error('La dirección no corresponde a la recuperación de Nexo.');
+ const type=fragment.get('type')||'recovery';
+ if(!['recovery','magiclink','email','signup'].includes(type))
+  throw Error('Este tipo de enlace no puede iniciar una sesión de Nexo.');
+ const user=await parse(await fetch(BASE+'/auth/v1/user',{
+  method:'GET',
+  headers:{...headers(),Authorization:'Bearer '+access},
+ }));
+ if(typeof user.email!=='string'||user.email.trim().toLowerCase()!==claimedEmail.trim().toLowerCase())
+  throw Error('El enlace pertenece a otro correo. No se puede usar para abrir esta cuenta.');
+ const seconds=Number(fragment.get('expires_in')||0);
+ if(!Number.isFinite(seconds)||seconds<1||seconds>86400)
+  throw Error('La sesión del enlace ha vencido o no tiene tiempo de validez.');
+ saveSession({access_token:access,refresh_token:refresh,expires_in:seconds});
+ return {type,email:user.email.trim().toLowerCase()};
+}
 async function load(){
  const data=await request('GET');dashboard=data;draft={accent:data.settings.accent,action_order:[...data.settings.action_order]};
  show('login',false);show('dashboard',true);text('sessionline',data.account.email+' · '+data.account.role);
@@ -467,6 +505,22 @@ $('signin').addEventListener('click',()=>run(async()=>{
 }));
 $('verify').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim(),raw=$('code').value.trim();if(!raw)throw Error('Escribe un código o pega el enlace completo.');
+ const recovered=await recoverVerifiedCallback(raw,email);
+ if(recovered){
+  if(pendingLinkPassword&&pendingLinkEmail===recovered.email){
+   if(recovered.type!=='recovery')throw Error('Para vincular contraseñas debes usar un enlace de recuperación.');
+   const selectedPassword=pendingLinkPassword;
+   pendingLinkPassword=null;pendingLinkEmail=null;
+   await setSupabasePassword(selectedPassword);
+   await load();message('Tu contraseña de Nexo ya quedó vinculada a Supabase.');
+  }else{
+   await load();
+   if(recovered.type==='recovery')$('change-password-box').open=true;
+   message('Supabase ya había verificado el enlace. Recuperé esa sesión para Nexo Control. Ahora puedes cambiar tu contraseña.');
+  }
+  $('code').value='';
+  return;
+ }
  let input={email,token:raw,type:lastEmailFlow};
  if(/^https?:\/\//i.test(raw)){
   const link=new URL(raw);
