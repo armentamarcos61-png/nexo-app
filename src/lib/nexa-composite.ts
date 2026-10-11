@@ -980,7 +980,7 @@ export function maskNexaStudioHead(THREE: any, studio: any, renderer: any): numb
   // seam UNDER the chin but ABOVE the original shoulder armor. Hard bounds
   // prevent the plane from cutting off the mouth or leaving a second chest.
   const seamY=THREE.MathUtils.clamp(
-    eye.center.y-eye.width*2.25,
+    eye.center.y-eye.width*1.75,
     bounds.min.y+h*0.43,
     bounds.min.y+h*0.73,
   );
@@ -1022,10 +1022,10 @@ export function lowerNexaStudioHead(THREE:any,studio:any,eyeWidth:number):number
   if (!Number.isFinite(oldSeam) || !Number.isFinite(eyeWidth) || eyeWidth<=0) {
     throw new Error('La cabeza y el cuello necesitan referencias 3D válidas');
   }
-  // A slightly lower head-to-uniform fit (0.45 eye-width vs. 0.35).
-  // Adjust only this natural neck drop, not the face, full body or helmet.
+  // Bring the approved face into the suit and remove the visibly stretched
+  // neck below the chin, without moving the full-body shoulders or logos.
   // The shared clipping seam and collar follow this exact displacement.
-  const drop=THREE.MathUtils.clamp(eyeWidth*0.45,0.015,0.075);
+  const drop=THREE.MathUtils.clamp(eyeWidth*0.64,0.015,0.11);
   const loweredSeam=oldSeam-drop;
   let corrected=0;
   studio.traverse((object:any)=>{
@@ -1104,13 +1104,42 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
   const visibleHead=upper.clone();
   visibleHead.min.y=Math.max(upper.min.y,seamY);
   visibleBounds.union(visibleHead);
+
+  // Only animate the real body-arm joints, never Studio's face or the neck
+  // attachment. Gradual speech-driven gestures replace the static T-pose
+  // without switching to the legacy clips that tore the Studio sleeves.
+  const gestureBones: { bone:any; rest:any; axis:any; phase:number; side:number }[]=[];
+  for (const side of ['Left','Right']) {
+    const sign=side==='Left'?1:-1;
+    for (const [joint,phase] of [['Arm',0],['ForeArm',0.65]] as [string,number][]) {
+      const bone=body.getObjectByName('mixamorig:'+side+joint);
+      if (!bone) continue;
+      gestureBones.push({
+        bone, rest:bone.quaternion.clone(),
+        axis:new THREE.Vector3(0,0,1), phase, side:sign,
+      });
+    }
+  }
+  let gestureBlend=0;
+  let gestureTime=0;
   return {
     body,
     seamY,
     bounds:visibleBounds,
-    update(_dt:number,_speaking:boolean) {
-      // Facial gestures are handled by Studio's original head bones.
-      // The neutral full-body rig remains stable; no random arm motions.
+    update(dt:number,speaking:boolean) {
+      const frame=THREE.MathUtils.clamp(Number.isFinite(dt)?dt:0,0,0.08);
+      gestureBlend+=(Number(speaking)-gestureBlend)*(1-Math.exp(-frame*3.4));
+      if (speaking) gestureTime+=frame;
+      for (const entry of gestureBones) {
+        const forearm=entry.phase!==0;
+        const angle=entry.side*gestureBlend*(
+          (forearm?0.040:0.066) +
+          (forearm?0.019:0.026)*Math.sin(gestureTime*2.1+entry.phase)
+        );
+        entry.bone.quaternion.copy(entry.rest).multiply(
+          new THREE.Quaternion().setFromAxisAngle(entry.axis,angle)
+        );
+      }
     },
     dispose() {
       body.traverse((object:any)=>{
@@ -1145,22 +1174,24 @@ export function addNexaCollar(THREE:any, parent:any, studio:any, seamY:number):a
     throw new Error('No se pudo medir la unión 3D para el cuello de Nexa');
   }
   const unit=eye.width;
-  const height=unit*0.76;
-  const topRadius=unit*0.62;
-  const bottomRadius=unit*0.93;
+  // Short tailored neckline: the previous 0.76-unit tall tube looked like
+  // an extra elongated neck protruding from the approved head.
+  const height=unit*0.49;
+  const topRadius=unit*0.57;
+  const bottomRadius=unit*0.86;
   const segments=48;
 
   parent.updateMatrixWorld(true);
   const neckWorld=eye.center.clone();
-  neckWorld.y=seamY+unit*0.025;
+  neckWorld.y=seamY+unit*0.018;
   // Eye morph centres are near the face's frontal plane; the anatomical neck
   // sits behind the eyes. Centre the uniform on the neck, not on the nose.
-  neckWorld.z-=unit*0.82;
+  neckWorld.z-=unit*0.69;
 
   const group=new THREE.Group();
   group.name='Nexa futuristic uniform collar';
   group.position.copy(parent.worldToLocal(neckWorld));
-  group.scale.z=0.88;
+  group.scale.z=0.90;
 
   const charcoal=new THREE.MeshStandardMaterial({
     color:0x10131c,roughness:0.37,metalness:0.22,
@@ -1193,8 +1224,8 @@ export function addNexaCollar(THREE:any, parent:any, studio:any, seamY:number):a
   // pearl white chest and the black shoulders of the original source suit.
   const lapelTop=topRadius*1.05;
   const lapelBottom=bottomRadius*1.06;
-  const lapelAngle=0.77;
-  const frontGap=0.17;
+  const lapelAngle=0.67;
+  const frontGap=0.24;
   place('Nexa right pearl shirt lapel',
     new THREE.CylinderGeometry(lapelTop,lapelBottom,height*0.90,
       segments,1,true,frontGap,lapelAngle),pearl);
