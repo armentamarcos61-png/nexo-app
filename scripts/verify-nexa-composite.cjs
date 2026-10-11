@@ -259,11 +259,11 @@ const sourceHead={
   updateMatrixWorld(){this.updated=true;},
   traverse(cb){cb({isMesh:true,material:{clippingPlanes:[headPlane]}});},
 };
-const expectedDrop=.14*.35;
+const expectedDrop=.14*.45;
 const movedSeam=moveHead({MathUtils:{clamp:(v,lo,hi)=>Math.max(lo,Math.min(hi,v))}},
   sourceHead,.14);
 assert(Math.abs(sourceHead.position.y-(originalY-expectedDrop))<1e-10,
-  'Nexa Studio head must be lowered ONLY about one third of an eye-width');
+  'Nexa Studio head must lower a controlled 0.45 of the measured eye width');
 assert(Math.abs(movedSeam-(originalSeam-expectedDrop))<1e-10 &&
        Math.abs(headPlane.constant+movedSeam)<1e-10,
   'neck plane must lower by EXACTLY the same amount as the face');
