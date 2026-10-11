@@ -253,6 +253,7 @@ class V3 {
   constructor(x=0,y=0,z=0){this.x=x;this.y=y;this.z=z;}
   clone(){return new V3(this.x,this.y,this.z);}
   add(v){this.x+=v.x;this.y+=v.y;this.z+=v.z;return this;}
+  addScaledVector(v,w){this.x+=v.x*w;this.y+=v.y*w;this.z+=v.z*w;return this;}
   multiplyScalar(v){this.x*=v;this.y*=v;this.z*=v;return this;}
   distanceTo(v){return Math.hypot(this.x-v.x,this.y-v.y,this.z-v.z);}
   copy(v){this.x=v.x;this.y=v.y;this.z=v.z;return this;}
