@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AssistantStage } from '@/components/assistant-stage';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import {
@@ -10,6 +10,8 @@ import {
 } from '@/lib/assistant-analytics';
 import { speakAsAssistant, stopAssistantSpeech } from '@/lib/assistant-speech';
 import { useAssistant } from '@/state/assistant';
+import { useAuth } from '@/state/auth';
+import { clearNexaHistory, generalSearchUrl, readNexaHistory, recallNexaAnswer, rememberNexaConversation, searchNexaReferences, type NexaReply, type NexaSource } from '@/lib/nexa-knowledge';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 type BrowserSpeechRecognition = {
@@ -93,7 +95,7 @@ function localAnswer(metric: AssistantMetric, assistantName: string) {
       return 'Los filtros sirven para reducir resultados por categoría, tipo de oportunidad y otros criterios para encontrar algo útil sin recorrer cientos de opciones.';
 
     default:
-      return 'Esta pregunta todavía no está dentro de mis respuestas específicas. La registraré únicamente como una categoría anónima para ayudarnos a detectar qué parte de Nexo necesita una mejor explicación. No guardo el texto completo de tu pregunta.';
+      return 'No tengo todavía una respuesta específica sobre esa función de Nexo.';
   }
 }
 
@@ -102,11 +104,17 @@ export default function AsistenteScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { assistant } = useAssistant();
+  const { user } = useAuth();
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState(
     assistant?.greeting ?? 'Primero elige tu asistente para comenzar.'
   );
   const [speaking, setSpeaking] = useState(false);
+  const [spokenText, setSpokenText] = useState('');
+  const [sources, setSources] = useState<NexaSource[]>([]);
+  const [pending, setPending] = useState(false);
+  const [historyCount, setHistoryCount] = useState(() => readNexaHistory(user?.id).length);
+  const requestId = useRef(0);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [listening, setListening] = useState(false);
   const [micError, setMicError] = useState('');
@@ -114,6 +122,7 @@ export default function AsistenteScreen() {
 
   useEffect(() => {
     return () => {
+      requestId.current += 1;
       void stopAssistantSpeech();
       const recognizer = recognizerRef.current;
       if (recognizer) {
@@ -126,40 +135,70 @@ export default function AsistenteScreen() {
     };
   }, []);
 
-  function respond(value: string) {
+  async function respond(value: string) {
+    const questionText = value.trim().slice(0, 300);
+    if (!questionText) return;
     if (!assistant) {
       router.push('/elegir-asistente');
       return;
     }
+    const current = ++requestId.current;
+    setPending(true);
+    setSources([]);
+    setQuestion('');
+    setSpeaking(false);
+    await stopAssistantSpeech();
+    if (current !== requestId.current) return;
 
-    const metric = classifyAssistantQuestion(value);
-    const next = localAnswer(metric, assistant.name);
-    const section =
-      typeof params.from === 'string' && params.from.startsWith('/')
-        ? params.from
-        : '/asistente';
+    const metric = classifyAssistantQuestion(questionText);
+    let reply: NexaReply;
+    const remembering = /^recuerda que\b/i.test(questionText);
+    const askingHistory = /(?:que recuerdas|qué recuerdas|que te pregunte|qué te pregunté|de que hablamos|de qué hablamos|historial de (?:nexa|nuestra conversación))/i.test(questionText);
+    const historic = readNexaHistory(user?.id);
+    const changingFact = /(?:hoy|ahora|actual|ultimo|último|reciente|noticias|clima|precio|cotizaci[oó]n)/i.test(questionText);
 
+    try {
+      if (remembering) {
+        reply = { text: 'Guardaré esa nota en el historial de este navegador para nuestras próximas conversaciones. Puedes borrarlo cuando quieras.', sources: [], online: false };
+      } else if (askingHistory) {
+        const recent = historic.slice(-5).map(item => item.question).reverse();
+        reply = { text: recent.length
+          ? 'Estas son nuestras preguntas más recientes: ' + recent.join(' · ')
+          : 'Aún no tenemos preguntas guardadas en este navegador.',
+          sources: [], online: false };
+      } else if (metric.resolved && !(metric.intentKey === 'other.filters' &&
+        !/nexo|filtr|categor[ií]a/i.test(questionText))) {
+        reply = { text: localAnswer(metric, assistant.name), sources: [], online: false };
+      } else {
+        const recalled = changingFact ? null : recallNexaAnswer(questionText, user?.id);
+        reply = recalled || await searchNexaReferences(questionText);
+      }
+    } catch {
+      reply = { text: 'Ocurrió un problema al consultar la información. Prueba nuevamente.', sources: [], online: false };
+    }
+    if (current !== requestId.current) return;
+
+    rememberNexaConversation(questionText, reply, user?.id);
+    setHistoryCount(readNexaHistory(user?.id).length);
+    setAnswer(reply.text);
+    setSources(reply.sources);
+    setSpokenText(reply.text);
+    setPending(false);
+    const section = typeof params.from === 'string' && params.from.startsWith('/')
+      ? params.from : '/asistente';
     void recordAssistantQuestionMetric({
       intentKey: metric.intentKey,
-      resolved: metric.resolved,
+      resolved: metric.resolved || reply.sources.length > 0 || remembering || askingHistory,
       assistantId: assistant.id,
       section,
     });
-
-    setAnswer(next);
-    setQuestion('');
-
     if (voiceEnabled) {
-      setSpeaking(false); // Wait for the actual audio onStart event.
-      void speakAsAssistant(next, assistant.id, {
-        onStart: () => setSpeaking(true),
-        onDone: () => setSpeaking(false),
-        onStopped: () => setSpeaking(false),
-        onError: () => setSpeaking(false),
+      void speakAsAssistant(reply.text, assistant.id, {
+        onStart: () => { if (current === requestId.current) setSpeaking(true); },
+        onDone: () => { if (current === requestId.current) setSpeaking(false); },
+        onStopped: () => { if (current === requestId.current) setSpeaking(false); },
+        onError: () => { if (current === requestId.current) setSpeaking(false); },
       });
-    } else {
-      void stopAssistantSpeech();
-      setSpeaking(false);
     }
   }
 
@@ -230,13 +269,31 @@ export default function AsistenteScreen() {
 
   return (
     <NexoScreen title={'Asistente · ' + assistant.name}>
-      <AssistantStage key={assistant.id} profile={assistant} speaking={speaking} />
+      <AssistantStage key={assistant.id} profile={assistant} speaking={speaking} speechText={spokenText} />
 
       <View style={[styles.message, { borderColor: palette.cardBorder }]}>
         <Text style={[styles.messageTitle, { color: palette.title }]}>
           {speaking ? assistant.name + ' está hablando…' : assistant.name}
         </Text>
-        <Text style={[styles.messageText, { color: palette.text }]}>{answer}</Text>
+        <Text style={[styles.messageText, { color: palette.text }]}>{pending ? 'Consultando fuentes y preparando la respuesta…' : answer}</Text>
+        {sources.map((source, i) => (
+          <Pressable key={source.url + i} accessibilityRole="link"
+            onPress={() => { void Linking.openURL(source.url); }}
+            style={{ marginTop: 9 }}>
+            <Text style={{ color: '#8CE9FF', fontSize: 12, fontWeight: '700' }}>↗ Fuente: {source.title}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.historyRow}>
+        <Text style={[styles.historyLabel, { color: palette.muted }]}>
+          Historial local · {historyCount} conversaciones
+        </Text>
+        <Pressable accessibilityRole="button" onPress={() => {
+          clearNexaHistory(user?.id);
+          setHistoryCount(0);
+        }}>
+          <Text style={{ color: '#9EDFFF', fontSize: 12, fontWeight: '700' }}>Borrar historial</Text>
+        </Pressable>
       </View>
 
       <Pressable
@@ -316,12 +373,15 @@ export default function AsistenteScreen() {
         maxLength={300}
         onSubmitEditing={() => respond(question)}
       />
-      <Action label="Preguntar" onPress={() => respond(question)} disabled={!question.trim()} />
+      <Action label={pending ? 'Buscando fuentes…' : 'Preguntar'} onPress={() => { void respond(question); }} disabled={!question.trim() || pending} />
+      <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(generalSearchUrl(question || 'Nexo')); }}>
+        <Text style={{ color: '#9EDFFF', fontWeight: '700', textAlign: 'center' }}>Abrir búsqueda general en Internet ↗</Text>
+      </Pressable>
 
       <View style={[styles.privacy, { borderColor: palette.cardBorder }]}>
         <Text style={styles.privacyIcon}>◉</Text>
         <Text style={[styles.privacyText, { color: palette.muted }]}>
-          Para mejorar Nexo sólo registramos la categoría anónima de la pregunta y si pude resolverla; no almacenamos el texto completo. Si usas el micrófono, el reconocimiento de voz depende del navegador y puede utilizar los servicios de su proveedor.
+          Nexa consulta Wikipedia cuando la pregunta sale de las funciones de Nexo. Las palabras de búsqueda se envían a Wikimedia. El historial y las notas se guardan sólo en este navegador, no se sincronizan entre teléfonos y puedes borrarlos arriba. Las métricas externas son anónimas y por categoría. Si usas dictado, el navegador puede procesar tu voz con su proveedor. No compartas contraseñas ni información sensible en preguntas web.
         </Text>
       </View>
 
@@ -349,6 +409,8 @@ const styles = StyleSheet.create({
   micIcon: { fontSize: 19 },
   micLabel: { fontSize: 13, fontWeight: '800' },
   micError: { fontSize: 12, lineHeight: 18 },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingHorizontal: 3 },
+  historyLabel: { fontSize: 11, flexShrink: 1 },
   message: {
     borderWidth: 1,
     borderRadius: 20,
