@@ -6,7 +6,7 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
-import { composeNexaHeadBody, maskNexaStudioHead } from '@/lib/nexa-composite';
+import { addNexaCollar, composeNexaHeadBody, disposeNexaCollar, maskNexaStudioHead } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
@@ -410,6 +410,11 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               if (disposed || download.signal.aborted) return;
               composite = composeNexaHeadBody(THREE,modelRoot,bodyGltf.scene,renderer);
               avatarRoot.add(composite.body);
+              // Fit an actual 3D Nexo uniform collar over the shared neck cut.
+              // The collar belongs to the single avatar, not to either
+              // clipped mesh. Thus it bridges the join from every camera angle
+              // without masking the face, N logo or original suit details.
+              addNexaCollar(THREE,avatarRoot,modelRoot,composite.seamY);
               // Keep the source body's original stable neutral pose and real
               // suit textures. Facial expressions animate only the Studio head.
               const completed = composite.bounds;
@@ -572,6 +577,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       premiumLook=null;
       lowerBodyMixer?.stopAllAction?.();
       lowerBodyMixer=null;
+      if (avatarRoot) disposeNexaCollar(avatarRoot);
       composite?.dispose();
       composite=null;
       modelRoot?.traverse((node:any)=>{
