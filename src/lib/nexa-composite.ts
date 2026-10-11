@@ -1121,10 +1121,11 @@ export function removeNexaLegacyHeadFragments(
           // keeping the rear edge lower: a short diagonal, not a vertical cut.
           // Ease to zero below the root so the long hair stays unchanged.
           const u=rearHair.eyeWidth;
-          const nearTop=rearHair.THREE.MathUtils.smoothstep(
-            p.y,rearHair.seamY-u*1.13,rearHair.seamY-u*0.10);
-          const depth=rearHair.THREE.MathUtils.clamp(
-            (rearHair.eyeCenter.z-u*2.0-p.z)/(u*1.45),0,1);
+          const topT=Math.max(0,Math.min(1,
+            (p.y-(rearHair.seamY-u*1.13))/(u*1.03)));
+          const nearTop=topT*topT*(3-2*topT);
+          const depth=Math.max(0,Math.min(1,
+            (rearHair.eyeCenter.z-u*2.0-p.z)/(u*1.45)));
           const diagonalLift=u*0.31*nearTop*(1-depth)*Math.min(1,skinHead[i]);
           if(diagonalLift>u*0.008 &&
              typeof position.getY==='function' &&
