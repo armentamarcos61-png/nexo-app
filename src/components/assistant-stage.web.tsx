@@ -47,7 +47,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   const hostRef = useRef<any>(null);
   const controllerRef = useRef<NexaAnimationController | null>(null);
   const speakingRef = useRef(speaking);
-  const orbitRef = useRef<{ yaw: number; pitch: number; distance: number }>({ yaw: 0, pitch: 0, distance: STUDIO_FRAMING.distance });
+  const orbitRef = useRef<{ yaw: number; pitch: number; distance: number; panY: number }>({ yaw: 0, pitch: 0, distance: STUDIO_FRAMING.distance, panY: 0 });
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
@@ -70,6 +70,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       yaw: 0,
       pitch: 0,
       distance: cameraPresetsRef.current[mode].distance,
+      panY: 0,
     };
   };
 
@@ -94,7 +95,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let maxDistance = studio ? STUDIO_FRAMING.maxDistance : 1.90;
     let focus = studio ? STUDIO_FRAMING.focus : 0;
     let currentFocus = focus;
-    orbitRef.current = { yaw: 0, pitch: 0, distance: homeDistance };
+    orbitRef.current = { yaw: 0, pitch: 0, distance: homeDistance, panY: 0 };
 
     setLoaded(false);
     setHasBody(false);
@@ -152,11 +153,18 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let yaw = 0;
     let pitch = 0;
     let perspectiveCamera: any = null;
+    let minTargetY = -STUDIO_FRAMING.height * 0.5;
+    let maxTargetY = STUDIO_FRAMING.height * 0.5;
+    let visibleHeight = STUDIO_FRAMING.height;
 
     // PointerEvents allow one-finger orbit and two-finger pinch on Android.
     const pointers = new Map<number, {x:number;y:number}>();
     let previousPinchDistance = 0;
     let lastTap = 0;
+    const pointerCenterY = () => {
+      const active = [...pointers.values()];
+      return active.reduce((total, point) => total + point.y, 0) / (active.length || 1);
+    };
     const pointerDistance = () => {
       const points = [...pointers.values()];
       return points.length === 2
@@ -168,7 +176,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       event.preventDefault();
       const now = performance.now();
       if (event.pointerType === 'touch' && now-lastTap < 300) {
-        orbitRef.current = { yaw: 0, pitch: 0, distance: homeDistance };
+        orbitRef.current = { yaw: 0, pitch: 0, distance: homeDistance, panY: 0 };
       }
       lastTap = now;
       pointers.set(event.pointerId, {x:event.clientX,y:event.clientY});
@@ -179,6 +187,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       const previous = pointers.get(event.pointerId);
       if (!previous) return;
       event.preventDefault();
+      const previousCenter = pointers.size === 2 ? pointerCenterY() : 0;
       pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
       if (pointers.size === 2) {
         const next = pointerDistance();
@@ -189,9 +198,27 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           );
         }
         previousPinchDistance = next;
+        // Two fingers moved together tilt the viewpoint to inspect the
+        // neck, shoes and back from above/below without changing pan.
+        orbitRef.current.pitch = clamp(
+          orbitRef.current.pitch + (pointerCenterY()-previousCenter)*0.006,
+          -0.72, 0.72,
+        );
       } else if (pointers.size === 1) {
-        orbitRef.current.yaw = clamp(orbitRef.current.yaw - (event.clientX-previous.x)*0.0033, -0.36, 0.36);
-        orbitRef.current.pitch = clamp(orbitRef.current.pitch+(event.clientY-previous.y)*0.0026,-0.14,0.14);
+        // One-finger horizontal drags orbit through a FULL 360 degrees.
+        // Vertical drags slide the camera's TARGET from cap to boots.
+        const dx = event.clientX-previous.x;
+        const dy = event.clientY-previous.y;
+        const twoPi = Math.PI*2;
+        orbitRef.current.yaw =
+          ((orbitRef.current.yaw-dx*0.009+Math.PI)%twoPi+twoPi)%twoPi-Math.PI;
+        const baseFocus = cameraPresetsRef.current[viewModeRef.current].focus;
+        const screenHeight = Math.max(280,host.clientHeight || 0);
+        const nextLookY = clamp(
+          baseFocus+orbitRef.current.panY+dy*visibleHeight*1.25/screenHeight,
+          minTargetY,maxTargetY,
+        );
+        orbitRef.current.panY=nextLookY-baseFocus;
       }
     };
     const onUp = (event: PointerEvent) => {
@@ -328,6 +355,9 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           // the legs of the full 3D model. The face remains independently zoomable.
           const modelBounds = new THREE.Box3().setFromObject(modelRoot);
           const modelSize = modelBounds.getSize(new THREE.Vector3());
+          minTargetY = modelBounds.min.y;
+          maxTargetY = modelBounds.max.y;
+          visibleHeight = modelSize.y;
           const faceFocus = modelBounds.max.y - modelSize.y*(studio ? 0.34 : 0.18);
           const fullFocus = modelBounds.getCenter(new THREE.Vector3()).y;
           const fullDistance = clamp(
@@ -420,6 +450,11 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               const completed = composite.bounds;
               const fullHeight = completed.getSize(new THREE.Vector3()).y;
               const fullFocus = completed.getCenter(new THREE.Vector3()).y;
+              // The full model is taller than the Studio bust: expand pan
+              // bounds only AFTER the lower body has actually loaded.
+              minTargetY = completed.min.y;
+              maxTargetY = completed.max.y;
+              visibleHeight = fullHeight;
               // Frame the entire composite, including shoes, without distorting
               // the original Studio face. Users can return to portrait view.
               homeDistance = clamp(
@@ -521,17 +556,17 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             premiumLook?.update(dt,totalTime);
             // Camera lags slightly behind gesture; still within the circular portrait.
             const alpha=1-Math.exp(-dt*8);
-            focus=cameraPresetsRef.current[viewModeRef.current].focus;
+            focus=cameraPresetsRef.current[viewModeRef.current].focus + orbitRef.current.panY;
             currentFocus+=(focus-currentFocus)*alpha;
             distance+=(orbitRef.current.distance-distance)*alpha;
             yaw+=(orbitRef.current.yaw-yaw)*alpha;
             pitch+=(orbitRef.current.pitch-pitch)*alpha;
             perspectiveCamera.position.set(
-              Math.sin(yaw)*distance,
-              currentFocus+pitch*0.35+0.025,
-              Math.cos(yaw)*distance,
+              Math.sin(yaw)*Math.cos(pitch)*distance,
+              currentFocus+Math.sin(pitch)*distance,
+              Math.cos(yaw)*Math.cos(pitch)*distance,
             );
-            perspectiveCamera.lookAt(0,currentFocus+pitch*0.12,0);
+            perspectiveCamera.lookAt(0,currentFocus,0);
             // Relaxed waves are generated by facial expressions, not locomotion.
             renderer.render(scene,perspectiveCamera);
           }
@@ -622,7 +657,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
         <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'studio' ? (hasBody ? 'Nexa Studio 3D · cuerpo completo' : 'Nexa Studio 3D · busto') : variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
       </View>
       <Text style={styles.hint}>
-        {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza para girar · pellizca con dos dedos para acercar') : 'Imagen de referencia mientras se prepara el modelo 3D'}
+        {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza arriba/abajo para ver cara o pies · a los lados para girar 360° · pellizca para zoom') : 'Imagen de referencia mientras se prepara el modelo 3D'}
       </Text>
       {loaded && (hasBody || variant !== 'studio') && (
         <View style={styles.cameraModes}>
