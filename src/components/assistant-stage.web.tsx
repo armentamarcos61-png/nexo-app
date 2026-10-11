@@ -6,7 +6,7 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
-import { composeNexaBody, poseNexaStudioArms, removeNexaStudioSidePanels, tailorNexaStudioLowerTorso } from '@/lib/nexa-composite';
+import { composeNexaHeadBody, maskNexaStudioHead } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
@@ -143,7 +143,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let avatarRoot: any = null;
     let faceRig: NexaFaceRig | null = null;
     let premiumLook: PremiumNexaLook | null = null;
-    let composite: ReturnType<typeof composeNexaBody> | null = null;
+    let composite: ReturnType<typeof composeNexaHeadBody> | null = null;
     let lowerBodyMixer: any = null;
     let unregisterResize: (() => void) | undefined;
     let previousTime = 0;
@@ -367,28 +367,17 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               mat.needsUpdate=true;
             }
           });
-          // Both source GLBs become ONE 3D character under this scene node.
-          // The runtime keeps the original Studio head/bust/facial rig and
-          // uses only the clipped lower half of the rigged full-body asset.
-          // This is a real unified 3D hierarchy, never a photo overlay.
+          // Nexa becomes one rendered character, combining the approved
+          // Studio head with ALL of the original full-body suit and arms.
+          // No synthetic bust, chest band or sliced sleeves remain.
           avatarRoot = new THREE.Group();
           avatarRoot.name = 'Nexa unified 3D avatar';
           avatarRoot.add(modelRoot);
           scene.add(avatarRoot);
-          // First narrow only the two lower side flaps marked by the user.
-          // Never scale the entire Studio: the approved face and logo stay put.
-          // Then measure the cut before lowering the hands; their position
-          // must not become the lower edge of the joined chest.
-          if (studio) {
-            tailorNexaStudioLowerTorso(modelRoot);
-            // Remove the orange marked under-shoulder wings and the flat
-            // blue marked lower-chest shelf on the REAL skinned mesh.
-            // The continuous ivory 3D torso panel fills the opening.
-            removeNexaStudioSidePanels(modelRoot);
-            modelRoot.userData.nexaBustOriginalBounds =
-              new THREE.Box3().setFromObject(modelRoot).clone();
-          }
-          const studioHasNativeArms = studio && poseNexaStudioArms(THREE, modelRoot);
+          // Hide the unwanted Studio shoulders, chest and arms with a single
+          // neck-level shader cut. This preserves the original approved face
+          // and helmet while the full body finishes downloading.
+          if (studio) maskNexaStudioHead(THREE,modelRoot,renderer);
           // New visible 3D cap, hair, Nexo emblems and violet eyes follow the
           // existing animated head bone; original five motion clips remain.
           // The Studio model already has accurate baked cap/hair/N logos.
@@ -401,9 +390,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           if (variant !== 'light' && !faceRig.available) {
             throw new Error('El modelo cargado no contiene los controles faciales de Nexa');
           }
-          // Only the lower, clipped geometry of the older fully rigged GLB is
-          // shown. Studio continues to own the entire approved head and bust.
-          // This is genuine 3D composition, not a photo overlay or second Nexa.
+          // Render the complete second body's chest, shoulders, arms, hips,
+          // legs and feet, with Studio providing just the head and neck.
           if (studio) {
             // Progressive loading: the approved Studio bust is rendered immediately.
             // A missing or slow body is optional and cannot break the assistant.
@@ -420,13 +408,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               }
               const bodyGltf = await loader.parseAsync(bodyBytes,new URL('.',new URL(bodyUrl,window.location.href)).href);
               if (disposed || download.signal.aborted) return;
-              composite = composeNexaBody(THREE,modelRoot,bodyGltf.scene,renderer);
+              composite = composeNexaHeadBody(THREE,modelRoot,bodyGltf.scene,renderer);
               avatarRoot.add(composite.body);
-              // Keep the lower rig's calibrated neutral pose. Its old Idle
-              // clip overwrote our corrected shoulder/ankle rotations and raised
-              // the hands again. Nexa's face keeps animating independently.
-              // Subtle arm motion is driven by the composite itself, not the
-              // incompatible legacy keyframes.
+              // Keep the source body's original stable neutral pose and real
+              // suit textures. Facial expressions animate only the Studio head.
               const completed = composite.bounds;
               const fullHeight = completed.getSize(new THREE.Vector3()).y;
               const fullFocus = completed.getCenter(new THREE.Vector3()).y;
@@ -443,8 +428,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               setHasBody(true);
             } catch (error) {
               if (disposed || download.signal.aborted) return;
-              console.warn('[Nexa 3D] No fue posible completar el cuerpo; se conserva intacto Studio',error);
-              setHasBody(false);
+              console.warn('[Nexa 3D] No se pudo unir el cuerpo: usando el modelo completo como respaldo',error);
+              // Never leave a disembodied head on the production screen.
+              // The fallback is one coherent full GLB with its own face.
+              setVariant('full');
             }
             })();
           }
@@ -489,8 +476,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               if(forbidden)return false;
               // Legacy keyframes restore the horizontal Studio T-pose each
               // frame. Never let idle/locomotion overwrite the calibrated arms.
-              if (studioHasNativeArms && name!=='Talking' && name!=='Greeting' &&
-                  /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)) return false;
+              if (studio && /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)) return false;
               if(name==='Talking'||name==='Greeting')
                 return /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)
                   && /quaternion|rotation/i.test(track.name);
