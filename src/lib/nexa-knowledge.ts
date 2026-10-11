@@ -62,6 +62,31 @@ export function recallNexaAnswer(query: string, userId?: string | null): NexaRep
   };
 }
 
+/** Search things the user EXPLICITLY asked Nexa to remember.
+ * Never infer private attributes or claim the assistant learned model weights.
+ */
+export function recallNexaNote(question: string, userId?: string | null): NexaReply | null {
+  const normalize = (value: string) => value.toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9ñ\s]/g, ' ');
+  const skip = new Set(['que', 'cual', 'como', 'donde', 'cuando', 'quien',
+    'recuerdas', 'recuerda', 'dime', 'sabes', 'tengo', 'tienes', 'sobre',
+    'de', 'del', 'el', 'la', 'los', 'las', 'en', 'mi', 'mis', 'me', 'yo',
+    'es', 'son', 'un', 'una', 'a', 'y', 'lo', 'por', 'para', 'cuanto']);
+  const terms = normalize(question).split(/\s+/)
+    .filter(token => token.length > 3 && !skip.has(token));
+  if (!terms.length) return null;
+  const notes = readNexaHistory(userId)
+    .filter(item => /^recuerda que\b/i.test(item.question))
+    .map(item => item.question.replace(/^recuerda que\s*/i, ''));
+  const scored = notes.map(note => ({
+    note, score: terms.filter(term => normalize(note).includes(term)).length,
+  })).sort((a,b)=>b.score-a.score);
+  const match=scored[0];
+  if (!match || match.score < 1) return null;
+  return {text: 'Antes me pediste recordar esto: ' + clean(match.note, 500),
+    sources: [], online: false};
+}
+
 function timeoutSignal(milliseconds: number) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), milliseconds);
