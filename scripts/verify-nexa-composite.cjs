@@ -188,7 +188,7 @@ assert(index>=0,'new definitive head+body compositor must exist');
 const newCompose=polish.slice(index);
 const headMaskStart=polish.indexOf('export function maskNexaStudioHead(');
 const maskCode=polish.slice(headMaskStart,index);
-assert(headMaskStart>=0 && maskCode.includes('eye.center.y-eye.width*1.75'),
+assert(headMaskStart>=0 && maskCode.includes('eye.center.y-eye.width*1.60'),
   'Studio head mask must be placed beneath the jaw from real eyelid landmarks');
 assert(maskCode.includes('new THREE.Plane(new THREE.Vector3(0,1,0),-seamY)'),
   'Studio must keep the y >= neck half-space');
@@ -263,11 +263,11 @@ const sourceHead={
   updateMatrixWorld(){this.updated=true;},
   traverse(cb){cb({isMesh:true,material:{clippingPlanes:[headPlane]}});},
 };
-const expectedDrop=.14*.64;
+const expectedDrop=.14*.74;
 const movedSeam=moveHead({MathUtils:{clamp:(v,lo,hi)=>Math.max(lo,Math.min(hi,v))}},
   sourceHead,.14);
 assert(Math.abs(sourceHead.position.y-(originalY-expectedDrop))<1e-10,
-  'Nexa Studio head must lower a controlled 0.64 of the measured eye width');
+  'Nexa Studio head must lower a controlled 0.74 of the measured eye width');
 assert(Math.abs(movedSeam-(originalSeam-expectedDrop))<1e-10 &&
        Math.abs(headPlane.constant+movedSeam)<1e-10,
   'neck plane must lower by EXACTLY the same amount as the face');
@@ -318,7 +318,8 @@ class M {
 }
 const MockThree={
   Group:G,Mesh:M,Vector3:V3,DoubleSide:2,
-  MeshStandardMaterial:Mat,CylinderGeometry:Geo,TorusGeometry:Geo,
+  MeshStandardMaterial:Mat,CylinderGeometry:Geo,TubeGeometry:Geo,
+  CatmullRomCurve3:Geo,
 };
 const headPositions=[[-.07,.30,.15],[.07,.30,.15]];
 const morph=(chosen)=>({
@@ -338,16 +339,20 @@ const root=new G();
 const neckSeam=.09;
 const collar=collarFactory(MockThree,root,studioMock,neckSeam);
 assert.equal(root.children.length,1,'exactly one collar group must be visible');
-assert.equal(collar.children.length,5,'one undershirt, two lapels and two accent edges');
-assert(Math.abs(collar.position.y-(neckSeam+.14*.018))<1e-8,
+assert.equal(collar.children.length,3,'one recessed collar and two thin garment seams');
+assert(Math.abs(collar.position.y-(neckSeam-.14*.018))<1e-8,
   'collar must bridge the world-space seam at neck height');
-assert(Math.abs(collar.position.z-(.15-.14*.69))<1e-8,
+assert(Math.abs(collar.position.z-(.15-.14*.72))<1e-8,
   'collar must sit at the neck, behind the eyes');
-assert(Math.abs(collar.scale.z-.90)<1e-8,
+assert(Math.abs(collar.scale.z-.91)<1e-8,
   'collar must have an anatomical oval cross-section');
-assert(collar.children[1].geometry.args[6]>0 &&
-       collar.children[2].geometry.args[6]>0,
-  'the two pearl lapels must have real angular front openings');
+assert(collar.children[0].geometry.args[2]<=.14*.21,
+  'the visible collar must remain short, without a rigid throat tube');
+assert(collar.children[1].geometry.args[2]<=.14*.015 &&
+       collar.children[2].geometry.args[2]<=.14*.015,
+  'shirt detail must use fine seam piping, not large white armor plates');
+assert(!polish.slice(polish.indexOf('export function addNexaCollar(')).includes('lapelAngle='),
+  'do not restore the old rigid white cylinder lapels');
 assert.equal(collarFactory(MockThree,root,studioMock,neckSeam),collar,
   're-loading must not create a second collar');
 const geometries=collar.children.map(x=>x.geometry);
@@ -357,4 +362,14 @@ assert.equal(root.children.length,0,'collar cleanup should detach it');
 assert(!root.userData.nexaUniformCollar,'collar cleanup should clear cached handle');
 assert(geometries.every(g=>g.disposed),'collar geometries must all be disposed');
 assert(materials.every(m=>m.disposed),'collar materials must all be disposed');
-console.log('PASS: collar bridges the neck, has natural front lapels, and cleans up without touching GLBs');
+console.log('PASS: low-profile neck insert and fitted piping replace protruding collar without changing GLBs');
+assert(stage.includes('visibleHeight*1.25/screenHeight') &&
+       stage.includes('minTargetY,maxTargetY') &&
+       stage.includes('Math.sin(yaw)*Math.cos(pitch)*distance') &&
+       stage.includes('Math.sin(pitch)*distance') &&
+       stage.includes('orbitRef.current.panY'),
+  '360-degree 3D camera must allow pan from cap to boots and true elevation');
+assert(!stage.includes(' -0.36, 0.36') &&
+       !stage.includes(',-0.14,0.14'),
+  'old restrictive side-to-side and vertical camera limits must be removed');
+console.log('PASS: full-height vertical camera pan, 360-degree horizontal orbit and two-finger tilt');
