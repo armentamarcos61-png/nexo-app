@@ -1364,6 +1364,13 @@ export function joinNexaBackHair(
     side:THREE.DoubleSide,
   });
   const bridge=new THREE.Mesh(geometry,material);
+  // Save its undeformed world-aligned contour. Each render frame gently bends
+  // the middle of the hair, while both ends stay attached to the helmet and
+  // to the original ponytail. No vertices accumulate distortion over time.
+  bridge.userData.nexaHairRest=new Float32Array(points);
+  bridge.userData.nexaHairRows=rows;
+  bridge.userData.nexaHairColumns=columns;
+  bridge.userData.nexaHairSpring={x:0,z:0,vx:0,vz:0};
   bridge.name='Nexa cap and genuine ponytail continuous 3D hair';
   bridge.frustumCulled=false;
   head.add(bridge);
@@ -1374,6 +1381,49 @@ export function joinNexaBackHair(
   return bridge;
 }
 
+/**
+ * Lightweight damped spring and gravity for Nexa's single hair connector.
+ * Top/bottom are pinned to the original helmet and ponytail, so the gap
+ * never reopens when the face looks sideways or when speaking.
+ */
+export function updateNexaBackHair(
+  avatarRoot:any, dt:number, elapsedSeconds:number, speaking:boolean,
+):void {
+  const mesh=avatarRoot?.userData?.nexaJoinedBackHair;
+  const rest:Float32Array|undefined=mesh?.userData?.nexaHairRest;
+  const spring=mesh?.userData?.nexaHairSpring;
+  const position=mesh?.geometry?.attributes?.position;
+  const rows:number=mesh?.userData?.nexaHairRows;
+  const columns:number=mesh?.userData?.nexaHairColumns;
+  if(!rest||!spring||!position||!Number.isFinite(dt)||dt<=0||!rows||!columns)return;
+  const frame=Math.min(dt,0.05);
+  const head=mesh.parent;
+  const targetX=(head?.rotation?.y||0)*-0.14;
+  const targetZ=(head?.rotation?.x||0)*0.10;
+  const elasticity=18,friction=6.5;
+  spring.vx+=((targetX-spring.x)*elasticity-spring.vx*friction)*frame;
+  spring.vz+=((targetZ-spring.z)*elasticity-spring.vz*friction)*frame;
+  spring.x+=spring.vx*frame;
+  spring.z+=spring.vz*frame;
+  const smallSway=0.0028*Math.sin(elapsedSeconds*1.15);
+  const speechSway=speaking?0.0012*Math.sin(elapsedSeconds*3.2):0;
+  for(let row=0;row<=rows;row++){
+    const t=row/rows;
+    const bend=Math.sin(Math.PI*t)**2;
+    // Gravity pulls the center of the hanging strand downward, while its
+    // roots remain pinned and the original ponytail stays unchanged.
+    const droop=0.0042*bend;
+    for(let col=0;col<=columns;col++){
+      const i=(row*(columns+1)+col)*3;
+      position.array[i]=rest[i]+bend*(spring.x+smallSway+speechSway);
+      position.array[i+1]=rest[i+1]-droop;
+      position.array[i+2]=rest[i+2]+bend*spring.z;
+    }
+  }
+  position.needsUpdate=true;
+  mesh.geometry.computeBoundingSphere();
+}
+
 /** Unload only the generated back-hair connector, never the approved GLBs. */
 export function disposeNexaBackHair(avatarRoot:any):void {
   const hair=avatarRoot?.userData?.nexaJoinedBackHair;
@@ -1382,6 +1432,8 @@ export function disposeNexaBackHair(avatarRoot:any):void {
     if(part.isMesh) part.geometry?.dispose?.();
   });
   hair.material?.dispose?.();
+  delete hair.userData.nexaHairRest;
+  delete hair.userData.nexaHairSpring;
   hair.removeFromParent();
   delete avatarRoot.userData.nexaJoinedBackHair;
 }
