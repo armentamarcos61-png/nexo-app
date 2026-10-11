@@ -391,32 +391,40 @@ const studioMesh={isSkinnedMesh:true,geometry:meshGeometry,
  skeleton:{bones:studio.doc.skins[0].joints.map(i=>({name:studio.doc.nodes[i]?.name||''}))}};
 const studioRoot={userData:{},traverse(cb){cb(studioMesh);}};
 const cuts=removeStudioPanels(studioRoot);
-assert(cuts>50 && cuts<3500,'Studio sculpt must selectively remove lower shoulder/shelf pieces, not all arms: '+cuts);
+assert(cuts>150 && cuts<5500,'Studio sculpt must selectively remove the marked shoulder/shelf pieces, not the whole bust: '+cuts);
 const surviving=new Set();
 for(let i=0;i<meshGeometry.index.count;i+=3)
  surviving.add([meshGeometry.index.getX(i),meshGeometry.index.getX(i+1),meshGeometry.index.getX(i+2)].join(','));
-let protectedUpper=0,remainingArm=0;
-const boneNames=studioMesh.skeleton.bones.map(b=>b.name);
+let protectedUpper=0,remainingDistalArm=0;
+let leftWingRemoved=0,rightWingRemoved=0,chestShelfRemoved=0;
 for(let i=0;i<sourceIndices.length;i+=3){
  const abc=sourceIndices.slice(i,i+3);
  const key=abc.join(',');
+ const centerX=abc.reduce((n,v)=>n+studioPosition[v][0],0)/3;
  const centerY=abc.reduce((n,v)=>n+studioPosition[v][1],0)/3;
- const armMax=Math.max(...abc.map(vertex=>{
-   let sum=0;
-   for(let j=0;j<4;j++) if(/(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i
-      .test(boneNames[jointsData[vertex][j]]||'')) sum+=weightsData[vertex][j];
-   return sum;
- }));
- if(centerY>0.27){
+ const centerZ=abc.reduce((n,v)=>n+studioPosition[v][2],0)/3;
+ const stillVisible=surviving.has(key);
+ // The shoulder armor has INCORRECT arm bone weights in the native GLB,
+ // so only the distal arms are weight-independent protected geometry.
+ if(centerY>0.305 || (centerY>0.22 && Math.abs(centerX)<0.065)){
    protectedUpper++;
-   assert(surviving.has(key),'logo, face, or upper suit triangle removed');
+   assert(stillVisible,'face, N emblem, collar or upper bust triangle removed');
  }
- if(armMax>0.60){
-   remainingArm++;
-   assert(surviving.has(key),'a real arm triangle was removed');
+ if(Math.abs(centerX)>0.237){
+   remainingDistalArm++;
+   assert(stillVisible,'outer real forearm or hand triangle removed');
+ }
+ if(!stillVisible){
+   if(centerX<-0.085 && centerZ>-.075)leftWingRemoved++;
+   if(centerX>0.085 && centerZ>-.075)rightWingRemoved++;
+   if(Math.abs(centerX)<0.085 && centerZ>0.025)chestShelfRemoved++;
  }
 }
-assert(protectedUpper>1000 && remainingArm>300,'real GLB assertions must cover face and arms');
+assert(protectedUpper>700 && remainingDistalArm>250,
+ 'regression must check real emblem/face and both extended arms');
+assert(leftWingRemoved>20 && rightWingRemoved>20 && chestShelfRemoved>20,
+ 'must clear BOTH orange side patches and blue front chest shelf: '+
+ JSON.stringify({leftWingRemoved,rightWingRemoved,chestShelfRemoved}));
 assert.equal(removeStudioPanels(studioRoot),0,'repeated loading cannot remove new sections twice');
 assert(stageSource.includes('removeNexaStudioSidePanels(modelRoot)'),
  'Nexo live viewer must execute the shoulder and bust cleanup');
