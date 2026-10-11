@@ -53,6 +53,11 @@ jobs:
         run: node scripts/verify-nexa-face.cjs
 
       - name: Verificar empaquetado Android
+        # DOM WebViews are exported as web assets inside Android; Expo 57's
+        # shared __common chunks otherwise break serializeHtmlWithAssets.
+        # This does NOT disable bundling or verification of the native app.
+        env:
+          EXPO_NO_BUNDLE_SPLITTING: '1'
         run: npx expo export --platform android
 
       - name: Compilar web
