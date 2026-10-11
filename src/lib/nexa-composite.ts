@@ -1063,7 +1063,10 @@ export function lowerNexaStudioHead(THREE:any,studio:any,eyeWidth:number):number
  * and NECK bones. The approved Studio face and its attached hair are separate
  * GLB objects and are never modified here.
  */
-export function removeNexaLegacyHeadFragments(body:any):number {
+export function removeNexaLegacyHeadFragments(
+  body:any,
+  rearHair?:{THREE:any;eyeCenter:any;eyeWidth:number;seamY:number},
+):number {
   if (body.userData.nexaLegacyHeadRemoved) return 0;
   const visited=new Set<any>();
   let removed=0;
@@ -1094,6 +1097,25 @@ export function removeNexaLegacyHeadFragments(body:any):number {
       }
     }
     if (!weighted) return;
+    // Keep the hair root belonging to the ORIGINAL long ponytail. Previously
+    // every head-weighted triangle was thrown out; this cut off the ponytail
+    // precisely where it should have met Studio's cap, leaving a square stump.
+    // Only retain triangles well behind the original face and below its neck.
+    const preserveRearHair=rearHair?new Uint8Array(position.count):null;
+    if(preserveRearHair && mesh.localToWorld){
+      const p=new rearHair.THREE.Vector3();
+      for(let i=0;i<position.count;i++){
+        if(skinHead[i]<0.20)continue;
+        p.fromBufferAttribute(position,i);
+        if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,p);
+        mesh.localToWorld(p);
+        if(p.y<=rearHair.seamY+rearHair.eyeWidth*0.20 &&
+           p.y>=rearHair.seamY-rearHair.eyeWidth*1.8 &&
+           p.z<rearHair.eyeCenter.z-rearHair.eyeWidth*2.0 &&
+           Math.abs(p.x-rearHair.eyeCenter.x)<rearHair.eyeWidth*0.91)
+          preserveRearHair[i]=1;
+      }
+    }
     const index=geometry.index;
     const total=index?index.count:position.count;
     const idx=(n:number)=>index?index.getX(n):n;
@@ -1111,7 +1133,9 @@ export function removeNexaLegacyHeadFragments(body:any):number {
         const average=(skinHead[a]+skinHead[b]+skinHead[c])/3;
         // A threshold across ALL 3 vertices prevents removing actual
         // shoulders, chest and arm triangles near the costume neckline.
-        if (maximum>=0.57 && average>=0.35) cut++;
+        const rearRoot=!!preserveRearHair &&
+          preserveRearHair[a]+preserveRearHair[b]+preserveRearHair[c]>=2;
+        if (maximum>=0.57 && average>=0.35 && !rearRoot) cut++;
         else kept.push(a,b,c);
       }
       if(kept.length>first)newGroups.push({
@@ -1150,7 +1174,9 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
   const seamY=lowerNexaStudioHead(THREE,studio,studioEyes.width);
   // Keep the second body's suit only, never dangling geometry from its
   // discarded head/hair (which clipping planes do not remove below the jaw).
-  removeNexaLegacyHeadFragments(body);
+  removeNexaLegacyHeadFragments(body,{
+    THREE,eyeCenter:studioEyes.center,eyeWidth:studioEyes.width,seamY,
+  });
 
   const lower=new THREE.Box3().setFromObject(body);
   const upper=new THREE.Box3().setFromObject(studio);
