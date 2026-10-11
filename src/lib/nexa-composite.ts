@@ -955,3 +955,118 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
     },
   };
 }
+
+
+/**
+ * FINAL Nexa composition: use only the Studio face, cap and neck, and the
+ * complete, untouched rigged body's shoulders, chest, arms, hands, hips,
+ * legs and shoes. No shoulder triangles are manually cut, no Studio sleeves
+ * are visible, and there is no synthetic chest/waist band.
+ *
+ * Clipping is applied in world space AFTER aligning both originals by their
+ * exact eyelid-morph landmarks. The two half spaces meet at ONE neck seam.
+ * The actual skinned GLB materials, logos and facial morphs remain intact.
+ */
+export function maskNexaStudioHead(THREE: any, studio: any, renderer: any): number {
+  const previous=studio.userData.nexaHeadOnlySeamY;
+  if (Number.isFinite(previous)) return previous;
+  const eye = landmarks(THREE,studio);
+  if (!eye) throw new Error('No se detectaron las referencias de ojos de Nexa Studio');
+  const bounds = new THREE.Box3().setFromObject(studio);
+  const h = bounds.max.y-bounds.min.y;
+  if (!Number.isFinite(h) || h<0.1) throw new Error('El modelo Studio no tiene altura 3D válida');
+
+  // Eyelids identify the head consistently across GLB exports. Put the
+  // seam UNDER the chin but ABOVE the original shoulder armor. Hard bounds
+  // prevent the plane from cutting off the mouth or leaving a second chest.
+  const seamY=THREE.MathUtils.clamp(
+    eye.center.y-eye.width*2.25,
+    bounds.min.y+h*0.43,
+    bounds.min.y+h*0.73,
+  );
+  const keepHead=new THREE.Plane(new THREE.Vector3(0,1,0),-seamY);
+  renderer.localClippingEnabled=true;
+  studio.traverse((object:any)=>{
+    if (!object.isMesh) return;
+    object.frustumCulled=false;
+    const original=Array.isArray(object.material)?object.material:[object.material];
+    const clipped=original.map((material:any)=>{
+      if (!material) return material;
+      const copy=material.clone();
+      copy.clippingPlanes=[keepHead];
+      copy.clipShadows=true;
+      copy.side=THREE.DoubleSide;
+      copy.needsUpdate=true;
+      return copy;
+    });
+    object.material=Array.isArray(object.material)?clipped:clipped[0];
+  });
+  studio.userData.nexaHeadOnlySeamY=seamY;
+  return seamY;
+}
+
+export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:any):Result {
+  const studioEyes=landmarks(THREE,studio);
+  const bodyEyes=landmarks(THREE,body);
+  if (!studioEyes || !bodyEyes) {
+    throw new Error('Faltan referencias faciales para unir cabeza y cuerpo 3D');
+  }
+  const ratio=studioEyes.width/bodyEyes.width;
+  if (!Number.isFinite(ratio) || ratio<0.3 || ratio>8) {
+    throw new Error('Escala facial incompatible entre los dos GLB');
+  }
+  const seamY=maskNexaStudioHead(THREE,studio,renderer);
+  body.scale.setScalar(ratio);
+  body.position.copy(studioEyes.center).sub(bodyEyes.center.clone().multiplyScalar(ratio));
+  body.updateMatrixWorld(true);
+
+  const lower=new THREE.Box3().setFromObject(body);
+  const upper=new THREE.Box3().setFromObject(studio);
+  if (lower.min.y>=seamY-studioEyes.width*2 ||
+      lower.max.y<=seamY+studioEyes.width ||
+      upper.max.y<=seamY+studioEyes.width) {
+    throw new Error('La unión del cuello no tiene suficiente cuerpo o cabeza');
+  }
+
+  // The FULL GLB owns all geometry below the neck, including both complete
+  // arms. Its own chest N, shoulder surfaces and original texture are used.
+  const keepBody=new THREE.Plane(new THREE.Vector3(0,-1,0),seamY);
+  body.traverse((object:any)=>{
+    if (!object.isMesh) return;
+    object.frustumCulled=false;
+    const original=Array.isArray(object.material)?object.material:[object.material];
+    const clipped=original.map((material:any)=>{
+      if (!material) return material;
+      const copy=material.clone();
+      copy.clippingPlanes=[keepBody];
+      copy.clipShadows=true;
+      copy.side=THREE.DoubleSide;
+      copy.needsUpdate=true;
+      return copy;
+    });
+    object.material=Array.isArray(object.material)?clipped:clipped[0];
+  });
+  const visibleBounds=lower.clone();
+  visibleBounds.max.y=Math.min(lower.max.y,seamY);
+  const visibleHead=upper.clone();
+  visibleHead.min.y=Math.max(upper.min.y,seamY);
+  visibleBounds.union(visibleHead);
+  return {
+    body,
+    seamY,
+    bounds:visibleBounds,
+    update(_dt:number,_speaking:boolean) {
+      // Facial gestures are handled by Studio's original head bones.
+      // The neutral full-body rig remains stable; no random arm motions.
+    },
+    dispose() {
+      body.traverse((object:any)=>{
+        if (!object.isMesh) return;
+        const materials=Array.isArray(object.material)?object.material:[object.material];
+        for(const material of materials)material?.dispose?.();
+        object.geometry?.dispose?.();
+      });
+      body.removeFromParent();
+    },
+  };
+}
