@@ -387,15 +387,15 @@ assert.equal(collar.children.length,3,
   'neck must be one continuous fitted piece with only two delicate seams');
 assert(collar.children.every(part=>!part.name?.includes('triangle cover')),
   'the detached black triangular plates must never return');
-assert(Math.abs(collar.position.y-(neckSeam-.14*.11))<1e-8,
+assert(Math.abs(collar.position.y-(neckSeam-.14*.025))<1e-8,
   'collar must bridge the world-space seam at neck height');
 assert(Math.abs(collar.position.z-(.15-.14*.67))<1e-8,
   'collar must sit at the neck, behind the eyes');
-assert(Math.abs(collar.scale.z-.87)<1e-8,
+assert(Math.abs(collar.scale.z-.93)<1e-8,
   'collar must have an anatomical oval cross-section');
-assert.equal(collar.children[0].geometry.args[0].length,5,
-  'neckline must have five soft taper points to enter the shirt, not one floating ring');
-assert(collar.children[0].geometry.args[0][4].x >
+assert.equal(collar.children[0].geometry.args[0].length,8,
+  'neckline must have a gradual, smooth taper with no floating ring');
+assert(collar.children[0].geometry.args[0][7].x >
        collar.children[0].geometry.args[0][0].x,
   'shirt neck must widen into the original shoulders');
 assert(collar.children[1].geometry.args[2] < .14*.01 &&
