@@ -226,8 +226,10 @@ assert(newCompose.includes('const seamY=lowerNexaStudioHead(THREE,studio,studioE
 assert(newCompose.indexOf('body.position.copy(studioEyes.center)') <
        newCompose.indexOf('lowerNexaStudioHead(THREE,studio,studioEyes.width)'),
   'head must move AFTER body alignment or the whole avatar moves instead');
-assert(newCompose.includes('new THREE.Plane(new THREE.Vector3(0,-1,0),seamY)'),
-  'full-body suit must keep y <= neck, including complete arms and chest');
+assert(newCompose.includes('const hairCutSlope=0.30') &&
+       newCompose.includes('seamY+hairCutSlope*rearReferenceZ') &&
+       newCompose.includes('new THREE.Vector3(0,-1,-hairCutSlope)'),
+  'the real body clipping plane must slope upwards behind the head to preserve ponytail roots');
 assert(newCompose.includes('body.scale.setScalar(ratio)') &&
        newCompose.includes('studioEyes.center).sub(bodyEyes.center.clone().multiplyScalar(ratio))'),
   'models must align by real 3D eyelid landmarks');
