@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07182c">
+<meta name="robots" content="noindex,nofollow">
+<title>Nexo Control · Acceso de desarrollador</title>
+<style>
+*{box-sizing:border-box}
+:root{font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:#eff5ff;background:#071525}
+body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 0% 0%,#20235b 0%,transparent 42%),radial-gradient(ellipse at 100% 65%,#0d4860 0%,transparent 42%),#061321}
+button,input,textarea,select{font:inherit}button{cursor:pointer}
+button:disabled{opacity:.46;cursor:not-allowed}
+.wrap{max-width:1000px;margin:auto;padding:22px 17px 80px}
+header{display:flex;gap:12px;justify-content:space-between;align-items:center}
+.brand{font-weight:900;letter-spacing:.1em;font-size:18px}.brand span{color:#6ee5fa}
+.kicker{border:1px solid #526899;color:#b8c9ee;border-radius:30px;padding:6px 9px;font-size:10px;letter-spacing:.07em}
+a{color:#7eeaff}
+h1{font-size:clamp(26px,5vw,42px);line-height:1.12;margin:36px 0 11px}
+h2{font-size:18px;margin:10px 0}
+p{color:#aebed9;line-height:1.6;margin:7px 0 14px}
+.panel{border-radius:20px;padding:19px;background:#122643ef;border:1px solid #344c77;box-shadow:0 12px 30px #0002;margin-top:18px}
+.login{max-width:580px;margin:28px auto}
+label{display:block;color:#dce9ff;font-size:12px;font-weight:750;margin:13px 0 7px}
+input,textarea,select{color:white;background:#071526;border:1px solid #5977a6;min-height:47px;width:100%;padding:11px 13px;border-radius:12px;outline-offset:3px}
+textarea{min-height:110px;resize:vertical}
+input:focus,textarea:focus{outline:2px solid #75dff2}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>*{min-width:0}
+.btn{background:#283c61;border:1px solid #6780ae;border-radius:12px;color:#e9f1ff;padding:12px 16px;font-weight:800;min-height:44px}
+.primary{background:#84e2fa;color:#071b2c;border-color:#9af0ff}
+.danger{background:#653143}
+.notice{border:1px solid #358c79;padding:12px 14px;border-radius:12px;color:#d4fff3;margin-top:15px;background:#13463d}
+.error{border:1px solid #ac4859;padding:12px 14px;border-radius:12px;color:#ffe2e7;margin-top:15px;background:#512333}
+.hidden{display:none!important}
+.note{color:#91a8c8;font-size:12px;line-height:1.55}
+.tabs{display:flex;gap:7px;overflow:auto;padding:8px 0;margin-top:18px}
+.tab{background:transparent;border:0;color:#aabfdf;border-radius:10px;padding:12px 16px;font-weight:750}
+.tab[aria-selected=true]{background:#29416b;color:#85ecff}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat{background:#1b3152;border:1px solid #49628d;border-radius:14px;padding:16px}
+.number{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.35}
+.metric-label{font-size:12px;color:#aec5e8;font-weight:700}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:12px 8px;border-bottom:1px solid #314666;font-size:13px}th{color:#a9cae6}td{color:#eff4fe}
+.flex{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.chip{display:inline-block;padding:5px 9px;border-radius:30px;background:#2a426a;font-size:11px;color:#dcecff}
+.swatch{width:43px;height:43px;border:2px solid #38577e;border-radius:12px}
+.swatch.active{border:4px solid white}
+.order{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #304a70}
+.order .grow{flex:1}
+.idea{border:1px solid #36517e;border-radius:15px;padding:13px;margin:10px 0;background:#142846}
+#sessionline{font-size:12px;color:#b2c7e3;overflow-wrap:anywhere}
+footer{font-size:11px;color:#88a0bc;margin-top:25px}
+@media(min-width:680px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="brand">NEXO <span>CONTROL</span></div><div class="kicker">ACCESO PRIVADO</div></header>
+<h1>Centro de mando</h1>
+<p>Funciones, búsquedas, propuestas, cambios de apariencia y publicaciones de Nexo.</p>
+<div id="notice" aria-live="polite"></div>
+<section id="login" class="panel login">
+<h2>Inicia sesión como desarrollador</h2>
+<p>Este panel es independiente de la página principal. Tu correo se verifica con Supabase antes de mostrar datos privados.</p>
+<label for="email">Correo autorizado</label>
+<input id="email" type="email" autocomplete="email" value="armentamarcos61@gmail.com">
+<div style="margin-top:12px"><button class="btn primary" id="send">Enviar acceso por correo</button></div>
+<div id="verify-zone" class="hidden">
+<label for="code">Código o enlace recibido</label>
+<textarea id="code" rows="3" placeholder="Pega el código, o el enlace de acceso completo que llegó a tu correo"></textarea>
+<button class="btn primary" id="verify">Verificar correo y abrir panel</button>
+</div>
+<p class="note">Si el correo abre Nexo en otra pestaña, vuelve aquí y pega el enlace completo. Nunca compartas el código ni el enlace con nadie.</p>
+</section>
+<section id="dashboard" class="hidden">
+<div class="panel flex"><span id="sessionline"></span><button class="btn" id="logout">Cerrar sesión</button></div>
+<div class="tabs" role="tablist">
+<button class="tab" aria-selected="true" data-tab="summary">Resumen</button>
+<button class="tab" aria-selected="false" data-tab="commands">Órdenes</button>
+<button class="tab" aria-selected="false" data-tab="ideas">Ideas</button>
+<button class="tab" aria-selected="false" data-tab="versions">Versiones</button>
+</div>
+<div id="summary" data-page="summary">
+<div class="stats">
+<div class="stat"><div class="number" id="total">0</div><div class="metric-label">Preguntas</div></div>
+<div class="stat"><div class="number" id="resolved">0</div><div class="metric-label">Resueltas</div></div>
+<div class="stat"><div class="number" id="pending">0</div><div class="metric-label">Sin resolver</div></div>
+<div class="stat"><div class="number" id="searches">0</div><div class="metric-label">Búsquedas registradas</div></div>
+</div>
+<section class="panel"><h2>Lo que preguntan</h2><table><thead><tr><th>Tipo</th><th>Total</th><th>Sin resolver</th></tr></thead><tbody id="topics"></tbody></table></section>
+<section class="panel"><h2>Búsquedas por categoría</h2><table><tbody id="search-categories"></tbody></table>
+<p class="note">Las estadísticas sólo incluyen eventos que Nexo ha registrado. No mostramos preguntas personales de otros usuarios.</p></section>
+</div>
+<div id="commands" data-page="commands" class="hidden">
+<section class="panel">
+<h2>Da una instrucción</h2>
+<p>Escribe o dicta: «Pon el color naranja», «Sube Productos al primer lugar» o «Crea una función para compartir portafolios».</p>
+<label for="command">Tu instrucción</label>
+<textarea id="command" placeholder="¿Qué cambiamos en Nexo?"></textarea>
+<div class="row" style="margin-top:12px"><button class="btn" id="dictate">🎙 Dictar</button><button class="btn primary" id="interpret">Preparar cambio</button></div>
+<div class="panel hidden" id="preview">
+<h2>Confirmar orden</h2><p id="preview-desc"></p>
+<button class="btn primary" id="apply">Confirmar y aplicar</button>
+</div>
+<p class="note">Los colores y el orden funcionan inmediatamente. Las funciones que necesitan código se registran como trabajos técnicos: no se anuncian como implementadas hasta pasar pruebas y publicarse.</p>
+</section>
+<section class="panel"><h2>Configuración directa</h2><p>Personaliza la página principal sin editar archivos.</p>
+<label>Color principal</label>
+<div class="row" id="colors">
+<button class="swatch" data-color="cyan" style="background:#60dfff" aria-label="Azul"></button>
+<button class="swatch" data-color="violet" style="background:#b282ff" aria-label="Violeta"></button>
+<button class="swatch" data-color="orange" style="background:#ffa467" aria-label="Naranja"></button>
+<button class="swatch" data-color="teal" style="background:#61deb3" aria-label="Turquesa"></button>
+</div>
+<label>Orden de la página principal</label><div id="order"></div>
+<button class="btn primary" id="save" style="margin-top:14px">Guardar apariencia</button>
+</section>
+</div>
+<div id="ideas" data-page="ideas" class="hidden"><section class="panel"><h2>Solicitudes de implementación</h2>
+<p>Las instrucciones pendientes, los cambios por revisar y las funciones terminadas.</p><div id="idea-list"></div></section></div>
+<div id="versions" data-page="versions" class="hidden"><section class="panel"><h2>Publicaciones y validaciones</h2>
+<p>Estados obtenidos de GitHub Actions. Una ejecución no equivale a una función terminada.</p><div id="runs"></div>
+<a href="https://github.com/armentamarcos61-png/nexo-app/actions" target="_blank" rel="noopener noreferrer">Ver compilaciones en GitHub ↗</a></section>
+<section class="panel"><h2>Historial de operaciones</h2><div id="audit"></div></section></div>
+<button class="btn" id="refresh" style="margin-top:18px">Actualizar estadísticas</button>
+<footer>Las operaciones administrativas se verifican en el servidor. Las órdenes arbitrarias nunca ejecutan código directamente en el navegador.</footer>
+</section>
+</div>
+<script>
+'use strict';
+const BASE='https://wfwyftxbanwvixplzhcd.supabase.co';
+const API=BASE+'/functions/v1/nexo-control';
+const KEY='sb_publishable_UY_rNqVKNwofYYv-p8lb0w_DvGkQBXi';
+const STORAGE='nexo.control.admin.session.v1';
+const $=id=>document.getElementById(id);
+const orderNames={employment:'Empleos',services:'Contratar servicio',products:'Productos',offer:'Ofrecer servicio'};
+const supported=['employment','services','products','offer'];
+const statusNames={pending:'Pendiente',review:'Revisión',approved:'Aprobada',implemented:'Implementada',rejected:'Descartada'};
+let dashboard=null,draft=null,proposal=null,busy=false;
+const show=(id,visible)=>$(id).classList.toggle('hidden',!visible);
+const text=(id,value)=>$(id).textContent=String(value??'');
+function clearMessage(){$('notice').className='';$('notice').textContent='';}
+function message(value,isError=false){$('notice').className=isError?'error':'notice';$('notice').textContent=value;window.scrollTo({top:0,behavior:'smooth'});}
+function button(label,fn,cl='btn'){
+ const el=document.createElement('button');el.type='button';el.className=cl;el.textContent=label;el.addEventListener('click',fn);return el;
+}
+function row(left,right){
+ const wrap=document.createElement('div');wrap.className='order';
+ const name=document.createElement('span');name.className='grow';name.textContent=left;
+ wrap.append(name,right);return wrap;
+}
+function group(parent,item){parent.appendChild(item);return item;}
+async function parse(response){
+ let data={};try{data=await response.json();}catch{throw Error('Respuesta del servidor inválida');}
+ if(!response.ok)throw Error(data.error_description||data.msg||data.error||'No se pudo completar');
+ return data;
+}
+const headers=()=>({'apikey':KEY,'content-type':'application/json'});
+function session(){try{return JSON.parse(sessionStorage.getItem(STORAGE)||'null');}catch{return null;}}
+function saveSession(data){
+ if(!data?.access_token||!data?.refresh_token)throw Error('Faltan las credenciales de acceso');
+ sessionStorage.setItem(STORAGE,JSON.stringify({access_token:data.access_token,refresh_token:data.refresh_token,
+ expires_at:Math.floor(Date.now()/1000)+Number(data.expires_in||3600)}));
+}
+async function token(){
+ let s=session();if(!s)throw Error('Primero verifica tu correo.');
+ if(s.expires_at>Date.now()/1000+90)return s.access_token;
+ const response=await fetch(BASE+'/auth/v1/token?grant_type=refresh_token',{
+  method:'POST',headers:headers(),body:JSON.stringify({refresh_token:s.refresh_token})});
+ if(!response.ok){sessionStorage.removeItem(STORAGE);throw Error('Tu sesión venció. Verifica tu correo nuevamente.');}
+ saveSession(await parse(response));return session().access_token;
+}
+async function request(action,body){
+ const access=await token();
+ return parse(await fetch(API,{method:action,headers:{...headers(),Authorization:'Bearer '+access},
+  ...(body?{body:JSON.stringify(body)}:{})}));
+}
+async function load(){
+ const data=await request('GET');dashboard=data;draft={accent:data.settings.accent,action_order:[...data.settings.action_order]};
+ show('login',false);show('dashboard',true);text('sessionline',data.account.email+' · '+data.account.role);
+ text('total',data.metrics.total);text('resolved',data.metrics.resolved);
+ text('pending',data.metrics.unresolved);text('searches',data.metrics.searches);
+ drawTopics();drawSettings();drawIdeas();drawVersions();return data;
+}
+function drawTopics(){
+ const root=$('topics');root.replaceChildren();
+ for(const x of dashboard.metrics.topics||[]){
+  const tr=document.createElement('tr');
+  for(const v of [x.label||x.key,x.count,x.unresolved]){
+   const td=document.createElement('td');td.textContent=v;tr.append(td);
+  }root.append(tr);
+ }
+ if(!root.children.length)root.append(row('Sin preguntas registradas',''));
+ const category=$('search-categories');category.replaceChildren();
+ for(const item of dashboard.metrics.searchCategories||[]){
+  const tr=document.createElement('tr');
+  for(const v of [item.name,item.count]){
+   const td=document.createElement('td');td.textContent=v;tr.append(td);
+  }category.append(tr);
+ }
+ if(!category.children.length){
+  const p=document.createElement('p');p.className='note';
+  p.textContent='Todavía no hay búsquedas registradas desde esta versión.';category.append(p);
+ }
+}
+function drawSettings(){
+ for(const item of document.querySelectorAll('[data-color]'))
+  item.classList.toggle('active',item.dataset.color===draft.accent);
+ const parent=$('order');parent.replaceChildren();
+ draft.action_order.forEach((id,index)=>{
+  const moves=document.createElement('div');moves.className='row';
+  const up=button('↑',()=>move(id,-1));const down=button('↓',()=>move(id,1));
+  up.disabled=index===0;down.disabled=index===draft.action_order.length-1;
+  moves.append(up,down);parent.append(row((index+1)+'. '+orderNames[id],moves));
+ });
+}
+function move(id,by){
+ const idx=draft.action_order.indexOf(id),target=idx+by;
+ if(idx<0||target<0||target>=draft.action_order.length)return;
+ [draft.action_order[idx],draft.action_order[target]]=[draft.action_order[target],draft.action_order[idx]];
+ drawSettings();
+}
+function drawIdeas(){
+ const parent=$('idea-list');parent.replaceChildren();
+ if(!dashboard.ideas?.length){const p=document.createElement('p');p.className='note';p.textContent='Sin propuestas todavía.';parent.append(p);return;}
+ for(const idea of dashboard.ideas){
+  const block=document.createElement('div');block.className='idea';
+  const h=document.createElement('h3');h.textContent=idea.title;
+  const p=document.createElement('p');p.textContent=idea.description;
+  const status=document.createElement('span');status.className='chip';status.textContent=statusNames[idea.status]||idea.status;
+  const line=document.createElement('div');line.className='row';
+  const select=document.createElement('select');select.style.maxWidth='180px';select.setAttribute('aria-label','Cambiar estado');
+  for(const [value,label] of Object.entries(statusNames)){
+   const op=document.createElement('option');op.value=value;op.textContent=label;select.append(op);
+  }select.value=idea.status;
+  select.addEventListener('change',async()=>{await run(async()=>{
+   await request('POST',{action:'update_idea',id:idea.id,status:select.value});
+   await load();message('Estado actualizado.');
+  });});
+  line.append(status,select);block.append(h,p,line);parent.append(block);
+ }
+}
+function drawVersions(){
+ const parent=$('runs');parent.replaceChildren();
+ const workflows=dashboard.metrics.workflows;
+ const count=document.createElement('p');count.textContent='Ejecuciones totales: '+(workflows?.count??'No disponible');parent.append(count);
+ for(const item of workflows?.latest||[])parent.append(row(item.name+' · '+item.created_at,(item.conclusion||item.status)));
+ const history=$('audit');history.replaceChildren();
+ for(const item of dashboard.audit||[])history.append(row(item.action,new Date(item.created_at).toLocaleString('es-MX')));
+}
+function getProposal(input){
+ const norm=input.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+ let accent=draft.accent;
+ if(/\b(naranja|anaranjado)\b/.test(norm))accent='orange';
+ else if(/\b(morado|violeta|purpura)\b/.test(norm))accent='violet';
+ else if(/\b(verde|turquesa)\b/.test(norm))accent='teal';
+ else if(/\b(azul|celeste|cian)\b/.test(norm))accent='cyan';
+ const keys={employment:['empleo','trabajo','vacantes'],services:['servicios','contratar'],
+  products:['productos','tienda'],offer:['ofrecer','ofrezco']};
+ let changed=draft.action_order.slice();
+ const found=Object.entries(keys).filter(([,words])=>words.some(w=>norm.includes(w))).map(([id])=>id);
+ if(found.length&&/\b(primero|primera|inicio|arriba|antes)\b/.test(norm))
+  changed=[found[0],...changed.filter(x=>x!==found[0])];
+ if(found.length&&/\b(ultimo|ultima|abajo|final)\b/.test(norm))
+  changed=[...changed.filter(x=>x!==found[0]),found[0]];
+ if(accent!==draft.accent||changed.join()!==draft.action_order.join())
+  return {type:'settings',accent,order:changed,
+   summary:'Cambio inmediato: color '+accent+'. Tarjetas: '+changed.map(x=>orderNames[x]).join(' → ')};
+ const category=/\b(error|falla|corregir|arreglar)\b/.test(norm)?'bug':
+  /\b(color|estilo|diseno|letra|tipografia)\b/.test(norm)?'design':'feature';
+ return {type:'idea',title:input.slice(0,120),description:input,category,
+  summary:'Se registrará como solicitud técnica, NO como cambio de código ya implementado. Para modificar funciones nuevas es necesario conectar un ejecutor de código con pruebas y permisos de GitHub.'};
+}
+async function run(fn){
+ if(busy)return;busy=true;clearMessage();
+ for(const el of document.querySelectorAll('button'))el.disabled=true;
+ try{await fn();}catch(e){message(e.message||'Ocurrió un error',true);}
+ finally{busy=false;for(const el of document.querySelectorAll('button'))el.disabled=false;drawSettings();}
+}
+$('send').addEventListener('click',()=>run(async()=>{
+ const email=$('email').value.trim();
+ await parse(await fetch(BASE+'/auth/v1/otp?redirect_to='+encodeURIComponent(location.origin+'/nexo-app/nexo-control-panel.html'),{
+  method:'POST',headers:headers(),body:JSON.stringify({email,create_user:true})}));
+ show('verify-zone',true);message('Correo enviado. Si recibes un enlace, también puedes pegarlo completo en este formulario.');
+}));
+$('verify').addEventListener('click',()=>run(async()=>{
+ const email=$('email').value.trim(),raw=$('code').value.trim();if(!raw)throw Error('Escribe un código o pega el enlace completo.');
+ let input={email,token:raw,type:'email'};
+ if(raw.startsWith('https://')){
+  const link=new URL(raw);const hash=link.searchParams.get('token_hash');const token=link.searchParams.get('token');
+  if(hash)input={token_hash:hash,type:link.searchParams.get('type')||'magiclink'};
+  else if(token)input={token,type:link.searchParams.get('type')||'magiclink'};
+  else throw Error('Ese enlace no contiene un código de autenticación. Puedes abrirlo desde tu correo y volver a este panel.');
+ }
+ const data=await parse(await fetch(BASE+'/auth/v1/verify',{method:'POST',headers:headers(),body:JSON.stringify(input)}));
+ saveSession(data);await load();message('Sesión de desarrollador verificada.');
+}));
+$('logout').addEventListener('click',()=>{sessionStorage.removeItem(STORAGE);dashboard=null;show('login',true);show('dashboard',false);message('Sesión cerrada.');});
+for(const tab of document.querySelectorAll('[data-tab]'))tab.addEventListener('click',()=>{
+ for(const b of document.querySelectorAll('[data-tab]'))b.setAttribute('aria-selected',String(tab===b));
+ for(const el of document.querySelectorAll('[data-page]'))show(el.id,el.id===tab.dataset.tab);
+});
+for(const item of document.querySelectorAll('[data-color]'))item.addEventListener('click',()=>{
+ draft.accent=item.dataset.color;drawSettings();
+});
+$('save').addEventListener('click',()=>run(async()=>{
+ await request('POST',{action:'apply_settings',accent:draft.accent,action_order:draft.action_order});
+ await load();message('Color y orden aplicados a Nexo.');
+}));
+$('interpret').addEventListener('click',()=>{
+ const input=$('command').value.trim();
+ if(!input){message('Escribe o dicta la instrucción.',true);return;}
+ proposal=getProposal(input);text('preview-desc',proposal.summary);show('preview',true);
+});
+$('apply').addEventListener('click',()=>run(async()=>{
+ if(!proposal)throw Error('Primero prepara una instrucción');
+ if(proposal.type==='settings')
+  await request('POST',{action:'apply_settings',accent:proposal.accent,action_order:proposal.order});
+ else
+  await request('POST',{action:'create_idea',title:proposal.title,description:proposal.description,category:proposal.category});
+ const kind=proposal.type;proposal=null;show('preview',false);$('command').value='';
+ await load();
+ message(kind==='settings'?'Orden aplicada en Nexo.':'Solicitud de implementación guardada para desarrollo y pruebas.');
+}));
+$('dictate').addEventListener('click',()=>{
+ const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!Speech){message('El dictado no está disponible en este navegador. Puedes escribir la orden.',true);return;}
+ try{
+  const recognizer=new Speech();recognizer.lang='es-MX';recognizer.interimResults=false;recognizer.maxAlternatives=1;
+  recognizer.onresult=e=>{const transcript=e.results?.[0]?.[0]?.transcript;
+   if(transcript){$('command').value=transcript;show('preview',false);}};
+  recognizer.onerror=()=>message('No se pudo reconocer la voz. Comprueba el micrófono.',true);
+  recognizer.start();message('Escuchando… dicta tu orden.');
+ }catch{message('No se pudo iniciar el micrófono.',true);}
+});
+$('refresh').addEventListener('click',()=>run(async()=>{await load();message('Datos actualizados.');}));
+(async()=>{
+ const hash=new URLSearchParams(location.hash.slice(1));
+ if(hash.get('access_token')&&hash.get('refresh_token')){
+  try{
+   saveSession({access_token:hash.get('access_token'),refresh_token:hash.get('refresh_token'),
+    expires_in:Number(hash.get('expires_in')||3600)});
+   history.replaceState({},'',location.pathname);
+  }catch(e){message('No se pudo guardar la sesión: '+e.message,true);}
+ }
+ if(!session())return;
+ try{await load();}catch(e){message('Tu sesión no pudo validarse: '+(e.message||'Acceso no autorizado'),true);}
+})();
+</script>
+</body></html>
