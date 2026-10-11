@@ -357,30 +357,17 @@ export function removeNexaStudioSidePanels(studio: any): number {
   if (studio.userData.nexaSidePanelsRemoved) return 0;
   let removed = 0;
   studio.traverse((mesh: any) => {
-    if (!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position ||
-        !mesh.geometry?.attributes?.skinIndex) return;
+    if (!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position) return;
     const geometry = mesh.geometry;
     const positions = geometry.getAttribute('position');
     const indices = geometry.index;
-    const joints = geometry.getAttribute('skinIndex');
-    const weights = geometry.getAttribute('skinWeight');
-    const bones = mesh.skeleton?.bones?.map((b: any) => b.name ?? '') ?? [];
-    if (!indices || !joints || !weights || !bones.length) return;
+    if (!indices) return;
     geometry.computeBoundingBox();
     const bbox = geometry.boundingBox;
     const h = bbox.max.y-bbox.min.y;
     const halfWidth = (bbox.max.x-bbox.min.x)*0.5;
     const cx = (bbox.max.x+bbox.min.x)*0.5;
     if (h<0.2 || halfWidth<0.09) return;
-    const arm = new Float32Array(positions.count);
-    for (let i=0; i<positions.count; i++) {
-      for (let k=0;k<Math.min(4,joints.itemSize,weights.itemSize);k++) {
-        if (/(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i.test(
-          bones[joints.getComponent(i,k)] ?? '')) {
-          arm[i] += weights.getComponent(i,k);
-        }
-      }
-    }
     const groups = geometry.groups.length ? geometry.groups :
       [{start:0,count:indices.count,materialIndex:0}];
     const keep: number[] = [];
@@ -393,17 +380,22 @@ export function removeNexaStudioSidePanels(studio: any): number {
         const a=indices.getX(i), b=indices.getX(i+1), c=indices.getX(i+2);
         const y=(positions.getY(a)+positions.getY(b)+positions.getY(c))/3;
         const x=(positions.getX(a)+positions.getX(b)+positions.getX(c))/3;
+        const z=(positions.getZ(a)+positions.getZ(b)+positions.getZ(c))/3;
         const ny=(y-bbox.min.y)/h;
         const radial=Math.abs(x-cx)/halfWidth;
-        const armMax=Math.max(arm[a],arm[b],arm[c]);
-        const armAvg=(arm[a]+arm[b]+arm[c])/3;
-        // The collar, N badge, actual sleeves and face are NEVER in this
-        // lower decorative region. Keep arm-influenced triangles intact.
-        const decorativeWing = ny<0.34 && ny>0.035 &&
-          radial>0.24 && radial<0.57 && armMax<0.38 && armAvg<0.23;
-        // Remove only the disconnected under-bust shelf, not the breasts.
-        const flatLowerShelf = ny<0.105 && radial<0.33 &&
-          armMax<0.38 && armAvg<0.20;
+        // The old mask never removed the marked angular shoulder shells:
+        // Meshy weights them to Arm, even though they are rigid clothing.
+        // Classify the front-facing SHOULDER INSERT by its actual location
+        // instead of the (incorrect) bone weights. Farther-out forearms and
+        // hands, the rear arm surfaces, the collar and the N insignia survive.
+        const decorativeWing = ny>0.09 && ny<0.43 &&
+          radial>0.255 && radial<0.69 && z>-0.075;
+        // The original rectangular grey under-bust plate continued upwards
+        // to around 28% of the bust; the earlier 10.5% mask barely touched it.
+        // Remove its front triangles and show our uninterrupted ivory
+        // connector underneath. Upper chest, collar and N stay as imported.
+        const flatLowerShelf = ny>0.025 && ny<0.30 &&
+          radial<0.40 && z>0.025;
         if (decorativeWing || flatLowerShelf) cut++;
         else keep.push(a,b,c);
       }
@@ -419,7 +411,7 @@ export function removeNexaStudioSidePanels(studio: any): number {
     removed+=cut;
   });
   studio.userData.nexaSidePanelsRemoved=true;
-  if (removed) console.info('[Nexa 3D] Piezas naranjas y barra central retiradas:', removed);
+  if (removed) console.info('[Nexa 3D] Costados y parche del busto retirados:', removed);
   return removed;
 }
 
