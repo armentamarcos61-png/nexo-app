@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { countNexoSearch } from '@/lib/nexo-control-api';
 
 export type NexaSource = { title: string; url: string };
 export type NexaReply = { text: string; sources: NexaSource[]; online: boolean };
@@ -103,6 +104,7 @@ type WikiPage = {
 export async function searchNexaReferences(question: string): Promise<NexaReply> {
   const query = clean(question, 180);
   if (!query) return { text: 'Escribe tu pregunta y te ayudo.', sources: [], online: false };
+  void countNexoSearch('nexa_external','nexa');
   const pending = timeoutSignal(11000);
   try {
     const params = new URLSearchParams({
