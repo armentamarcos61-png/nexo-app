@@ -6,7 +6,7 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
-import { addNexaCollar, composeNexaHeadBody, disposeNexaCollar, maskNexaStudioHead } from '@/lib/nexa-composite';
+import { addNexaCollar, composeNexaHeadBody, disposeNexaBackHair, disposeNexaCollar, joinNexaBackHair, maskNexaStudioHead } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
@@ -444,7 +444,11 @@ export function AssistantStage({ profile, speaking = false }: Props) {
               // The collar belongs to the single avatar, not to either
               // clipped mesh. Thus it bridges the join from every camera angle
               // without masking the face, N logo or original suit details.
-              addNexaCollar(THREE,avatarRoot,modelRoot,composite.seamY);
+              addNexaCollar(THREE,avatarRoot,modelRoot,composite.seamY,composite.body);
+              // The source body has a long ponytail but no coherent back
+              // connection to Studio's approved helmet. Keep the new hair
+              // surface on Studio's real Head joint, following micro-gestures.
+              joinNexaBackHair(THREE,avatarRoot,modelRoot,composite.body,composite.seamY);
               // Keep the source body's original stable neutral pose and real
               // suit textures. Facial expressions animate only the Studio head.
               const completed = composite.bounds;
@@ -612,7 +616,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       premiumLook=null;
       lowerBodyMixer?.stopAllAction?.();
       lowerBodyMixer=null;
-      if (avatarRoot) disposeNexaCollar(avatarRoot);
+      if (avatarRoot) { disposeNexaBackHair(avatarRoot); disposeNexaCollar(avatarRoot); }
       composite?.dispose();
       composite=null;
       modelRoot?.traverse((node:any)=>{
