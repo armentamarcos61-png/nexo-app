@@ -350,3 +350,77 @@ const measured = torsoBottom({Vector3:Vec3},seamStudio,
 assert(measured>-.49 && measured<-.41,
   'Chest join must follow real torso hem, not fingers (actual '+measured+')');
 console.log('PASS: central bust hem measured independently of dangling hands');
+
+
+/** Verify the new sculpt against the REAL Studio GLB, not only source text.
+ * The protected N on the upper bust and real arm triangles must survive.
+ */
+const removeStudioPanels=runtime.exports.removeNexaStudioSidePanels;
+assert.equal(typeof removeStudioPanels,'function','the orange-panel tool is exported');
+const studioPrimitive=studio.doc.meshes[0].primitives[0];
+const studioPosition=accessor(studio,studioPrimitive.attributes.POSITION);
+const studioIndexAccessor=studio.doc.accessors[studioPrimitive.indices];
+const indexView=studio.doc.bufferViews[studioIndexAccessor.bufferView];
+const indexStart=(indexView.byteOffset||0)+(studioIndexAccessor.byteOffset||0);
+const sourceIndices=Array.from({length:studioIndexAccessor.count},(_,i)=>
+  studio.bin.readUInt16LE(indexStart+i*2));
+const indexAttr={count:sourceIndices.length,getX:i=>sourceIndices[i]};
+const positionAttr={count:studioPosition.length,
+  getX:i=>studioPosition[i][0],getY:i=>studioPosition[i][1],getZ:i=>studioPosition[i][2]};
+const ji=studioPrimitive.attributes.JOINTS_0,wi=studioPrimitive.attributes.WEIGHTS_0;
+const jointsData=Array.from({length:studioPosition.length},(_,i)=>readFour(studio,ji,i));
+const weightsData=Array.from({length:studioPosition.length},(_,i)=>readFour(studio,wi,i));
+const skinIndex={itemSize:4,getComponent:(i,k)=>jointsData[i][k]};
+const skinWeight={itemSize:4,getComponent:(i,k)=>weightsData[i][k]};
+const sourceBounds=studio.doc.accessors[studioPrimitive.attributes.POSITION];
+const meshGeometry={
+ attributes:{position:positionAttr,skinIndex,skinWeight},
+ index:indexAttr,
+ groups:[],
+ getAttribute(key){return this.attributes[key];},
+ computeBoundingBox(){
+   this.boundingBox={min:{x:sourceBounds.min[0],y:sourceBounds.min[1]},
+     max:{x:sourceBounds.max[0],y:sourceBounds.max[1]}};
+ },
+ setIndex(values){this.index={count:values.length,getX:i=>values[i]};},
+ clearGroups(){this.groups=[];},
+ addGroup(start,count,materialIndex){this.groups.push({start,count,materialIndex});},
+ computeBoundingSphere(){this.boundsUpdated=true;},
+};
+const studioMesh={isSkinnedMesh:true,geometry:meshGeometry,
+ skeleton:{bones:studio.doc.skins[0].joints.map(i=>({name:studio.doc.nodes[i]?.name||''}))}};
+const studioRoot={userData:{},traverse(cb){cb(studioMesh);}};
+const cuts=removeStudioPanels(studioRoot);
+assert(cuts>50 && cuts<3500,'Studio sculpt must selectively remove lower shoulder/shelf pieces, not all arms: '+cuts);
+const surviving=new Set();
+for(let i=0;i<meshGeometry.index.count;i+=3)
+ surviving.add([meshGeometry.index.getX(i),meshGeometry.index.getX(i+1),meshGeometry.index.getX(i+2)].join(','));
+let protectedUpper=0,remainingArm=0;
+const boneNames=studioMesh.skeleton.bones.map(b=>b.name);
+for(let i=0;i<sourceIndices.length;i+=3){
+ const abc=sourceIndices.slice(i,i+3);
+ const key=abc.join(',');
+ const centerY=abc.reduce((n,v)=>n+studioPosition[v][1],0)/3;
+ const armMax=Math.max(...abc.map(vertex=>{
+   let sum=0;
+   for(let j=0;j<4;j++) if(/(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i
+      .test(boneNames[jointsData[vertex][j]]||'')) sum+=weightsData[vertex][j];
+   return sum;
+ }));
+ if(centerY>0.27){
+   protectedUpper++;
+   assert(surviving.has(key),'logo, face, or upper suit triangle removed');
+ }
+ if(armMax>0.60){
+   remainingArm++;
+   assert(surviving.has(key),'a real arm triangle was removed');
+ }
+}
+assert(protectedUpper>1000 && remainingArm>300,'real GLB assertions must cover face and arms');
+assert.equal(removeStudioPanels(studioRoot),0,'repeated loading cannot remove new sections twice');
+assert(stageSource.includes('removeNexaStudioSidePanels(modelRoot)'),
+ 'Nexo live viewer must execute the shoulder and bust cleanup');
+assert(polish.includes('const topY = upperMinY + height * 0.18') &&
+       polish.includes('softFront*(0.94-0.04*t)*zipper'),
+ 'blue lower bust region must use extended white ceramic-colored 3D geometry');
+console.log('PASS: real Studio GLB selectively trims '+cuts+' triangles; upper logos/arms intact');
