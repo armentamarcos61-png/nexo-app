@@ -357,30 +357,17 @@ export function removeNexaStudioSidePanels(studio: any): number {
   if (studio.userData.nexaSidePanelsRemoved) return 0;
   let removed = 0;
   studio.traverse((mesh: any) => {
-    if (!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position ||
-        !mesh.geometry?.attributes?.skinIndex) return;
+    if (!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position) return;
     const geometry = mesh.geometry;
     const positions = geometry.getAttribute('position');
     const indices = geometry.index;
-    const joints = geometry.getAttribute('skinIndex');
-    const weights = geometry.getAttribute('skinWeight');
-    const bones = mesh.skeleton?.bones?.map((b: any) => b.name ?? '') ?? [];
-    if (!indices || !joints || !weights || !bones.length) return;
+    if (!indices) return;
     geometry.computeBoundingBox();
     const bbox = geometry.boundingBox;
     const h = bbox.max.y-bbox.min.y;
     const halfWidth = (bbox.max.x-bbox.min.x)*0.5;
     const cx = (bbox.max.x+bbox.min.x)*0.5;
     if (h<0.2 || halfWidth<0.09) return;
-    const arm = new Float32Array(positions.count);
-    for (let i=0; i<positions.count; i++) {
-      for (let k=0;k<Math.min(4,joints.itemSize,weights.itemSize);k++) {
-        if (/(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i.test(
-          bones[joints.getComponent(i,k)] ?? '')) {
-          arm[i] += weights.getComponent(i,k);
-        }
-      }
-    }
     const groups = geometry.groups.length ? geometry.groups :
       [{start:0,count:indices.count,materialIndex:0}];
     const keep: number[] = [];
