@@ -1,0 +1,124 @@
+name: Nexo Control - Programacion asistida
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  models: read
+  id-token: write
+concurrency:
+  group: nexo-control-coding
+  cancel-in-progress: false
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+      - name: Buscar solicitud de propietario verificada
+        id: claim
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=nexo-control-agent" \
+            | jq -r .value > nexo-oidc.token
+          test "$(wc -c < nexo-oidc.token)" -gt 100
+          curl -fsSL -H "Authorization: Bearer $(cat nexo-oidc.token)" \
+            "https://wfwyftxbanwvixplzhcd.supabase.co/functions/v1/nexo-control?scope=agent" \
+            > nexo-idea.json
+          node -e "const x=require('./nexo-idea.json');if(x.error)throw Error(x.error);"
+          if jq -e '.task != null' nexo-idea.json >/dev/null; then
+            echo "has_task=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_task=false" >> "$GITHUB_OUTPUT"
+            echo "No hay trabajos de codigo aprobados."
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.claim.outputs.has_task == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Crear rama de trabajo
+        if: steps.claim.outputs.has_task == 'true'
+        id: branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          idea_id="$(jq -r '.task.id' nexo-idea.json)"
+          branch="nexo-control/idea-$idea_id-$GITHUB_RUN_ID"
+          git checkout -b "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+      - name: Generar cambios de interfaz sin ejecutar instrucciones del modelo
+        if: steps.claim.outputs.has_task == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/nexo-coding-agent.mjs
+      - name: Validar sintaxis, tipos y calidad
+        if: steps.claim.outputs.has_task == 'true'
+        run: |
+          set -euo pipefail
+          npm ci
+          git diff --check
+          npx tsc --noEmit
+          npm run lint
+          node scripts/verify-nexo-control.cjs
+      - name: Compilar sitio propuesto
+        if: steps.claim.outputs.has_task == 'true'
+        env:
+          EXPO_NO_BUNDLE_SPLITTING: '1'
+        run: npm run build:web
+      - name: Abrir cambio como pull request, no publicarlo directo
+        if: steps.claim.outputs.has_task == 'true'
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          set -euo pipefail
+          idea_id="$(jq -r '.task.id' nexo-idea.json)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app
+          git diff --cached --check
+          test -n "$(git diff --cached --name-only)"
+          git commit -m "Nexo Control: propuesta revisable #$idea_id"
+          git push --set-upstream origin "$BRANCH"
+          {
+            echo "Solicitud Nexo Control #$idea_id"
+            echo ""
+            cat nexo-agent-summary.txt
+            echo ""
+            echo "Verificado: TypeScript, ESLint y compilación web."
+            echo "No se publicará hasta fusionar el pull request."
+          } > nexo-pr-body.md
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title "Nexo Control: propuesta de implementación #$idea_id" \
+            --body-file nexo-pr-body.md | tee nexo-pr-url.txt
+      - name: Registrar éxito o error en panel
+        if: always() && steps.claim.outputs.has_task == 'true'
+        env:
+          PR_OK: ${{ steps.pr.outcome }}
+          PR_BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          set +e
+          curl -fsSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=nexo-control-agent" \
+            | jq -r .value > nexo-oidc-final.token
+          node - <<'NODE'
+          const fs=require('fs');
+          const task=JSON.parse(fs.readFileSync('nexo-idea.json','utf8')).task;
+          const success=process.env.PR_OK==='success';
+          const pr_url=success&&fs.existsSync('nexo-pr-url.txt')?
+            fs.readFileSync('nexo-pr-url.txt','utf8').trim():null;
+          fs.writeFileSync('nexo-final.json',JSON.stringify({
+            action:'agent_result',idea_id:task.id,success,
+            branch:process.env.PR_BRANCH||null,pr_url,
+            error:success?null:'No se pudo generar un cambio compilable o abrir PR; revisa esta ejecución.',
+          }));
+          NODE
+          curl -fsSL --max-time 15 -H "Authorization: Bearer $(cat nexo-oidc-final.token)" \
+            -H "Content-Type: application/json" -d @nexo-final.json \
+            "https://wfwyftxbanwvixplzhcd.supabase.co/functions/v1/nexo-control?scope=agent" || true
