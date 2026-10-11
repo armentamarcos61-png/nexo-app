@@ -62,16 +62,28 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <div id="notice" aria-live="polite"></div>
 <section id="login" class="panel login">
 <h2>Inicia sesión como desarrollador</h2>
-<p>Este panel es independiente de la página principal. Tu correo se verifica con Supabase antes de mostrar datos privados.</p>
+<p>Este panel es independiente de Nexo. Puedes entrar con tu contraseña de Nexo o verificar el correo. El servidor comprueba que seas administrador.</p>
 <label for="email">Correo autorizado</label>
 <input id="email" type="email" autocomplete="email" placeholder="Tu correo de desarrollador">
-<div style="margin-top:12px"><button class="btn primary" id="send">Enviar acceso por correo</button></div>
-<div id="verify-zone" class="hidden">
-<label for="code">Código o enlace recibido</label>
-<textarea id="code" rows="3" placeholder="Pega el código, o el enlace de acceso completo que llegó a tu correo"></textarea>
-<button class="btn primary" id="verify">Verificar correo y abrir panel</button>
+<label for="password">Contraseña de tu cuenta Nexo</label>
+<input id="password" type="password" autocomplete="current-password" placeholder="Escribe tu contraseña de Nexo">
+<div class="row" style="margin-top:12px">
+ <button class="btn primary" id="signin">Entrar con mi contraseña</button>
+ <button class="btn" id="send">Enviar enlace a mi correo</button>
 </div>
-<p class="note">Si el correo abre Nexo en otra pestaña, vuelve aquí y pega el enlace completo. Nunca compartas el código ni el enlace con nadie.</p>
+<div id="verify-zone" class="hidden">
+<label for="code">Pega el enlace de acceso que recibiste</label>
+<textarea id="code" rows="3" placeholder="Pega aquí el enlace completo del mensaje de Supabase; también sirve un código si llega uno"></textarea>
+<button class="btn primary" id="verify">Verificar enlace y abrir panel</button>
+</div>
+<p class="note">Actualmente Supabase está enviando un enlace, no un código de seis dígitos. Si al tocarlo aparece localhost:3000, no abras esa dirección: copia el enlace original del correo y pégalo arriba. Nunca compartas tu contraseña ni el enlace.</p>
+<details style="margin-top:12px;color:#BCD7F0;font-size:12px;line-height:1.6">
+ <summary style="cursor:pointer;font-weight:800">¿Cómo activar el código de seis dígitos?</summary>
+ <p>La configuración del correo se realiza en Supabase, no desde el navegador de Nexo.</p>
+ <p>1. En <a href="https://supabase.com/dashboard/project/wfwyftxbanwvixplzhcd/auth/url-configuration" target="_blank" rel="noopener noreferrer">URL Configuration</a>, cambia el Site URL y agrega la ruta del panel como Redirect URL: <code>https://armentamarcos61-png.github.io/nexo-app/nexo-control-panel.html</code>.</p>
+ <p>2. En <a href="https://supabase.com/dashboard/project/wfwyftxbanwvixplzhcd/auth/templates" target="_blank" rel="noopener noreferrer">Email Templates → Magic Link</a>, cambia el mensaje para mostrar <code>{{ .Token }}</code>. Supabase enviará un código en lugar de un enlace.</p>
+ <p>Si Supabase solicita SMTP personalizado para modificar el correo, primero hay que verificar un dominio de envío. Mientras tanto, entra con tu contraseña.</p>
+</details>
 </section>
 <section id="dashboard" class="hidden">
 <div class="panel flex"><span id="sessionline"></span><button class="btn" id="logout">Cerrar sesión</button></div>
@@ -325,22 +337,45 @@ async function run(fn){
  if(busy)return;busy=true;clearMessage();
  for(const el of document.querySelectorAll('button'))el.disabled=true;
  try{await fn();}catch(e){message(e.message||'Ocurrió un error',true);}
- finally{busy=false;for(const el of document.querySelectorAll('button'))el.disabled=false;drawSettings();}
+ finally{
+  busy=false;
+  for(const el of document.querySelectorAll('button'))el.disabled=false;
+  // During email verification there is no loaded dashboard. Trying to
+  // draw settings before authentication caused the login flow to crash.
+  if(draft&&dashboard)drawSettings();
+ }
 }
 $('send').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim();
+ if(!email||!email.includes('@'))throw Error('Escribe tu correo autorizado.');
  await parse(await fetch(BASE+'/auth/v1/otp?redirect_to='+encodeURIComponent(location.origin+'/nexo-app/nexo-control-panel.html'),{
-  method:'POST',headers:headers(),body:JSON.stringify({email,create_user:true})}));
- show('verify-zone',true);message('Correo enviado. Si recibes un enlace, también puedes pegarlo completo en este formulario.');
+  method:'POST',headers:headers(),body:JSON.stringify({email,create_user:false})}));
+ show('verify-zone',true);
+ message('Solicitud aceptada por Supabase. Revisa tu correo y Spam: por ahora llega un enlace, no un código. Si te envía a localhost, copia el enlace original y pégalo aquí.');
+}));
+$('signin').addEventListener('click',()=>run(async()=>{
+ const email=$('email').value.trim();
+ const password=$('password').value;
+ if(!email||!password)throw Error('Escribe el correo y la contraseña de tu cuenta Nexo.');
+ const data=await parse(await fetch(BASE+'/auth/v1/token?grant_type=password',{
+  method:'POST',headers:headers(),body:JSON.stringify({email,password}),
+ }));
+ $('password').value='';
+ saveSession(data);
+ await load();
+ message('Acceso de desarrollador verificado.');
 }));
 $('verify').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim(),raw=$('code').value.trim();if(!raw)throw Error('Escribe un código o pega el enlace completo.');
  let input={email,token:raw,type:'email'};
- if(raw.startsWith('https://')){
-  const link=new URL(raw);const hash=link.searchParams.get('token_hash');const token=link.searchParams.get('token');
-  if(hash)input={token_hash:hash,type:link.searchParams.get('type')||'magiclink'};
-  else if(token)input={token,type:link.searchParams.get('type')||'magiclink'};
-  else throw Error('Ese enlace no contiene un código de autenticación. Puedes abrirlo desde tu correo y volver a este panel.');
+ if(/^https?:\/\//i.test(raw)){
+  const link=new URL(raw);
+  const hash=link.searchParams.get('token_hash')||link.searchParams.get('token');
+  if(!hash)throw Error('El enlace no tiene token verificable. Copia el enlace completo desde el correo.');
+  const type=link.searchParams.get('type')||'magiclink';
+  if(!['magiclink','email','recovery','signup'].includes(type))
+   throw Error('Tipo de enlace no reconocido; solicita uno nuevo.');
+  input={token_hash:hash,type};
  }
  const data=await parse(await fetch(BASE+'/auth/v1/verify',{method:'POST',headers:headers(),body:JSON.stringify(input)}));
  saveSession(data);await load();message('Sesión de desarrollador verificada.');
