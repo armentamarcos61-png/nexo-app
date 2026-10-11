@@ -72,6 +72,7 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
  <button class="btn" id="send">Enviar enlace a mi correo</button>
  <button class="btn" id="link-nexo">Vincular mi contraseña de Nexo</button>
  <button class="btn" id="recover">No recuerdo mi contraseña</button>
+ <button class="btn" id="have-link">Ya tengo el enlace</button>
 </div>
 <div id="verify-zone" class="hidden">
 <label for="code">Enlace de Supabase, código o dirección completa de localhost</label>
@@ -438,6 +439,10 @@ async function run(fn){
   if(draft&&dashboard)drawSettings();
  }
 }
+$('have-link').addEventListener('click',()=>{
+ show('verify-zone',true);
+ message('Pega la URL completa que aparece en localhost o el enlace original de recuperación. No es necesario solicitar otro correo.');
+});
 $('send').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim();
  lastEmailFlow='email';
