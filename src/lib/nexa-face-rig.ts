@@ -29,8 +29,9 @@ const glide=(from:number,to:number,dt:number,speed:number)=>
  * One-time, local morph-only edits. The rest mesh, eye outline, facial skin,
  * skull, teeth, brows and neck remain untouched by eyelid movement.
  */
+const calibratedGeometry=new WeakSet<object>();
 export function calibrateNexaFacialMorphs(root:any):number {
-  const processed=new WeakSet<object>();
+  const processed=calibratedGeometry;
   let tuned=0;
   root.traverse?.((mesh:any)=>{
     const geometry=mesh.geometry;
