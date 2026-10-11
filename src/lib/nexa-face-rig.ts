@@ -177,10 +177,13 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
         const center=new Three.Vector3(x/total,y/total,z/total);
         // The pink surface sits beneath the upper lip. Its own size follows
         // the actual Studio eye separation and MouthOpen value.
-        center.z+=0.002;
+        // Studio's visible lip tips are about 0.005–0.010 model units
+        // in front of the weighted lip seam. Keep the rose lining just
+        // inside the visible opening, rather than hidden inside the face.
+        center.z+=0.008;
         head.worldToLocal(center);
         mouthInteriorMat=new Three.MeshStandardMaterial({
-          color:0x99566b,roughness:0.95,metalness:0,
+          color:0xad7083,roughness:0.96,metalness:0,
           emissive:0x241017,emissiveIntensity:0.11,
           transparent:true,opacity:0,depthWrite:false,
           side:Three.DoubleSide,
