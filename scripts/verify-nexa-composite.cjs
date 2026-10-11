@@ -221,7 +221,9 @@ assert(newCompose.includes('const gestureBones:') &&
        newCompose.includes('gestureBlend+=') &&
        newCompose.includes('if (speaking) gestureTime+=frame'),
   'full-body forearms must gesture smoothly only during audible speech');
-assert(newCompose.includes('removeNexaLegacyHeadFragments(body)'),
+assert(newCompose.includes('removeNexaLegacyHeadFragments(body,{') &&
+       newCompose.includes('eyeCenter:studioEyes.center') &&
+       newCompose.includes('eyeWidth:studioEyes.width'),
   'the discarded full-body scalp and neck must not dangle below the clipping plane');
 assert(stage.includes('faceRig=installNexaFaceRig(THREE,modelRoot)'),
   'original expressive Studio facial rig must remain active');
