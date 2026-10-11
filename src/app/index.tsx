@@ -62,6 +62,17 @@ const heroColors={
  teal:['#0A3C55','#156B71','#273976','#3A7E89'],
 } as const;
 export default function HomeScreen() {
+  // Supabase may send a confirmed email link back to the configured site URL
+  // instead of its requested redirect. Recover the auth fragment and land on
+  // the standalone developer panel without exposing the token in a query.
+  useEffect(()=>{
+    if(typeof window==='undefined')return;
+    const params=new URLSearchParams(window.location.hash.replace(/^#/,''));
+    if(params.has('access_token')&&params.has('refresh_token')){
+      const target=window.location.origin+'/nexo-app/nexo-control-panel.html'+window.location.hash;
+      window.location.replace(target);
+    }
+  },[]);
   const [busqueda, setBusqueda] = useState('');
   const [runtimeSettings,setRuntimeSettings]=useState<RuntimeSettings>(defaultNexoSettings);
   useEffect(()=>{
