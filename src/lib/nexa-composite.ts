@@ -1104,6 +1104,8 @@ export function removeNexaLegacyHeadFragments(
     const preserveRearHair=rearHair?new Uint8Array(position.count):null;
     if(preserveRearHair && rearHair && mesh.localToWorld){
       const p=new rearHair.THREE.Vector3();
+      const modelScale=mesh.getWorldScale?.(new rearHair.THREE.Vector3())?.y || 1;
+      let sculpted=0;
       for(let i=0;i<position.count;i++){
         if(skinHead[i]<0.20)continue;
         p.fromBufferAttribute(position,i);
@@ -1112,8 +1114,30 @@ export function removeNexaLegacyHeadFragments(
         if(p.y<=rearHair.seamY+rearHair.eyeWidth*0.20 &&
            p.y>=rearHair.seamY-rearHair.eyeWidth*1.8 &&
            p.z<rearHair.eyeCenter.z-rearHair.eyeWidth*2.0 &&
-           Math.abs(p.x-rearHair.eyeCenter.x)<rearHair.eyeWidth*0.91)
+           Math.abs(p.x-rearHair.eyeCenter.x)<rearHair.eyeWidth*0.91) {
           preserveRearHair[i]=1;
+          // The native ponytail used to end in a ruler-straight horizontal
+          // line. Pull its FRONT upper root slightly towards the helmet while
+          // keeping the rear edge lower: a short diagonal, not a vertical cut.
+          // Ease to zero below the root so the long hair stays unchanged.
+          const u=rearHair.eyeWidth;
+          const nearTop=rearHair.THREE.MathUtils.smoothstep(
+            p.y,rearHair.seamY-u*1.13,rearHair.seamY-u*0.10);
+          const depth=rearHair.THREE.MathUtils.clamp(
+            (rearHair.eyeCenter.z-u*2.0-p.z)/(u*1.45),0,1);
+          const diagonalLift=u*0.31*nearTop*(1-depth)*Math.min(1,skinHead[i]);
+          if(diagonalLift>u*0.008 &&
+             typeof position.getY==='function' &&
+             typeof position.setY==='function') {
+            position.setY(i,position.getY(i)+diagonalLift/Math.abs(modelScale));
+            sculpted++;
+          }
+        }
+      }
+      if(sculpted){
+        position.needsUpdate=true;
+        body.userData.nexaDiagonalHairRootVertices=
+          (body.userData.nexaDiagonalHairRootVertices||0)+sculpted;
       }
     }
     const index=geometry.index;
@@ -1359,7 +1383,7 @@ export function joinNexaBackHair(
   for(let row=0;row<=rows;row++){
     const t=row/rows;
     const eased=t*t*(3-2*t);
-    const y=topY+(bottomY-topY)*t;
+    const centerY=topY+(bottomY-topY)*t;
     const z=startZ+(endZ-startZ)*eased
       -unit*0.025*Math.sin(Math.PI*t);
     const width=unit*(0.44+0.10*Math.sin(Math.PI*t))*(1-eased)
@@ -1367,9 +1391,13 @@ export function joinNexaBackHair(
     const depth=unit*(0.16+0.03*Math.sin(Math.PI*t));
     for(let col=0;col<=columns;col++){
       const theta=col/columns*Math.PI*2;
+      // Rounded, slanted seam: the front of the bridge climbs towards
+      // the nape, while its rear reaches deeper down into the original hair.
+      // This replaces the horizontal cutoff with the requested diagonal.
+      const diagonal=unit*0.29*eased*(0.5+0.5*Math.sin(theta));
       const world=new THREE.Vector3(
         eye.center.x+width*Math.cos(theta),
-        y-unit*0.035*(1-t)*Math.cos(theta)**2,
+        centerY+diagonal-unit*0.035*(1-t)*Math.cos(theta)**2,
         z+depth*Math.sin(theta),
       );
       head.worldToLocal(world);
@@ -1402,7 +1430,8 @@ export function joinNexaBackHair(
   head.add(bridge);
   avatarRoot.userData.nexaJoinedBackHair=bridge;
   bridge.userData.nexaHairAnchors={
-    topY,bottomY,capZ,tailZ,topOfTail,sidePanels:0,continuousVolume:true,
+    topY,bottomY,capZ,tailZ,topOfTail,diagonalSeam:true,
+    sidePanels:0,continuousVolume:true,
   };
   return bridge;
 }
