@@ -6,7 +6,7 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
-import { composeNexaBody, poseNexaStudioArms, tailorNexaStudioLowerTorso } from '@/lib/nexa-composite';
+import { composeNexaBody, poseNexaStudioArms, removeNexaStudioSidePanels, tailorNexaStudioLowerTorso } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
 type Props = { profile: AssistantProfile; speaking?: boolean };
@@ -381,6 +381,10 @@ export function AssistantStage({ profile, speaking = false }: Props) {
           // must not become the lower edge of the joined chest.
           if (studio) {
             tailorNexaStudioLowerTorso(modelRoot);
+            // Remove the orange marked under-shoulder wings and the flat
+            // blue marked lower-chest shelf on the REAL skinned mesh.
+            // The continuous ivory 3D torso panel fills the opening.
+            removeNexaStudioSidePanels(modelRoot);
             modelRoot.userData.nexaBustOriginalBounds =
               new THREE.Box3().setFromObject(modelRoot).clone();
           }

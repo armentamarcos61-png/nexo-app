@@ -343,6 +343,86 @@ export function tailorNexaStudioLowerTorso(studio: any): number {
   return changed;
 }
 
+/**
+ * Remove the two angular pieces marked orange and the disconnected
+ * horizontal band marked blue in the Studio model. The source is ONE
+ * textured skinned mesh, so we must remove indexed triangles selectively,
+ * not hide the entire shoulder or repaint the face.
+ *
+ * All coordinates are normalized to the imported Studio geometry; the
+ * unchanged face, shoulder N emblem and real arm-weighted triangles are
+ * protected. The missing low center is rebuilt by tailoredWaistPanel.
+ */
+export function removeNexaStudioSidePanels(studio: any): number {
+  if (studio.userData.nexaSidePanelsRemoved) return 0;
+  let removed = 0;
+  studio.traverse((mesh: any) => {
+    if (!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position ||
+        !mesh.geometry?.attributes?.skinIndex) return;
+    const geometry = mesh.geometry;
+    const positions = geometry.getAttribute('position');
+    const indices = geometry.index;
+    const joints = geometry.getAttribute('skinIndex');
+    const weights = geometry.getAttribute('skinWeight');
+    const bones = mesh.skeleton?.bones?.map((b: any) => b.name ?? '') ?? [];
+    if (!indices || !joints || !weights || !bones.length) return;
+    geometry.computeBoundingBox();
+    const bbox = geometry.boundingBox;
+    const h = bbox.max.y-bbox.min.y;
+    const halfWidth = (bbox.max.x-bbox.min.x)*0.5;
+    const cx = (bbox.max.x+bbox.min.x)*0.5;
+    if (h<0.2 || halfWidth<0.09) return;
+    const arm = new Float32Array(positions.count);
+    for (let i=0; i<positions.count; i++) {
+      for (let k=0;k<Math.min(4,joints.itemSize,weights.itemSize);k++) {
+        if (/(?:Left|Right)(?:Shoulder|Arm|ForeArm|Hand)/i.test(
+          bones[joints.getComponent(i,k)] ?? '')) {
+          arm[i] += weights.getComponent(i,k);
+        }
+      }
+    }
+    const groups = geometry.groups.length ? geometry.groups :
+      [{start:0,count:indices.count,materialIndex:0}];
+    const keep: number[] = [];
+    const savedGroups: {start:number;count:number;materialIndex:number}[] = [];
+    let cut = 0;
+    for (const group of groups) {
+      const start = keep.length;
+      const end = Math.min(indices.count, group.start+group.count);
+      for (let i=group.start; i+2<end; i+=3) {
+        const a=indices.getX(i), b=indices.getX(i+1), c=indices.getX(i+2);
+        const y=(positions.getY(a)+positions.getY(b)+positions.getY(c))/3;
+        const x=(positions.getX(a)+positions.getX(b)+positions.getX(c))/3;
+        const ny=(y-bbox.min.y)/h;
+        const radial=Math.abs(x-cx)/halfWidth;
+        const armMax=Math.max(arm[a],arm[b],arm[c]);
+        const armAvg=(arm[a]+arm[b]+arm[c])/3;
+        // The collar, N badge, actual sleeves and face are NEVER in this
+        // lower decorative region. Keep arm-influenced triangles intact.
+        const decorativeWing = ny<0.34 && ny>0.035 &&
+          radial>0.24 && radial<0.57 && armMax<0.38 && armAvg<0.23;
+        // Remove only the disconnected under-bust shelf, not the breasts.
+        const flatLowerShelf = ny<0.105 && radial<0.33 &&
+          armMax<0.38 && armAvg<0.20;
+        if (decorativeWing || flatLowerShelf) cut++;
+        else keep.push(a,b,c);
+      }
+      if (keep.length>start) savedGroups.push({
+        start,count:keep.length-start,materialIndex:group.materialIndex??0,
+      });
+    }
+    if (!cut || !keep.length) return;
+    geometry.setIndex(keep);
+    geometry.clearGroups();
+    for(const g of savedGroups) geometry.addGroup(g.start,g.count,g.materialIndex);
+    geometry.computeBoundingSphere();
+    removed+=cut;
+  });
+  studio.userData.nexaSidePanelsRemoved=true;
+  if (removed) console.info('[Nexa 3D] Piezas naranjas y barra central retiradas:', removed);
+  return removed;
+}
+
 export function poseNexaStudioArms(THREE: any, studio: any): boolean {
   if (!studioHasRiggedArms(studio)) return false;
   const repaired = repairStudioSleeveWeights(studio);
@@ -668,7 +748,9 @@ function tailoredWaistPanel(
   THREE: any, studio: any, body: any, upperMinY: number, height: number,
   lowerCutY: number,
 ): any | null {
-  const topY = upperMinY + height * 0.012;
+  // Reach above the cut shelf to cover the blue marked chest/abdomen gap.
+  // Stop below the N emblem and preserve the original bust silhouette.
+  const topY = upperMinY + height * 0.18;
   const bottomY = lowerCutY - height * 0.025;
   // A narrow slice can contain too few vertices in the exported low-poly
   // suit. Sample progressively wider bands before giving up on the join.
@@ -701,15 +783,21 @@ function tailoredWaistPanel(
     for (let i = 0; i <= segments; i++) {
       const angle = 2*Math.PI*i/segments;
       const x = cx + Math.sin(angle)*rx;
-      const z = cz + Math.cos(angle)*rz;
+      // A gentle forward bulge makes the light ceramic breastplate cover
+      // the old horizontal cut in front, without an added floating slab.
+      const front = Math.cos(angle);
+      const z = cz + Math.cos(angle)*rz +
+        Math.max(0,front) * height * 0.016 * Math.sin(Math.PI*t);
       // The panel is part of the same real 3D scene, not a screen overlay.
       const local = body.worldToLocal(new THREE.Vector3(x,y,z));
       vertices.push(local.x,local.y,local.z);
-      const front = Math.cos(angle);
       const side = Math.abs(Math.sin(angle));
-      // Two restrained ivory side insets continue the black/white Nexo suit.
-      const inset = front > 0.26 && side > 0.27 && side < 0.78 ? 0.85 : 0;
-      color.copy(dark).lerp(pearl,inset);
+      // Broad PEARL centre plate with black side panels. Unlike the
+      // previous black strip, this reads as a continuous white Nexo bust.
+      const frontBlend = Math.max(0, Math.min(1, (front-0.07)/0.51));
+      const softFront = frontBlend*frontBlend*(3-2*frontBlend);
+      const zipper = side<0.055 && t<0.34 ? 0.28 : 1;
+      color.copy(dark).lerp(pearl,softFront*(0.94-0.04*t)*zipper);
       colors.push(color.r,color.g,color.b);
     }
   }
