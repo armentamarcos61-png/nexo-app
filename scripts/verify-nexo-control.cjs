@@ -28,6 +28,13 @@ assert(!html.includes('eval(')&&!html.includes('new Function('),
  'Admin panel must not evaluate code or arbitrary user instructions');
 assert(html.includes('id="signin"') && html.includes('grant_type=password'),
   'Admin must support password login while the OTP template is not configured');
+assert(html.includes("id=\"recover\"")&&html.includes("/auth/v1/recover?redirect_to="),
+  'Recover password when existing credentials are not recognized');
+assert(html.includes("id=\"update-password\"")&&html.includes("/auth/v1/user"),
+  'Verified recovery email must allow password update');
+assert(html.includes("input.type==='recovery'"),
+  'Recovery verify must show password update');
+
 assert(html.includes('if(draft&&dashboard)drawSettings()'),
   'Sending a magic link before authentication must not render private settings');
 assert(html.includes('input={token_hash:hash,type}'),
