@@ -155,7 +155,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
     let perspectiveCamera: any = null;
     let minTargetY = -STUDIO_FRAMING.height * 0.5;
     let maxTargetY = STUDIO_FRAMING.height * 0.5;
-    let visibleHeight = STUDIO_FRAMING.height;
+    let visibleHeight: number = STUDIO_FRAMING.height;
 
     // PointerEvents allow one-finger orbit and two-finger pinch on Android.
     const pointers = new Map<number, {x:number;y:number}>();
