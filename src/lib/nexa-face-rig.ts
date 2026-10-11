@@ -21,7 +21,103 @@ const ease=(x:number)=>{const t=clamp(x,0,1);return t*t*(3-2*t);};
 const glide=(from:number,to:number,dt:number,speed:number)=>
   from+(to-from)*(1-Math.exp(-clamp(dt,0,0.08)*speed));
 
+/**
+ * Tune the ACTUAL morph vertices in Nexa Studio rather than merely raising
+ * channel weights. The imported bust's eyelids changed only 14–26 vertices
+ * by ~0.004 model units, which was almost invisible on a mobile portrait.
+ *
+ * One-time, local morph-only edits. The rest mesh, eye outline, facial skin,
+ * skull, teeth, brows and neck remain untouched by eyelid movement.
+ */
+export function calibrateNexaFacialMorphs(root:any):number {
+  const processed=new WeakSet<object>();
+  let tuned=0;
+  root.traverse?.((mesh:any)=>{
+    const geometry=mesh.geometry;
+    const position=geometry?.attributes?.position;
+    const targets=geometry?.morphAttributes?.position;
+    const dict:Record<string,number>|undefined=mesh.morphTargetDictionary;
+    if(!position||!targets||!dict||processed.has(geometry))return;
+    processed.add(geometry);
+
+    const findCenter=(name:string)=>{
+      const index=dict[name],attr=targets[index];
+      if(!Number.isInteger(index)||!attr||attr.count!==position.count)return null;
+      let peak=0;
+      for(let i=0;i<attr.count;i++){
+        peak=Math.max(peak,Math.hypot(attr.getX(i),attr.getY(i),attr.getZ(i)));
+      }
+      if(peak<1e-7)return null;
+      let wx=0,wy=0,wz=0,total=0;
+      for(let i=0;i<attr.count;i++){
+        const m=Math.hypot(attr.getX(i),attr.getY(i),attr.getZ(i));
+        if(m<peak*0.24)continue;
+        wx+=position.getX(i)*m;
+        wy+=position.getY(i)*m;
+        wz+=position.getZ(i)*m;
+        total+=m;
+      }
+      return total?{x:wx/total,y:wy/total,z:wz/total,peak,attr}:null;
+    };
+    const left=findCenter('EyeBlinkLeft');
+    const right=findCenter('EyeBlinkRight');
+    if(!left||!right)return;
+    const eyeWidth=Math.hypot(left.x-right.x,left.y-right.y,left.z-right.z);
+    if(!Number.isFinite(eyeWidth)||eyeWidth<.025||eyeWidth>.8)return;
+    const clampScale=(name:string,targetRatio:number,maxScale:number)=>{
+      const item=findCenter(name);
+      if(!item)return;
+      const scale=clamp(eyeWidth*targetRatio/item.peak,1,maxScale);
+      if(scale<=1.001)return;
+      for(let i=0;i<item.attr.count;i++){
+        item.attr.setXYZ(i,
+          item.attr.getX(i)*scale,
+          item.attr.getY(i)*scale,
+          item.attr.getZ(i)*scale);
+      }
+      item.attr.needsUpdate=true;
+      tuned++;
+    };
+
+    // Eyelids are repaired exclusively in a small ellipse around each eye;
+    // do not pull eyebrows, cheeks, temples or the bridge of the nose.
+    for(const name of ['EyeBlinkLeft','EyeBlinkRight']){
+      const eye=findCenter(name);
+      if(!eye)continue;
+      const px=eyeWidth*0.30,py=eyeWidth*0.145;
+      for(let i=0;i<eye.attr.count;i++){
+        const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
+        const ex=(x-eye.x)/px,ey=(y-eye.y)/py;
+        if(Math.abs(ex)>=1||Math.abs(ey)>=1||z<eye.z-eyeWidth*.115)continue;
+        const ellipse=Math.pow(1-ex*ex,2)*Math.pow(1-ey*ey,2);
+        const forward=clamp((z-(eye.z-eyeWidth*.115))/(eyeWidth*.14),0,1);
+        const lid=clamp((y-eye.y)/(eyeWidth*.035),-1,1);
+        // Upper lid descends, lower lid closes gently; the center stays put.
+        const added=eyeWidth*ellipse*forward*(lid>0?-0.070:0.035)*Math.abs(lid);
+        const original=eye.attr.getY(i);
+        const bounded=clamp(original*1.22+added,-eyeWidth*.12,eyeWidth*.07);
+        eye.attr.setXYZ(i,eye.attr.getX(i),bounded,eye.attr.getZ(i));
+      }
+      eye.attr.needsUpdate=true;
+      tuned++;
+    }
+    // Mouth targets already isolate lip vertices. Scale those morphs, not the
+    // head bone or whole face; do not synthesize a second, disconnected jaw.
+    clampScale('MouthOpen',0.115,2.4);
+    clampScale('MouthO',0.038,3.0);
+    clampScale('MouthWide',0.044,3.0);
+    clampScale('EyeLookLeft',0.032,2.3);
+    clampScale('EyeLookRight',0.032,2.3);
+    clampScale('EyeLookUp',0.022,2.2);
+    clampScale('EyeLookDown',0.022,2.2);
+    clampScale('BrowRaiseLeft',0.029,1.4);
+    clampScale('BrowRaiseRight',0.029,1.4);
+  });
+  return tuned;
+}
+
 export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
+  calibrateNexaFacialMorphs(root);
   const binding: Binding[]=[];
   let head:any=null;
   root.traverse?.((node:any)=>{
@@ -116,13 +212,14 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       let blink=0;
       if(seconds>=blinkAt){
         const age=seconds-blinkAt;
-        blink=age<0.09?ease(age/0.09):age<0.145?1:age<0.30?1-ease((age-0.145)/0.155):0;
-        if(age>=0.30) blinkAt+=3.1+0.35*Math.sin(blinkAt*0.53);
+        blink=age<0.115?ease(age/0.115):age<0.21?1:age<0.40?
+          1-ease((age-0.21)/0.19):0;
+        if(age>=0.40) blinkAt+=3.1+0.35*Math.sin(blinkAt*0.53);
       }
       values.EyeBlinkLeft=values.EyeBlinkRight=blink;
       // Iris look targets are independent of the eyebrow expression.
-      const gazeX=(0.5+0.5*Math.sin(seconds*0.57))*0.20*Math.sin(seconds*0.32);
-      const gazeY=0.11*Math.sin(seconds*0.38+0.9);
+      const gazeX=(0.5+0.5*Math.sin(seconds*0.57))*0.44*Math.sin(seconds*0.32);
+      const gazeY=0.29*Math.sin(seconds*0.38+0.9);
       set('EyeLookLeft',Math.max(0,-gazeX),2.8);
       set('EyeLookRight',Math.max(0,gazeX),2.8);
       set('EyeLookUp',Math.max(0,gazeY),2.7);
@@ -130,9 +227,10 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       // Studio's native eyebrow shapes are restrained: a very small weight
       // was imperceptible on phones. Make expressions visible, still smooth.
       // Brows and eyes stay anatomically independent of mouth and head.
-      const expression=speaking?0.18+0.31*ease(syllable):0.11;
-      set('BrowRaiseLeft',expression,4.2);
-      set('BrowRaiseRight',expression*0.96,4.2);
+      const expression=speaking?0.11+0.095*ease(syllable):
+        0.045+0.027*(0.5+0.5*Math.sin(seconds*0.83));
+      set('BrowRaiseLeft',expression,3.3);
+      set('BrowRaiseRight',expression*0.96,3.3);
       set('BrowFrown',0,3);
       for(const mesh of binding){
         for(const [name,index] of Object.entries(mesh.channels)){
