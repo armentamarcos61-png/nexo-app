@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AssistantStage } from '@/components/assistant-stage';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import {
@@ -11,6 +11,18 @@ import {
 import { speakAsAssistant, stopAssistantSpeech } from '@/lib/assistant-speech';
 import { useAssistant } from '@/state/assistant';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
+
+type BrowserSpeechRecognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+};
 
 const quickQuestions = [
   '¿Cómo funciona Nexo?',
@@ -96,10 +108,21 @@ export default function AsistenteScreen() {
   );
   const [speaking, setSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState('');
+  const recognizerRef = useRef<BrowserSpeechRecognition | null>(null);
 
   useEffect(() => {
     return () => {
       void stopAssistantSpeech();
+      const recognizer = recognizerRef.current;
+      if (recognizer) {
+        recognizer.onend = null;
+        recognizer.onresult = null;
+        recognizer.onerror = null;
+        recognizer.stop();
+      }
+      recognizerRef.current = null;
     };
   }, []);
 
@@ -137,6 +160,60 @@ export default function AsistenteScreen() {
     } else {
       void stopAssistantSpeech();
       setSpeaking(false);
+    }
+  }
+
+  function toggleDictation() {
+    if (recognizerRef.current) {
+      recognizerRef.current.stop();
+      return;
+    }
+    setMicError('');
+    if (Platform.OS !== 'web') {
+      setMicError('El dictado aún no está disponible en la app instalada. Puedes escribir tu pregunta.');
+      return;
+    }
+    // Chrome on Android exposes webkitSpeechRecognition; supported browsers
+    // request microphone permission themselves. Never record or upload audio here.
+    const browser = globalThis as typeof globalThis & {
+      SpeechRecognition?: new () => BrowserSpeechRecognition;
+      webkitSpeechRecognition?: new () => BrowserSpeechRecognition;
+    };
+    const Recognition = browser.SpeechRecognition ?? browser.webkitSpeechRecognition;
+    if (!Recognition) {
+      setMicError('Este navegador no admite dictado. Prueba Chrome actualizado o escribe tu pregunta.');
+      return;
+    }
+    void stopAssistantSpeech();
+    setSpeaking(false);
+    const recognition = new Recognition();
+    recognition.lang = 'es-MX';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event.results[event.resultIndex]?.[0]?.transcript?.trim();
+      if (transcript) respond(transcript);
+    };
+    recognition.onerror = (event) => {
+      setMicError(event.error === 'not-allowed' || event.error === 'service-not-allowed'
+        ? 'Necesitas permitir el micrófono en el navegador para hablar con Nexa.'
+        : event.error === 'no-speech'
+          ? 'No escuché ninguna pregunta. Vuelve a tocar el micrófono.'
+          : 'No se pudo reconocer tu voz. Inténtalo de nuevo o escribe tu pregunta.');
+    };
+    recognition.onend = () => {
+      if (recognizerRef.current === recognition) recognizerRef.current = null;
+      setListening(false);
+    };
+    recognizerRef.current = recognition;
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      recognizerRef.current = null;
+      setListening(false);
+      setMicError('El micrófono no pudo iniciarse. Verifica los permisos del navegador.');
     }
   }
 
@@ -213,6 +290,24 @@ export default function AsistenteScreen() {
         ))}
       </View>
 
+      {Platform.OS === 'web' && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={listening ? 'Detener dictado' : 'Preguntarle por voz a Nexa'}
+          onPress={toggleDictation}
+          style={({ pressed }) => [
+            styles.micAction,
+            { borderColor: listening ? '#79E9FF' : palette.cardBorder },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={styles.micIcon}>{listening ? '⏹' : '🎙️'}</Text>
+          <Text style={[styles.micLabel, { color: palette.title }]}>
+            {listening ? 'Escuchando… toca para detener' : 'Hablar con Nexa'}
+          </Text>
+        </Pressable>
+      )}
+      {!!micError && <Text style={[styles.micError, { color: palette.text }]}>{micError}</Text>}
       <Field
         label="Tu pregunta sobre Nexo"
         value={question}
@@ -226,7 +321,7 @@ export default function AsistenteScreen() {
       <View style={[styles.privacy, { borderColor: palette.cardBorder }]}>
         <Text style={styles.privacyIcon}>◉</Text>
         <Text style={[styles.privacyText, { color: palette.muted }]}>
-          Para mejorar Nexo sólo se registra la categoría anónima de la pregunta, la sección y si pude resolverla. No se envía ni se guarda el texto completo que escribiste.
+          Para mejorar Nexo sólo registramos la categoría anónima de la pregunta y si pude resolverla; no almacenamos el texto completo. Si usas el micrófono, el reconocimiento de voz depende del navegador y puede utilizar los servicios de su proveedor.
         </Text>
       </View>
 
@@ -240,6 +335,20 @@ export default function AsistenteScreen() {
 }
 
 const styles = StyleSheet.create({
+  micAction: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderRadius: 15,
+    backgroundColor: 'rgba(21,39,67,0.67)',
+    paddingHorizontal: 14,
+  },
+  micIcon: { fontSize: 19 },
+  micLabel: { fontSize: 13, fontWeight: '800' },
+  micError: { fontSize: 12, lineHeight: 18 },
   message: {
     borderWidth: 1,
     borderRadius: 20,
