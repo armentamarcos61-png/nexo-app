@@ -26,6 +26,12 @@ for(const key of [
 }
 assert(!html.includes('eval(')&&!html.includes('new Function('),
  'Admin panel must not evaluate code or arbitrary user instructions');
+assert(html.includes('id="signin"') && html.includes('grant_type=password'),
+  'Admin must support password login while the OTP template is not configured');
+assert(html.includes('if(draft&&dashboard)drawSettings()'),
+  'Sending a magic link before authentication must not render private settings');
+assert(html.includes('input={token_hash:hash,type}'),
+  'Pasted Supabase magic-link token must be verified as a hash');
 assert(!html.includes('localStorage.setItem(STORAGE'),
  'Owner session must never be stored persistently in localStorage');
 
