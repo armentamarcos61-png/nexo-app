@@ -113,6 +113,7 @@ export default function AsistenteScreen() {
   const [spokenText, setSpokenText] = useState('');
   const [sources, setSources] = useState<NexaSource[]>([]);
   const [pending, setPending] = useState(false);
+  const [lastQuery, setLastQuery] = useState('');
   const [historyCount, setHistoryCount] = useState(() => readNexaHistory(user?.id).length);
   const requestId = useRef(0);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
@@ -143,6 +144,7 @@ export default function AsistenteScreen() {
       return;
     }
     const current = ++requestId.current;
+    setLastQuery(questionText);
     setPending(true);
     setSources([]);
     setQuestion('');
@@ -374,7 +376,7 @@ export default function AsistenteScreen() {
         onSubmitEditing={() => respond(question)}
       />
       <Action label={pending ? 'Buscando fuentes…' : 'Preguntar'} onPress={() => { void respond(question); }} disabled={!question.trim() || pending} />
-      <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(generalSearchUrl(question || 'Nexo')); }}>
+      <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(generalSearchUrl(question || lastQuery || 'Nexo')); }}>
         <Text style={{ color: '#9EDFFF', fontWeight: '700', textAlign: 'center' }}>Abrir búsqueda general en Internet ↗</Text>
       </Pressable>
 
