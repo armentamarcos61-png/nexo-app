@@ -1102,7 +1102,7 @@ export function removeNexaLegacyHeadFragments(
     // precisely where it should have met Studio's cap, leaving a square stump.
     // Only retain triangles well behind the original face and below its neck.
     const preserveRearHair=rearHair?new Uint8Array(position.count):null;
-    if(preserveRearHair && mesh.localToWorld){
+    if(preserveRearHair && rearHair && mesh.localToWorld){
       const p=new rearHair.THREE.Vector3();
       for(let i=0;i<position.count;i++){
         if(skinHead[i]<0.20)continue;
