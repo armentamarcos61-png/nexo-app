@@ -244,10 +244,12 @@ console.log('PASS: approved head and complete original GLB suit/arms are joined 
  * Build its geometry with minimal Three mocks, validate scale, placement,
  * open lapels, idempotency and disposal without editing source GLB assets.
  */
-assert(stage.includes('addNexaCollar(THREE,avatarRoot,modelRoot,composite.seamY)'),
+assert(stage.includes('addNexaCollar(THREE,avatarRoot,modelRoot,composite.seamY,composite.body)'),
   'live viewer must attach the collar after composing the unified body');
-assert(stage.includes('disposeNexaCollar(avatarRoot)'),
-  'live viewer must release collar geometry on unmount');
+assert(stage.includes('disposeNexaCollar(avatarRoot)') &&
+       stage.includes('disposeNexaBackHair(avatarRoot)') &&
+       stage.includes('joinNexaBackHair(THREE,avatarRoot,modelRoot,composite.body,composite.seamY)'),
+  'live viewer must connect hair to helmet/head and dispose both new surfaces');
 const ts = require('typescript');
 const vm = require('node:vm');
 const sandbox={exports:{},console};
@@ -321,7 +323,9 @@ class M {
 const MockThree={
   Group:G,Mesh:M,Vector3:V3,DoubleSide:2,
   MeshStandardMaterial:Mat,CylinderGeometry:Geo,TubeGeometry:Geo,
-  CatmullRomCurve3:Geo,
+  CatmullRomCurve3:Geo,LatheGeometry:Geo,
+  Vector2:class {constructor(x,y){this.x=x;this.y=y;}},
+  MathUtils:{clamp:(n,lo,hi)=>Math.min(hi,Math.max(lo,n))},
 };
 const headPositions=[[-.07,.30,.15],[.07,.30,.15]];
 const morph=(chosen)=>({
@@ -341,18 +345,21 @@ const root=new G();
 const neckSeam=.09;
 const collar=collarFactory(MockThree,root,studioMock,neckSeam);
 assert.equal(root.children.length,1,'exactly one collar group must be visible');
-assert.equal(collar.children.length,1,'only one recessed dark neck insert is permitted');
-assert(Math.abs(collar.position.y-(neckSeam-.14*.015))<1e-8,
+assert.equal(collar.children.length,3,'soft dark neckline and two shirt seams blend into shoulders');
+assert(Math.abs(collar.position.y-(neckSeam-.14*.11))<1e-8,
   'collar must bridge the world-space seam at neck height');
-assert(Math.abs(collar.position.z-(.15-.14*.68))<1e-8,
+assert(Math.abs(collar.position.z-(.15-.14*.67))<1e-8,
   'collar must sit at the neck, behind the eyes');
 assert(Math.abs(collar.scale.z-.87)<1e-8,
   'collar must have an anatomical oval cross-section');
-assert(collar.children[0].geometry.args[2]<=.14*.13,
-  'neckline inset must be ultra-short and stay below the chin');
-assert(collar.userData.nexaCollarResources.charcoal &&
-       !collar.userData.nexaCollarResources.pearl,
-  'old floating white armor lapels cannot reappear');
+assert.equal(collar.children[0].geometry.args[0].length,5,
+  'neckline must have five soft taper points to enter the shirt, not one floating ring');
+assert(collar.children[0].geometry.args[0][4].x >
+       collar.children[0].geometry.args[0][0].x,
+  'shirt neck must widen into the original shoulders');
+assert(collar.children[1].geometry.args[2] < .14*.01 &&
+       collar.children[2].geometry.args[2] < .14*.01,
+  'shirt contours must be fine soft piping, not white armor plates');
 assert.equal(collarFactory(MockThree,root,studioMock,neckSeam),collar,
   're-loading must not create a second collar');
 const geometries=collar.children.map(x=>x.geometry);
@@ -362,7 +369,7 @@ assert.equal(root.children.length,0,'collar cleanup should detach it');
 assert(!root.userData.nexaUniformCollar,'collar cleanup should clear cached handle');
 assert(geometries.every(g=>g.disposed),'collar geometries must all be disposed');
 assert(materials.every(m=>m.disposed),'collar materials must all be disposed');
-console.log('PASS: one low-profile recessed neckline replaces the detached white neck ring');
+console.log('PASS: fitted neckline widens into the original shoulders, with only soft stitched seams');
 
 /** Regression: discard outdated hair/neck surfaces but KEEP every torso,
  * shoulder and arm triangle from the original complete-body GLB.
@@ -401,6 +408,46 @@ assert.deepEqual(Array.from(oldGeometry.lastIndices),[3,4,5],
   'the unweighted shoulder and suit triangles must be retained unchanged');
 assert.equal(removeOldHair(obsoleteBody),0,'hair repair must be idempotent');
 console.log('PASS: old scalp/neck debris removed with original clothing and arms preserved');
+
+assert.equal(typeof sandbox.exports.joinNexaBackHair,'function',
+  'head-bound ponytail connector must exist as live geometry');
+assert.equal(typeof sandbox.exports.disposeNexaBackHair,'function',
+  'hair connector must clean up without changing GLB source');
+const realThree=require('three');
+const headGroup=new realThree.Group();
+const liveHead=new realThree.Bone();
+liveHead.name='mixamorig:Head';
+headGroup.add(liveHead);
+const eyeGeom=new realThree.BufferGeometry();
+eyeGeom.setAttribute('position',new realThree.Float32BufferAttribute([
+  -.08,.3,.15,.08,.3,.15
+],3));
+const blinkLeft=new realThree.Float32BufferAttribute([1,0,0,0,0,0],3);
+const blinkRight=new realThree.Float32BufferAttribute([0,0,0,1,0,0],3);
+eyeGeom.morphAttributes.position=[blinkLeft,blinkRight];
+const eyeMesh=new realThree.Mesh(eyeGeom,new realThree.MeshStandardMaterial());
+eyeMesh.morphTargetDictionary={EyeBlinkLeft:0,EyeBlinkRight:1};
+eyeMesh.morphTargetInfluences=[0,0];
+headGroup.add(eyeMesh);
+const mockBody=new realThree.Group();
+const hairRoot=new realThree.Group();
+hairRoot.add(headGroup,mockBody);
+const connected=sandbox.exports.joinNexaBackHair(
+  realThree,hairRoot,headGroup,mockBody,.07);
+assert(connected && connected.parent===liveHead,
+  'new long hair must attach to moving Head bone, not the torso or world');
+assert(connected.geometry.getAttribute('position').count>350,
+  'actual 3D back-hair surface must be smooth, not one static texture');
+assert(connected.userData.nexaHairAnchors.topY>
+       connected.userData.nexaHairAnchors.bottomY,
+  'new hair spans seamlessly from underneath helmet down into ponytail');
+assert.equal(sandbox.exports.joinNexaBackHair(
+  realThree,hairRoot,headGroup,mockBody,.07),connected,
+  'reloading must not spawn a second ponytail shell');
+sandbox.exports.disposeNexaBackHair(hairRoot);
+assert(!hairRoot.userData.nexaJoinedBackHair &&
+       !connected.parent,'3D hair shell must clean up cleanly');
+console.log('PASS: curved 3D hair joins helmet to existing ponytail on moving Head bone');
 
 assert(stage.includes('visibleHeight*1.25/screenHeight') &&
        stage.includes('minTargetY,maxTargetY') &&
