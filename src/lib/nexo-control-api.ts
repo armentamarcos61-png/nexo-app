@@ -5,7 +5,8 @@ const STORAGE='nexo.control.admin.session.v1';
 const isWeb=()=>Platform.OS==='web'&&typeof window!=='undefined';
 export type Accent='cyan'|'violet'|'orange'|'teal';
 export type ActionId='employment'|'services'|'products'|'offer';
-export type RuntimeSettings={accent:Accent;action_order:ActionId[];updated_at?:string};
+export type NexoShortcut={id:string;title:string;route:string};
+export type RuntimeSettings={accent:Accent;action_order:ActionId[];shortcuts?:NexoShortcut[];updated_at?:string};
 export type ControlIdea={id:number;title:string;description:string;category:'feature'|'bug'|'design'|'automation';status:'pending'|'review'|'approved'|'implemented'|'rejected';created_at:string;updated_at:string};
 export type ControlMetrics={
  total:number;resolved:number;unresolved:number;searches:number;
@@ -113,7 +114,7 @@ export async function controlApplySettings(settings:RuntimeSettings){
   action_order:settings.action_order});
 }
 const orderIds:ActionId[]=['employment','services','products','offer'];
-export const defaultNexoSettings:RuntimeSettings={accent:'cyan',action_order:orderIds};
+export const defaultNexoSettings:RuntimeSettings={accent:'cyan',action_order:orderIds,shortcuts:[]};
 export async function loadNexoPublicSettings():Promise<RuntimeSettings>{
  const response=await fetch(BASE+'/functions/v1/nexo-control?scope=public',{
   headers:{apikey:KEY},cache:'no-store',
@@ -123,7 +124,15 @@ export async function loadNexoPublicSettings():Promise<RuntimeSettings>{
   !Array.isArray(json.action_order)||json.action_order.length!==4||
   !orderIds.every(x=>json.action_order.includes(x)))
   return defaultNexoSettings;
- return {accent:json.accent,action_order:json.action_order};
+ const allowed=['/explorar','/productos','/portafolios','/asistente','/perfil','/publicar/servicio','/publicar/producto'];
+ const shortcuts=Array.isArray(json.shortcuts)?json.shortcuts
+  .filter((x:unknown):x is NexoShortcut=>{
+    if(!x||typeof x!=='object')return false;
+    const item=x as Record<string,unknown>;
+    return typeof item.id==='string'&&typeof item.title==='string'&&
+      item.title.length<=60&&typeof item.route==='string'&&allowed.includes(item.route);
+  }).slice(0,6):[];
+ return {accent:json.accent,action_order:json.action_order,shortcuts};
 }
 export type SearchSource='marketplace'|'products'|'employment'|'services'|'nexa_external';
 export type SearchCategory='employment'|'services'|'products'|'general'|'nexa';
