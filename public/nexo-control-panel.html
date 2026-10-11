@@ -77,6 +77,13 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <button class="btn primary" id="verify">Verificar enlace y abrir panel</button>
 </div>
 <p class="note">Actualmente Supabase está enviando un enlace, no un código de seis dígitos. Si al tocarlo aparece localhost:3000, no abras esa dirección: copia el enlace original del correo y pégalo arriba. Nunca compartas tu contraseña ni el enlace.</p>
+<details style="margin-top:12px;color:#BCD7F0;font-size:12px;line-height:1.6">
+ <summary style="cursor:pointer;font-weight:800">¿Cómo activar el código de seis dígitos?</summary>
+ <p>La configuración del correo se realiza en Supabase, no desde el navegador de Nexo.</p>
+ <p>1. En <a href="https://supabase.com/dashboard/project/wfwyftxbanwvixplzhcd/auth/url-configuration" target="_blank" rel="noopener noreferrer">URL Configuration</a>, cambia el Site URL y agrega la ruta del panel como Redirect URL: <code>https://armentamarcos61-png.github.io/nexo-app/nexo-control-panel.html</code>.</p>
+ <p>2. En <a href="https://supabase.com/dashboard/project/wfwyftxbanwvixplzhcd/auth/templates" target="_blank" rel="noopener noreferrer">Email Templates → Magic Link</a>, cambia el mensaje para mostrar <code>{{ .Token }}</code>. Supabase enviará un código en lugar de un enlace.</p>
+ <p>Si Supabase solicita SMTP personalizado para modificar el correo, primero hay que verificar un dominio de envío. Mientras tanto, entra con tu contraseña.</p>
+</details>
 </section>
 <section id="dashboard" class="hidden">
 <div class="panel flex"><span id="sessionline"></span><button class="btn" id="logout">Cerrar sesión</button></div>
