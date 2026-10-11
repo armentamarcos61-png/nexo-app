@@ -61,6 +61,39 @@ assert.equal(parseCommand('Construye un sistema nuevo de pagos').type,'idea',
 console.log('PASS: voice commands apply approved layout operations and queue unsupported code changes safely');
 
 
+
+assert(html.includes('id="have-link"')&&html.includes("show('verify-zone',true)"),
+ 'A verified localhost link should be recoverable without sending another email');
+const restoreBegin=standaloneScript.indexOf('async function recoverVerifiedCallback(raw,claimedEmail){');
+const restoreEnd=standaloneScript.indexOf('async function load(){',restoreBegin);
+assert(restoreBegin>=0&&restoreEnd>restoreBegin,'Callback recovery helper must be available');
+let savedCallbackSession=null;
+let callbackCalls=0;
+const recoverCallback=vm.runInNewContext('('+standaloneScript.slice(restoreBegin,restoreEnd).trim()+')',{
+ URL,URLSearchParams,
+ BASE:'https://example.supabase.co',
+ headers:()=>({'apikey':'test'}),
+ parse:async response=>response,
+ fetch:async(url,options)=>{
+  callbackCalls++;
+  assert.equal(url,'https://example.supabase.co/auth/v1/user');
+  assert.equal(options.headers.Authorization,'Bearer example-token');
+  return {email:'owner@example.test'};
+ },
+ saveSession:session=>{savedCallbackSession=session;},
+});
+(async()=>{
+ const original='http://localhost:3000/#access_token=example-token&refresh_token=example-refresh&expires_in=3600&type=recovery';
+ const recovered=await recoverCallback(original,'owner@example.test');
+ assert.equal(recovered.type,'recovery');
+ assert.equal(savedCallbackSession.refresh_token,'example-refresh');
+ assert.equal(callbackCalls,1);
+ await assert.rejects(recoverCallback(original,'other@example.test'),/pertenece a otro correo/);
+ await assert.rejects(recoverCallback('http://localhost:3000/','owner@example.test'),/#access_token/);
+ await assert.rejects(recoverCallback('https://attacker.example/#access_token=example-token&refresh_token=example-refresh&expires_in=3600','owner@example.test'),/no corresponde/);
+ console.log('PASS: recover a previously verified localhost callback, email-bound, no extra OTP');
+})().catch(e=>{console.error(e);process.exitCode=1;});
+
 assert(html.includes('id="link-nexo"'), 'Admin login must offer to link the existing Nexo local password');
 assert(html.includes("data.user?.email?.trim().toLowerCase()!==email.toLowerCase()"),
  'The recovered Supabase identity must match the claimed local account email');
