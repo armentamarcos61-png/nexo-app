@@ -80,31 +80,39 @@ export function calibrateNexaFacialMorphs(root:any):number {
       tuned++;
     };
 
-    // Eyelids are repaired exclusively in a small ellipse around each eye;
-    // do not pull eyebrows, cheeks, temples or the bridge of the nose.
+    // Each imported eyelid has a different native morph and one moved
+    // only a tiny number of lower-lid vertices. Rebuild BOTH from the same
+    // measurable upper-lid geometry, with separate anatomical centers.
+    // 85% of a natural blink comes from the upper lid; lower lid barely moves.
     for(const name of ['EyeBlinkLeft','EyeBlinkRight']){
       const eye=findCenter(name);
       if(!eye)continue;
-      const px=eyeWidth*0.325,py=eyeWidth*0.145;
-      for(let i=0;i<eye.attr.count;i++){
+      const radiusX=eyeWidth*0.305;
+      const radiusY=eyeWidth*0.120;
+      const original=eye.attr;
+      for(let i=0;i<original.count;i++){
         const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
-        const ex=(x-eye.x)/px,ey=(y-eye.y)/py;
-        if(Math.abs(ex)>=1||Math.abs(ey)>=1||z<eye.z-eyeWidth*.115)continue;
-        // The upper eyelid closes DOWN to the eye line. Lower eyelid rises
-        // slightly. Wide horizontal feathering preserves the real contour.
-        const horizontal=Math.pow(1-ex*ex,1.15);
-        const vertical=Math.pow(1-ey*ey,0.40);
-        const front=clamp((z-(eye.z-eyeWidth*.115))/(eyeWidth*.105),0,1);
-        const lidDistance=y-eye.y;
-        const closure=lidDistance>0
-          ? -Math.min(lidDistance,eyeWidth*.115)*horizontal*vertical*front*1.15
-          : Math.min(-lidDistance,eyeWidth*.08)*horizontal*vertical*front*.53;
-        const original=eye.attr.getY(i);
-        const bounded=clamp(original*1.18+closure,
-          -eyeWidth*.135,eyeWidth*.105);
-        eye.attr.setXYZ(i,eye.attr.getX(i),bounded,eye.attr.getZ(i));
+        const dx=(x-eye.x)/radiusX;
+        const dy=(y-eye.y)/radiusY;
+        if(Math.abs(dx)>=1||Math.abs(dy)>=1)continue;
+        const front=clamp((z-(eye.z-eyeWidth*.062))/
+          (eyeWidth*.090),0,1);
+        if(front<.15)continue;
+        // Feather horizontally, but do not move cheeks, eyebrows or iris
+        // outside the tiny eyelid envelope.
+        const feather=Math.pow(Math.max(0,1-dx*dx),1.25)*front;
+        const upper=Math.max(0,y-eye.y);
+        const lower=Math.max(0,eye.y-y);
+        const upperDelta=-Math.min(upper,eyeWidth*.101)*feather*.82;
+        const lowerDelta=Math.min(lower,eyeWidth*.045)*feather*.14;
+        const isUpper=upper>eyeWidth*.004;
+        const isLower=lower>eyeWidth*.004 && lower<eyeWidth*.053;
+        if(!isUpper&&!isLower)continue;
+        const next=(isUpper?upperDelta:lowerDelta);
+        const bounded=clamp(next,-eyeWidth*.082,eyeWidth*.010);
+        original.setXYZ(i,original.getX(i),bounded,original.getZ(i));
       }
-      eye.attr.needsUpdate=true;
+      original.needsUpdate=true;
       tuned++;
     }
     // Mouth targets already isolate lip vertices. Scale those morphs, not the
@@ -273,7 +281,11 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
         round=selected.shape*articulation;
         wide=selected.wide*articulation;
       }
-      set('MouthOpen',speaking?clamp(vowel*1.23,0,0.95):0,speaking?19:12);
+      // Keep speech readable in phone portraits: consonants articulate
+      // softly, vowels open visibly, and pauses close both lips.
+      const speakingOpen=speaking ? clamp(
+        vowel>0.015 ? Math.max(0.17,vowel*1.30) : 0,0,.92) : 0;
+      set('MouthOpen',speakingOpen,speaking?21:13);
       set('MouthO',speaking?round:0,14);
       set('MouthWide',speaking?wide:0,14);
       set('MouthSmile',speaking?0.055:0.085,3);
@@ -282,9 +294,9 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
         // Hide inside the resting lips; expand in step with open vowels.
         mouthInterior.visible=speaking&&opening>.12;
         mouthInterior.scale.set(
-          .020+values.MouthWide*.003,
-          .0005+opening*.0105,
-          .0018
+          .018+values.MouthWide*.003,
+          .0003+opening*.009,
+          .0011
         );
         mouthInterior.position.y=mouthOpenPosition.y-opening*.0040;
         mouthInteriorMat.opacity=clamp((opening-.10)*2.1,0,.83);
