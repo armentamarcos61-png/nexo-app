@@ -21,7 +21,7 @@ export default function ElegirAsistenteScreen() {
   useEffect(() => () => { void stopAssistantSpeech(); }, []);
 
   function previewVoice() {
-    setSpeaking(true);
+    setSpeaking(false); // Wait for the real playback callback, not the speech queue.
     void speakAsAssistant(nexa.greeting, nexa.id, {
       onStart: () => setSpeaking(true),
       onDone: () => setSpeaking(false),
