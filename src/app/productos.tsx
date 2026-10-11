@@ -6,6 +6,7 @@ import { NexoScreen } from '@/components/nexo-screen';
 import { StoredVideo } from '@/components/stored-video';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useMarketplace } from '@/state/marketplace';
+import { countNexoSearch } from '@/lib/nexo-control-api';
 
 export default function ProductosScreen() {
   const { products } = useMarketplace();
@@ -54,6 +55,8 @@ export default function ProductosScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
+          returnKeyType="search"
+          onSubmitEditing={() => {if(query.trim())void countNexoSearch('products','products');}}
           placeholder="Buscar producto, categoría o zona..."
           placeholderTextColor={palette.placeholder}
           style={[styles.searchInput, { color: palette.inputText }]}
