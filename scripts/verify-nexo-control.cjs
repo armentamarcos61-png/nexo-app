@@ -1,6 +1,10 @@
 const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
+const {execFileSync}=require('node:child_process');
+execFileSync(process.execPath,['--check','scripts/nexo-coding-agent.mjs'],{stdio:'pipe'});
+assert(fs.existsSync('.github/workflows/nexo-coding-agent.yml'),
+  'Only a GitHub workflow can run the coding agent with limited permissions');
 
 const html=fs.readFileSync('public/nexo-control-panel.html','utf8');
 assert(html.includes('<html lang="es">'),'Control must be a self-contained page');
