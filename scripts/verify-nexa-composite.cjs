@@ -631,3 +631,33 @@ for(let i=0;i<basePosition.count;i++){
     'blink must not move brow, forehead or skull');
 }
 console.log('PASS: original Studio eye and mouth vertices visibly calibrated, brows/skull preserved');
+
+// Runtime regressions using the imported Studio facial geometry: the eyes
+// must blink and the rose inner mouth should show only during active speech.
+const facialStage=new realThree.Group();
+const liveFace=new realThree.Mesh(facialGeometry,new realThree.MeshStandardMaterial());
+liveFace.isSkinnedMesh=true;
+liveFace.morphTargetDictionary=faceDict;
+liveFace.morphTargetInfluences=targetNames.map(()=>0);
+const facialHead=new realThree.Bone();
+facialHead.name='mixamorig:Head';
+facialStage.add(liveFace,facialHead);
+facialStage.updateMatrixWorld(true);
+const animatedFace=facialExports.installNexaFaceRig(realThree,facialStage);
+assert(animatedFace.available,'real Studio facial controls must bind at runtime');
+animatedFace.setSpeechText('Hola, bienvenida a Nexo. ¿En qué puedo ayudarte?');
+let roseSeen=false,blinkSeen=false,mouthSeen=false;
+for(let frame=0;frame<360;frame++){
+ animatedFace.beforeUpdate();
+ animatedFace.update(1/60,frame/60,frame<240);
+ const rose=facialHead.children.find(c=>c.name==='Nexa soft rose mouth interior');
+ if(rose?.visible&&rose.material.opacity>.3&&frame<240)roseSeen=true;
+ if(liveFace.morphTargetInfluences[faceDict.EyeBlinkLeft]>.96)blinkSeen=true;
+ if(liveFace.morphTargetInfluences[faceDict.MouthOpen]>.5)mouthSeen=true;
+ if(frame>=355&&rose)assert(!rose.visible,'inner pink color must disappear when silent');
+}
+assert(roseSeen,'the real rig must show soft pink mouth interior during open vowels');
+assert(blinkSeen,'the real rig must fully close its eyelid blendshape');
+assert(mouthSeen,'the real rig must visibly open lips while speaking');
+console.log('PASS: real Studio 3D mouth opens with rose interior and eyelids fully blink');
+
