@@ -1213,7 +1213,16 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
 
   // The FULL GLB owns all geometry below the neck, including both complete
   // arms. Its own chest N, shoulder surfaces and original texture are used.
-  const keepBody=new THREE.Plane(new THREE.Vector3(0,-1,0),seamY);
+  // Tilt the body's cutting plane ONLY toward the back of the neck.
+  // A horizontal cut creates the ruler-straight, floating ponytail edge
+  // visible in profile. The diagonal retains more of its existing ROOT
+  // under Studio's helmet, while the front still meets the shirt at seamY.
+  const hairCutSlope=0.30;
+  const rearReferenceZ=studioEyes.center.z-studioEyes.width*1.05;
+  const keepBody=new THREE.Plane(
+    new THREE.Vector3(0,-1,-hairCutSlope),
+    seamY+hairCutSlope*rearReferenceZ,
+  );
   body.traverse((object:any)=>{
     if (!object.isMesh) return;
     object.frustumCulled=false;
@@ -1514,8 +1523,8 @@ export function addNexaCollar(
     ? torsoSection(THREE,body,seamY-unit*0.22,unit*0.15)
     : null;
   const bottomRadius=profile
-    ? THREE.MathUtils.clamp(profile.rx*1.04,unit*0.76,unit*1.26)
-    : unit*0.92;
+    ? THREE.MathUtils.clamp(profile.rx*0.95,unit*0.72,unit*1.15)
+    : unit*0.86;
   const centerZ=profile?.z??(eye.center.z-unit*0.67);
   parent.updateMatrixWorld(true);
   const world=eye.center.clone();
@@ -1539,11 +1548,11 @@ export function addNexaCollar(
   // then tuck the lower edge into the original chest rather than leaving
   // a bright, hovering neck ring. The throat remains comfortably narrow.
   const points=[
-    new THREE.Vector2(unit*0.39,unit*0.30),
-    new THREE.Vector2(unit*0.45,unit*0.14),
-    new THREE.Vector2(unit*0.54,-unit*0.04),
-    new THREE.Vector2(bottomRadius*0.84,-unit*0.30),
-    new THREE.Vector2(bottomRadius*0.98,-unit*0.58),
+    new THREE.Vector2(unit*0.38,unit*0.24),
+    new THREE.Vector2(unit*0.43,unit*0.12),
+    new THREE.Vector2(unit*0.49,-unit*0.07),
+    new THREE.Vector2(bottomRadius*0.79,-unit*0.29),
+    new THREE.Vector2(bottomRadius*0.91,-unit*0.51),
   ];
   const piece=new THREE.Mesh(new THREE.LatheGeometry(points,48),charcoal);
   piece.name='Nexa smooth tapered shirt neckline';
@@ -1558,9 +1567,9 @@ export function addNexaCollar(
   // No rigid white collar plates, floating circles, or duplicated throat.
   for(const side of [-1,1]){
     const curve=new THREE.CatmullRomCurve3([
-      new THREE.Vector3(side*unit*0.37,unit*0.17,unit*0.12),
-      new THREE.Vector3(side*unit*0.50,-unit*0.05,unit*0.20),
-      new THREE.Vector3(side*bottomRadius*0.82,-unit*0.30,unit*0.30),
+      new THREE.Vector3(side*unit*0.36,unit*0.14,unit*0.10),
+      new THREE.Vector3(side*unit*0.47,-unit*0.07,unit*0.17),
+      new THREE.Vector3(side*bottomRadius*0.76,-unit*0.29,unit*0.26),
     ]);
     const stitch=new THREE.Mesh(
       new THREE.TubeGeometry(curve,18,unit*0.006,5,false),
