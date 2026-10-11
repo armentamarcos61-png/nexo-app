@@ -1373,6 +1373,47 @@ export function joinNexaBackHair(
     edge.frustumCulled=false;
     bridge.add(edge);
   }
+
+  // Compact cap-to-ponytail insert. The cap hides its upper edge behind the
+  // headset and the lower edge enters the original straight rear curtain.
+  // Only the two small side gaps are filled; the face and hair length stay as-is.
+  for (const side of [-1,1]) {
+    const rowCount=18, colCount=10;
+    const positions:number[]=[];
+    const triangles:number[]=[];
+    for(let row=0;row<=rowCount;row++){
+      const t=row/rowCount;
+      const soft=t*t*(3-2*t);
+      for(let col=0;col<=colCount;col++){
+        const across=col/colCount;
+        const width=0.66+0.22*across-0.14*soft;
+        const world=new THREE.Vector3(
+          eye.center.x+side*unit*width,
+          eye.center.y-unit*(0.22+1.18*t-0.12*across*(1-t)),
+          eye.center.z-unit*(1.05+0.43*soft+0.20*across
+            +0.13*Math.sin(Math.PI*t)),
+        );
+        head.worldToLocal(world);
+        positions.push(world.x,world.y,world.z);
+        if(row<rowCount && col<colCount){
+          const a=row*(colCount+1)+col,b=a+colCount+1;
+          triangles.push(a,b,a+1,b,b+1,a+1);
+        }
+      }
+    }
+    const insertGeometry=new THREE.BufferGeometry();
+    insertGeometry.setAttribute('position',
+      new THREE.Float32BufferAttribute(positions,3));
+    insertGeometry.setIndex(triangles);
+    insertGeometry.computeVertexNormals();
+    insertGeometry.computeBoundingSphere();
+    const insert=new THREE.Mesh(insertGeometry,material);
+    insert.name=side<0
+      ? 'Nexa left small diagonal hair connection'
+      : 'Nexa right small diagonal hair connection';
+    insert.frustumCulled=false;
+    bridge.add(insert);
+  }
   head.add(bridge);
   avatarRoot.userData.nexaJoinedBackHair=bridge;
   bridge.userData.nexaHairAnchors={topY,bottomY,helmetZ,tailZ};
@@ -1446,6 +1487,39 @@ export function addNexaCollar(
   piece.name='Nexa smooth tapered shirt neckline';
   piece.frustumCulled=false;
   group.add(piece);
+
+  // Narrow nape gussets hide the two triangular voids between the fitted
+  // collar and the shoulders. A curved dark surface follows the suit seam
+  // instead of adding a second rigid collar or covering the approved face.
+  for (const side of [-1,1]) {
+    const positions:number[]=[];
+    const triangles:number[]=[];
+    const rows=8,cols=5;
+    for (let row=0;row<=rows;row++) {
+      const t=row/rows;
+      for(let col=0;col<=cols;col++) {
+        const across=col/cols;
+        positions.push(
+          side*unit*(0.35+0.23*t+0.14*across),
+          unit*(0.13-0.67*t+0.05*across*(1-t)),
+          -unit*(0.24+0.37*across+0.17*t),
+        );
+        if(row<rows && col<cols){
+          const a=row*(cols+1)+col,b=a+cols+1;
+          triangles.push(a,b,a+1,b,b+1,a+1);
+        }
+      }
+    }
+    const patch=new THREE.BufferGeometry();
+    patch.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    patch.setIndex(triangles);
+    patch.computeVertexNormals();
+    patch.computeBoundingSphere();
+    const gusset=new THREE.Mesh(patch,charcoal);
+    gusset.name=side<0?'Nexa left nape triangle cover':'Nexa right nape triangle cover';
+    gusset.frustumCulled=false;
+    group.add(gusset);
+  }
 
   // Two FINE stitched side hems, conforming to the shoulder taper.
   // No rigid white collar plates, floating circles, or duplicated throat.
