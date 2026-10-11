@@ -1005,6 +1005,54 @@ export function maskNexaStudioHead(THREE: any, studio: any, renderer: any): numb
   return seamY;
 }
 
+/**
+ * Lower ONLY the approved Studio head by a small eye-width-relative amount.
+ * The complete body's pose remains unchanged. Move the clipping plane by
+ * exactly the same offset or the chin/collar would split during rotation.
+ *
+ * This is applied once, only after the full-body mesh has been aligned
+ * against the original eyelid landmarks (otherwise both assets would move
+ * together and the visible neck gap would never shrink).
+ */
+export function lowerNexaStudioHead(THREE:any,studio:any,eyeWidth:number):number {
+  if (Number.isFinite(studio.userData?.nexaHeadDropApplied)) {
+    return studio.userData.nexaHeadOnlySeamY;
+  }
+  const oldSeam=studio.userData?.nexaHeadOnlySeamY;
+  if (!Number.isFinite(oldSeam) || !Number.isFinite(eyeWidth) || eyeWidth<=0) {
+    throw new Error('La cabeza y el cuello necesitan referencias 3D válidas');
+  }
+  // Around one third of the distance between the eyes: a SMALL anatomical
+  // correction, not a new remodel or a change to Nexa's face dimensions.
+  const drop=THREE.MathUtils.clamp(eyeWidth*0.35,0.015,0.065);
+  const loweredSeam=oldSeam-drop;
+  let corrected=0;
+  studio.traverse((object:any)=>{
+    if (!object.isMesh) return;
+    const materials=Array.isArray(object.material)?object.material:[object.material];
+    for (const material of materials) {
+      for (const plane of material?.clippingPlanes??[]) {
+        if (Math.abs(plane.normal?.x??1)<0.001 &&
+            Math.abs(plane.normal?.y-1)<0.001 &&
+            Math.abs(plane.normal?.z??1)<0.001) {
+          plane.constant=-loweredSeam;
+          corrected++;
+        }
+      }
+    }
+  });
+  if (!corrected) {
+    throw new Error('No se encontró el plano real del cuello de Nexa');
+  }
+  // Studio is a child of the unrotated avatar group. Updating its local
+  // position preserves the approved head/face rig and mouth blendshapes.
+  studio.position.y-=drop;
+  studio.updateMatrixWorld(true);
+  studio.userData.nexaHeadOnlySeamY=loweredSeam;
+  studio.userData.nexaHeadDropApplied=drop;
+  return loweredSeam;
+}
+
 export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:any):Result {
   const studioEyes=landmarks(THREE,studio);
   const bodyEyes=landmarks(THREE,body);
@@ -1015,10 +1063,14 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
   if (!Number.isFinite(ratio) || ratio<0.3 || ratio>8) {
     throw new Error('Escala facial incompatible entre los dos GLB');
   }
-  const seamY=maskNexaStudioHead(THREE,studio,renderer);
+  maskNexaStudioHead(THREE,studio,renderer);
   body.scale.setScalar(ratio);
+  // First align the FULL original body with the unshifted face landmarks.
   body.position.copy(studioEyes.center).sub(bodyEyes.center.clone().multiplyScalar(ratio));
   body.updateMatrixWorld(true);
+  // THEN lower Studio's head alone, while moving its clip plane to the new
+  // neck height. The procedural uniform collar uses this exact same seam.
+  const seamY=lowerNexaStudioHead(THREE,studio,studioEyes.width);
 
   const lower=new THREE.Box3().setFromObject(body);
   const upper=new THREE.Box3().setFromObject(studio);
