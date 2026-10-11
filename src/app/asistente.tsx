@@ -127,7 +127,7 @@ export default function AsistenteScreen() {
     setQuestion('');
 
     if (voiceEnabled) {
-      setSpeaking(true);
+      setSpeaking(false); // Wait for the actual audio onStart event.
       void speakAsAssistant(next, assistant.id, {
         onStart: () => setSpeaking(true),
         onDone: () => setSpeaking(false),
@@ -135,6 +135,7 @@ export default function AsistenteScreen() {
         onError: () => setSpeaking(false),
       });
     } else {
+      void stopAssistantSpeech();
       setSpeaking(false);
     }
   }
