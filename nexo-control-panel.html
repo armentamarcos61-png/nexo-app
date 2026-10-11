@@ -70,9 +70,10 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <div class="row" style="margin-top:12px">
  <button class="btn primary" id="signin">Entrar con mi contraseña</button>
  <button class="btn" id="send">Enviar enlace a mi correo</button>
+ <button class="btn" id="recover">No recuerdo mi contraseña</button>
 </div>
 <div id="verify-zone" class="hidden">
-<label for="code">Pega el enlace de acceso que recibiste</label>
+<label for="code">Pega el enlace de acceso o de recuperación que recibiste</label>
 <textarea id="code" rows="3" placeholder="Pega aquí el enlace completo del mensaje de Supabase; también sirve un código si llega uno"></textarea>
 <button class="btn primary" id="verify">Verificar enlace y abrir panel</button>
 </div>
@@ -87,6 +88,13 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 </section>
 <section id="dashboard" class="hidden">
 <div class="panel flex"><span id="sessionline"></span><button class="btn" id="logout">Cerrar sesión</button></div>
+<details id="change-password-box" class="panel">
+ <summary style="cursor:pointer;font-weight:800;color:#eaf7ff">Cambiar mi contraseña de Nexo</summary>
+ <p>Si entraste mediante un enlace de recuperación, establece una contraseña nueva de al menos 10 caracteres para tus próximos accesos.</p>
+ <label for="newpassword">Nueva contraseña</label>
+ <input type="password" id="newpassword" autocomplete="new-password" minlength="10" placeholder="Nueva contraseña segura">
+ <button class="btn primary" id="update-password" style="margin-top:12px">Guardar nueva contraseña</button>
+</details>
 <div class="tabs" role="tablist">
 <button class="tab" aria-selected="true" data-tab="summary">Resumen</button>
 <button class="tab" aria-selected="false" data-tab="commands">Órdenes</button>
@@ -353,13 +361,31 @@ $('send').addEventListener('click',()=>run(async()=>{
  show('verify-zone',true);
  message('Solicitud aceptada por Supabase. Revisa tu correo y Spam: por ahora llega un enlace, no un código. Si te envía a localhost, copia el enlace original y pégalo aquí.');
 }));
+$('recover').addEventListener('click',()=>run(async()=>{
+ const email=$('email').value.trim();
+ if(!email||!email.includes('@'))throw Error('Escribe el correo de tu cuenta.');
+ await parse(await fetch(BASE+'/auth/v1/recover?redirect_to='+
+  encodeURIComponent(location.origin+'/nexo-app/nexo-control-panel.html'),{
+  method:'POST',headers:headers(),body:JSON.stringify({email}),
+ }));
+ show('verify-zone',true);
+ message('Si la cuenta existe, Supabase enviará un enlace de recuperación. Copia el enlace original, pégalo aquí y pulsa Verificar. Después podrás cambiar tu contraseña desde el panel.');
+}));
 $('signin').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim();
  const password=$('password').value;
  if(!email||!password)throw Error('Escribe el correo y la contraseña de tu cuenta Nexo.');
- const data=await parse(await fetch(BASE+'/auth/v1/token?grant_type=password',{
-  method:'POST',headers:headers(),body:JSON.stringify({email,password}),
- }));
+ let data;
+ try{
+  data=await parse(await fetch(BASE+'/auth/v1/token?grant_type=password',{
+   method:'POST',headers:headers(),body:JSON.stringify({email,password}),
+  }));
+ }catch(e){
+  if(/Invalid login credentials|invalid_credentials/i.test(e.message||'')){
+   throw Error('Supabase no reconoció ese correo y contraseña. Puede ser distinta de la utilizada en otras aplicaciones. Pulsa «No recuerdo mi contraseña» para recuperar el acceso sin compartirla.');
+  }
+  throw e;
+ }
  $('password').value='';
  saveSession(data);
  await load();
@@ -378,7 +404,23 @@ $('verify').addEventListener('click',()=>run(async()=>{
   input={token_hash:hash,type};
  }
  const data=await parse(await fetch(BASE+'/auth/v1/verify',{method:'POST',headers:headers(),body:JSON.stringify(input)}));
- saveSession(data);await load();message('Sesión de desarrollador verificada.');
+ saveSession(data);await load();
+ if(input.type==='recovery')$('change-password-box').open=true;
+ message(input.type==='recovery'?
+  'Enlace de recuperación verificado. Cambia tu contraseña nueva en el panel.':
+  'Sesión de desarrollador verificada.');
+}));
+$('update-password').addEventListener('click',()=>run(async()=>{
+ const newPassword=$('newpassword').value;
+ if(newPassword.length<10||newPassword.length>128)
+  throw Error('La contraseña nueva debe tener entre 10 y 128 caracteres.');
+ const access=await token();
+ await parse(await fetch(BASE+'/auth/v1/user',{
+  method:'PUT',headers:{...headers(),Authorization:'Bearer '+access},
+  body:JSON.stringify({password:newPassword}),
+ }));
+ $('newpassword').value='';$('change-password-box').open=false;
+ message('Contraseña actualizada. La próxima vez podrás entrar directamente con ella.');
 }));
 $('logout').addEventListener('click',()=>{sessionStorage.removeItem(STORAGE);dashboard=null;show('login',true);show('dashboard',false);message('Sesión cerrada.');});
 for(const tab of document.querySelectorAll('[data-tab]'))tab.addEventListener('click',()=>{
