@@ -1255,97 +1255,118 @@ export function joinNexaBackHair(
   body.updateMatrixWorld(true);
   head.updateMatrixWorld(true);
 
-  // Sample visible rear-hair vertices AFTER aligning the two actual GLBs.
-  // The earlier thin side strips did not reach the main ponytail silhouette.
-  // A continuous rounded 3D section will join the rear cap to that curtain.
+  const atQuantile=(numbers:number[],fraction:number,fallback:number)=>{
+    if(!numbers.length)return fallback;
+    numbers.sort((a,b)=>a-b);
+    return numbers[Math.floor((numbers.length-1)*fraction)];
+  };
+  // Studio and the full-body GLB have DIFFERENT local origins and scales.
+  // Locate their real rear silhouettes in world space, not by guessing that
+  // the back of the helmet is 1.1 eye-widths behind the eyes (it is much
+  // farther back in the actual Meshy export).
+  const capBack:number[]=[];
+  const v=new THREE.Vector3();
+  studio.traverse((mesh:any)=>{
+    if(!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position)return;
+    const position=mesh.geometry.attributes.position;
+    for(let i=0;i<position.count;i+=2){
+      v.fromBufferAttribute(position,i);
+      if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,v);
+      mesh.localToWorld(v);
+      if(v.y<eye.center.y-unit*0.63 || v.y>eye.center.y+unit*0.25 ||
+         Math.abs(v.x-eye.center.x)>unit*0.70 ||
+         v.z>eye.center.z-unit*1.6)continue;
+      capBack.push(v.z);
+    }
+  });
+  const capZ=atQuantile(capBack,0.10,eye.center.z-unit*2.45);
+
   const tail:{x:number;y:number;z:number}[]=[];
-  const vertex=new THREE.Vector3();
   const visited=new Set<any>();
   body.traverse((mesh:any)=>{
     if(!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position ||
        visited.has(mesh.geometry))return;
     visited.add(mesh.geometry);
-    const position=mesh.geometry.attributes.position;
+    const geometry=mesh.geometry;
+    const position=geometry.attributes.position;
+    // setIndex() removes obsolete head/neck triangles but leaves their old
+    // vertex buffers. Only sample vertices ACTUALLY drawn by the renderer.
+    const live=geometry.index?new Uint8Array(position.count):null;
+    if(live)for(let i=0;i<geometry.index.count;i++)
+      live[geometry.index.getX(i)]=1;
     for(let i=0;i<position.count;i+=2){
-      vertex.fromBufferAttribute(position,i);
-      if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,vertex);
-      mesh.localToWorld(vertex);
-      if(vertex.y<seamY-unit*1.40 || vertex.y>seamY+unit*0.12 ||
-         Math.abs(vertex.x-eye.center.x)>unit*0.82 ||
-         vertex.z>eye.center.z-unit*1.08)continue;
-      tail.push({x:vertex.x,y:vertex.y,z:vertex.z});
+      if(live&&!live[i])continue;
+      v.fromBufferAttribute(position,i);
+      if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,v);
+      mesh.localToWorld(v);
+      if(v.y>seamY+unit*0.015 || v.y<seamY-unit*2.0 ||
+         Math.abs(v.x-eye.center.x)>unit*0.86 ||
+         v.z>eye.center.z-unit*1.75)continue;
+      tail.push({x:v.x,y:v.y,z:v.z});
     }
   });
-  const quantile=(values:number[],q:number,fallback:number)=>{
-    if(!values.length)return fallback;
-    values.sort((a,b)=>a-b);
-    return values[Math.floor((values.length-1)*q)];
-  };
-  // Target the TOP of the actual long hair, not the shoulder, sleeve or
-  // bottom of the ponytail. Include enough overlap to hide its horizontal cap.
-  const tailTopY=quantile(tail.map(p=>p.y),0.93,seamY-unit*0.28);
+  const topOfTail=atQuantile(tail.map(p=>p.y),0.95,seamY-unit*0.92);
+  const hairRim=tail.filter(p=>p.y>topOfTail-unit*0.25);
+  const rearZ=atQuantile(hairRim.map(p=>p.z),0.15,eye.center.z-unit*3.25);
   const tailZ=THREE.MathUtils.clamp(
-    quantile(tail.filter(p=>p.y>=tailTopY-unit*0.22).map(p=>p.z),
-      0.44,eye.center.z-unit*1.50),
-    eye.center.z-unit*2.25,eye.center.z-unit*1.10,
+    rearZ,eye.center.z-unit*4.8,eye.center.z-unit*1.95,
   );
-  const tailXs=tail.filter(p=>p.y>=tailTopY-unit*0.30);
-  const tailRadius=tailXs.length>=8
-    ? THREE.MathUtils.clamp(
-        quantile(tailXs.map(p=>Math.abs(p.x-eye.center.x)),0.80,unit*0.48),
-        unit*0.33,unit*0.65)
-    : unit*0.48;
+  const tailWidth=THREE.MathUtils.clamp(
+    atQuantile(hairRim.map(p=>Math.abs(p.x-eye.center.x)),
+      0.76,unit*0.43),
+    unit*0.30,unit*0.62,
+  );
 
-  // Top cross-section is inserted INSIDE Studio's back-of-helmet housing.
-  // The bottom cross-section penetrates the native ponytail at its top.
-  // Thus there is no rectangular cutoff, and both sides stay joined in 360°.
-  const topY=eye.center.y-unit*0.20;
-  const bottomY=Math.min(seamY-unit*0.56,tailTopY-unit*0.16);
-  const helmetZ=eye.center.z-unit*1.16;
-  const rows=36,columns=36;
-  const positions:number[]=[];
-  const indices:number[]=[];
+  // ONE closed curved hair volume. It starts inside Studio's real helmet
+  // and disappears inside the long original ponytail. Both endpoints
+  // overlap the meshes they join; there is no visible rectangular cutoff,
+  // disjoint paper strip, detached wig, or change to face/collar/body.
+  const topY=eye.center.y-unit*0.29;
+  const bottomY=Math.min(seamY-unit*0.64,topOfTail-unit*0.20);
+  if(bottomY>=topY-unit*0.30)return null;
+  const rows=32,columns=40,points:number[]=[],indices:number[]=[];
+  const startZ=capZ+unit*0.16;
+  const endZ=tailZ+unit*0.075;
   for(let row=0;row<=rows;row++){
     const t=row/rows;
     const eased=t*t*(3-2*t);
     const y=topY+(bottomY-topY)*t;
-    const z=helmetZ+(tailZ-helmetZ)*eased;
-    // The middle swells smoothly and the lower end follows the native
-    // ponytail width, instead of the old thin, almost invisible strips.
-    const rx=unit*(0.35+0.17*Math.sin(Math.PI*t))*(1-eased)+tailRadius*eased;
-    const rz=unit*(0.12+0.085*Math.sin(Math.PI*t));
+    const z=startZ+(endZ-startZ)*eased
+      -unit*0.025*Math.sin(Math.PI*t);
+    const width=unit*(0.44+0.10*Math.sin(Math.PI*t))*(1-eased)
+      +tailWidth*eased;
+    const depth=unit*(0.16+0.03*Math.sin(Math.PI*t));
     for(let col=0;col<=columns;col++){
-      const a=col/columns*Math.PI*2;
+      const theta=col/columns*Math.PI*2;
       const world=new THREE.Vector3(
-        eye.center.x+rx*Math.cos(a),
-        y-unit*0.035*(1-t)*Math.cos(a)**2,
-        z+rz*Math.sin(a),
+        eye.center.x+width*Math.cos(theta),
+        y-unit*0.035*(1-t)*Math.cos(theta)**2,
+        z+depth*Math.sin(theta),
       );
       head.worldToLocal(world);
-      positions.push(world.x,world.y,world.z);
+      points.push(world.x,world.y,world.z);
       if(row<rows && col<columns){
-        const k=row*(columns+1)+col,b=k+columns+1;
-        indices.push(k,k+1,b,b,k+1,b+1);
+        const k=row*(columns+1)+col,n=k+columns+1;
+        indices.push(k,k+1,n,n,k+1,n+1);
       }
     }
   }
   const geometry=new THREE.BufferGeometry();
-  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   const material=new THREE.MeshStandardMaterial({
-    color:0x16121d,roughness:0.68,metalness:0.02,
+    color:0x15111b,roughness:0.69,metalness:0.025,
     side:THREE.DoubleSide,
   });
   const bridge=new THREE.Mesh(geometry,material);
-  bridge.name='Nexa continuous helmet-to-ponytail hair volume';
+  bridge.name='Nexa cap and genuine ponytail continuous 3D hair';
   bridge.frustumCulled=false;
   head.add(bridge);
   avatarRoot.userData.nexaJoinedBackHair=bridge;
   bridge.userData.nexaHairAnchors={
-    topY,bottomY,tailZ,tailTopY,tailRadius,
-    sidePanels:0,continuousVolume:true,
+    topY,bottomY,capZ,tailZ,topOfTail,sidePanels:0,continuousVolume:true,
   };
   return bridge;
 }
