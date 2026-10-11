@@ -6,9 +6,11 @@ import AssistantStageDom from '@/components/assistant-stage-dom';
 export function AssistantStage({
   profile,
   speaking = false,
+  speechText = '',
 }: {
   profile: AssistantProfile;
   speaking?: boolean;
+  speechText?: string;
 }) {
   // Expo 57 DOM components use the bundled WebView for the same 3D stage
   // on Android and iOS; no extra native rendering dependency is required.
@@ -17,6 +19,7 @@ export function AssistantStage({
       <AssistantStageDom
         profile={profile}
         speaking={speaking}
+        speechText={speechText}
         dom={{ scrollEnabled: false }}
       />
     </View>
