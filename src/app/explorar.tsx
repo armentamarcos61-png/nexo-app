@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
+import { countNexoSearch } from '@/lib/nexo-control-api';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { getDisplayName, useProfessionalProfile } from '@/state/professional-profile';
 
@@ -136,6 +137,12 @@ export default function ExplorarScreen() {
     && Number.isFinite(parsedMin) && Number.isFinite(parsedMax) && parsedMin > parsedMax;
 
   function buscar() {
+    if(query.trim()){
+      const category=selectedIntent==='empleo'||selectedIntent==='trabajadores'?'employment':
+        selectedIntent==='contratar'||selectedIntent==='ofrecer'?'services':
+        selectedIntent==='comprar'||selectedIntent==='vender'?'products':'general';
+      void countNexoSearch('marketplace',category);
+    }
     router.setParams({ q: query.trim() });
     setShowIntents(true);
   }
