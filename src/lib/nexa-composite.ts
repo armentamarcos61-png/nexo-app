@@ -980,7 +980,7 @@ export function maskNexaStudioHead(THREE: any, studio: any, renderer: any): numb
   // seam UNDER the chin but ABOVE the original shoulder armor. Hard bounds
   // prevent the plane from cutting off the mouth or leaving a second chest.
   const seamY=THREE.MathUtils.clamp(
-    eye.center.y-eye.width*1.75,
+    eye.center.y-eye.width*1.60,
     bounds.min.y+h*0.43,
     bounds.min.y+h*0.73,
   );
@@ -1025,7 +1025,7 @@ export function lowerNexaStudioHead(THREE:any,studio:any,eyeWidth:number):number
   // Bring the approved face into the suit and remove the visibly stretched
   // neck below the chin, without moving the full-body shoulders or logos.
   // The shared clipping seam and collar follow this exact displacement.
-  const drop=THREE.MathUtils.clamp(eyeWidth*0.64,0.015,0.11);
+  const drop=THREE.MathUtils.clamp(eyeWidth*0.74,0.015,0.11);
   const loweredSeam=oldSeam-drop;
   let corrected=0;
   studio.traverse((object:any)=>{
@@ -1155,16 +1155,11 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
 
 
 /**
- * Nexa's final neck detail: a short sculpted 3D uniform collar hides the
- * junction between Studio's approved face and the complete source suit.
- *
- * Dimensions are derived from the real eye landmarks, NOT fixed scene units:
- * the shape remains proportionate on different mobiles and source GLBs.
- * It is attached to the single avatar root, outside BOTH clipping planes,
- * so the shell can bridge their shared neck seam without being cut in half.
- *
- * The full dark undershirt keeps the seam hidden while the two curved pearl
- * lapels deliberately leave an open, natural-looking V at the front.
+ * Discreet tailored neckline, not an extra neck or two rigid armor plates.
+ * The Studio head supplies the real chin and throat; the complete GLB supplies
+ * the original white suit. This thin, dark, tapered inset covers only the shared
+ * clipping line. Two fine stitched piping curves sit INSIDE the suit neckline.
+ * No white cylindrical sectors may jut out under Nexa's face.
  */
 export function addNexaCollar(THREE:any, parent:any, studio:any, seamY:number):any {
   const existing=parent.userData?.nexaUniformCollar;
@@ -1174,39 +1169,29 @@ export function addNexaCollar(THREE:any, parent:any, studio:any, seamY:number):a
     throw new Error('No se pudo medir la unión 3D para el cuello de Nexa');
   }
   const unit=eye.width;
-  // Short tailored neckline: the previous 0.76-unit tall tube looked like
-  // an extra elongated neck protruding from the approved head.
-  const height=unit*0.49;
-  const topRadius=unit*0.57;
-  const bottomRadius=unit*0.86;
-  const segments=48;
+  const height=unit*0.20;
+  const topRadius=unit*0.49;
+  const bottomRadius=unit*0.66;
+  const segments=40;
 
   parent.updateMatrixWorld(true);
   const neckWorld=eye.center.clone();
-  neckWorld.y=seamY+unit*0.018;
-  // Eye morph centres are near the face's frontal plane; the anatomical neck
-  // sits behind the eyes. Centre the uniform on the neck, not on the nose.
-  neckWorld.z-=unit*0.69;
+  // The actual neck is behind the facial eye plane; place the insert lower
+  // than the jaw so it cannot appear as a second white or silver neck.
+  neckWorld.y=seamY-unit*0.018;
+  neckWorld.z-=unit*0.72;
 
   const group=new THREE.Group();
-  group.name='Nexa futuristic uniform collar';
+  group.name='Nexa discreet tailored neckline';
   group.position.copy(parent.worldToLocal(neckWorld));
-  group.scale.z=0.90;
+  group.scale.z=0.91;
 
   const charcoal=new THREE.MeshStandardMaterial({
-    color:0x10131c,roughness:0.37,metalness:0.22,
-    side:THREE.DoubleSide,
+    color:0x10121a,roughness:0.73,metalness:0.03,side:THREE.DoubleSide,
   });
   const pearl=new THREE.MeshStandardMaterial({
-    color:0xe7e9f2,roughness:0.34,metalness:0.13,
-    side:THREE.DoubleSide,
+    color:0xc7cbd7,roughness:0.69,metalness:0.04,side:THREE.DoubleSide,
   });
-  const trim=new THREE.MeshStandardMaterial({
-    color:0x6e59d9,roughness:0.40,metalness:0.28,
-    transparent:true,opacity:0.54,side:THREE.DoubleSide,
-    depthWrite:false,
-  });
-
   const place=(name:string,geometry:any,material:any)=>{
     const mesh=new THREE.Mesh(geometry,material);
     mesh.name=name;
@@ -1214,40 +1199,25 @@ export function addNexaCollar(THREE:any, parent:any, studio:any, seamY:number):a
     group.add(mesh);
     return mesh;
   };
-  // Inner black layer covers the complete seam even from the rear.
-  place('Nexa black collar undershirt',
+
+  // Small matte-black insert, almost flush with the existing suit surface.
+  // Unlike the previous collar there are NO tall white cylinder panels.
+  place('Nexa dark recessed neckline',
     new THREE.CylinderGeometry(topRadius,bottomRadius,height,segments,1,true),
     charcoal);
 
-  // The top centre is OPEN: two separate curved shirt lapels, not a bulky
-  // cylindrical rim or a fake invisible cutter. Their taper blends into the
-  // pearl white chest and the black shoulders of the original source suit.
-  const lapelTop=topRadius*1.05;
-  const lapelBottom=bottomRadius*1.06;
-  const lapelAngle=0.67;
-  const frontGap=0.24;
-  place('Nexa right pearl shirt lapel',
-    new THREE.CylinderGeometry(lapelTop,lapelBottom,height*0.90,
-      segments,1,true,frontGap,lapelAngle),pearl);
-  place('Nexa left pearl shirt lapel',
-    new THREE.CylinderGeometry(lapelTop,lapelBottom,height*0.90,
-      segments,1,true,Math.PI*2-frontGap-lapelAngle,lapelAngle),pearl);
-
-  // Micro-accent along the outer upper edge. The translucent strip follows
-  // the actual collar height, avoiding an oversized glowing ring.
-  const edgeRadius=topRadius*1.055;
-  const edgeY=height*0.455;
-  for(const [angle,label] of [
-    [frontGap,'right'],[Math.PI*2-frontGap-lapelAngle,'left'],
-  ] as [number,string][]) {
-    const arc=new THREE.TorusGeometry(edgeRadius,unit*0.012,4,20,lapelAngle);
-    const mesh=place('Nexa '+label+' subtle violet edge',arc,trim);
-    mesh.rotation.x=Math.PI/2;
-    mesh.rotation.z=-angle;
-    mesh.position.y=edgeY;
+  // Flat fine V seam tracing the garment, not floating armor lapels.
+  for (const side of [-1,1]) {
+    const curve=new THREE.CatmullRomCurve3([
+      new THREE.Vector3(side*unit*0.07,height*0.28,topRadius*0.92),
+      new THREE.Vector3(side*unit*0.27,-height*0.07,unit*0.56),
+      new THREE.Vector3(side*unit*0.52,-height*0.55,unit*0.59),
+    ]);
+    place(side<0?'Nexa left sewn neckline':'Nexa right sewn neckline',
+      new THREE.TubeGeometry(curve,12,unit*0.010,5,false),pearl);
   }
 
-  group.userData.nexaCollarResources={charcoal,pearl,trim};
+  group.userData.nexaCollarResources={charcoal,pearl};
   parent.add(group);
   parent.userData.nexaUniformCollar=group;
   return group;
@@ -1261,7 +1231,7 @@ export function disposeNexaCollar(parent:any):void {
     if (child.isMesh) child.geometry?.dispose?.();
   });
   const resources=collar.userData.nexaCollarResources;
-  for(const material of [resources?.charcoal,resources?.pearl,resources?.trim]) {
+  for(const material of [resources?.charcoal,resources?.pearl]) {
     material?.dispose?.();
   }
   collar.removeFromParent();
