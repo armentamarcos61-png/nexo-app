@@ -6,10 +6,10 @@ import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
-import { addNexaCollar, composeNexaHeadBody, disposeNexaBackHair, disposeNexaCollar, joinNexaBackHair, maskNexaStudioHead } from '@/lib/nexa-composite';
+import { addNexaCollar, composeNexaHeadBody, disposeNexaBackHair, disposeNexaCollar, joinNexaBackHair, maskNexaStudioHead, updateNexaBackHair } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 
-type Props = { profile: AssistantProfile; speaking?: boolean };
+type Props = { profile: AssistantProfile; speaking?: boolean; speechText?: string };
 // Bundled with the app: loading Nexa must not depend on a third-party CDN.
 // A slow mobile connection is not an error while bytes are still arriving.
 const STALL_TIMEOUT_MS = 75_000;
@@ -41,12 +41,14 @@ function getModelUrl(variant: ModelVariant) {
 }
 
 /** One circular, close-up 3D Nexa. No duplicate photo/model or zoom buttons. */
-export function AssistantStage({ profile, speaking = false }: Props) {
+export function AssistantStage({ profile, speaking = false, speechText = '' }: Props) {
   const isNexa = profile.id === 'nexa';
   const placeholder = isNexa ? NEXA_IMAGE_DATA : NEXO_IMAGE_DATA;
   const hostRef = useRef<any>(null);
   const controllerRef = useRef<NexaAnimationController | null>(null);
+  const faceRigRef = useRef<NexaFaceRig | null>(null);
   const speakingRef = useRef(speaking);
+  const speechTextRef = useRef(speechText);
   const orbitRef = useRef<{ yaw: number; pitch: number; distance: number; panY: number }>({ yaw: 0, pitch: 0, distance: STUDIO_FRAMING.distance, panY: 0 });
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
@@ -85,8 +87,14 @@ export function AssistantStage({ profile, speaking = false }: Props) {
   }, [speaking]);
 
   useEffect(() => {
+    speechTextRef.current = speechText;
+    faceRigRef.current?.setSpeechText(speechText);
+  }, [speechText]);
+
+  useEffect(() => {
     const host = hostRef.current;
     controllerRef.current = null;
+    faceRigRef.current = null;
     if (!host || typeof window === 'undefined' || !isNexa) return;
     // Reset to the appropriate camera when Studio loads or legacy is restored.
     const studio = variant === 'studio';
@@ -417,6 +425,8 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             : installNexaPremiumLook(THREE,modelRoot,scene,
                 modelUrl.replace(MODEL_VARIANTS[variant].file,'nexa-reference-face.webp'));
           faceRig=installNexaFaceRig(THREE,modelRoot);
+          faceRigRef.current=faceRig;
+          faceRig.setSpeechText(speechTextRef.current);
           if (variant !== 'light' && !faceRig.available) {
             throw new Error('El modelo cargado no contiene los controles faciales de Nexa');
           }
@@ -557,6 +567,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
             lowerBodyMixer?.update(dt);
             faceRig?.update(dt,totalTime,speakingRef.current);
             composite?.update(dt,speakingRef.current);
+            updateNexaBackHair(avatarRoot,dt,totalTime,speakingRef.current);
             premiumLook?.update(dt,totalTime);
             // Camera lags slightly behind gesture; still within the circular portrait.
             const alpha=1-Math.exp(-dt*8);
@@ -612,6 +623,7 @@ export function AssistantStage({ profile, speaking = false }: Props) {
       pointers.clear();
       controllerRef.current?.dispose();
       controllerRef.current=null;
+      faceRigRef.current=null;
       premiumLook?.dispose();
       premiumLook=null;
       lowerBodyMixer?.stopAllAction?.();
