@@ -421,6 +421,14 @@ assert.equal(removeStudioPanels(studioRoot),0,'repeated loading cannot remove ne
 assert(stageSource.includes('removeNexaStudioSidePanels(modelRoot)'),
  'Nexo live viewer must execute the shoulder and bust cleanup');
 assert(polish.includes('const topY = upperMinY + height * 0.18') &&
-       polish.includes('softFront*(0.94-0.04*t)*zipper'),
- 'blue lower bust region must use extended white ceramic-colored 3D geometry');
+       polish.includes('softFront*(0.997-0.004*t)*zipper'),
+ 'blue lower bust region must retain its reconstructed 3D ceramic panel');
+for (const tone of ['0x10131c','0x1c2233','0xc9cedd','0xe7e9f2','0xf5f7fb','0x6e59d9']) {
+ assert(polish.includes('new THREE.Color('+tone+')'),
+  'reconstructed bust must use approved suit color '+tone);
+}
+assert(polish.includes('color.lerp(ceramic,Math.min(1,softFront*') &&
+       polish.includes('color.lerp(violetRim,0.055*rimIn*rimOut)'),
+ 'the front plate must be pearl-white with only a restrained violet rim');
+console.log('PASS: rebuilt 3D bust material matches Nexa pearl, charcoal and violet palette');
 console.log('PASS: real Studio GLB selectively trims '+cuts+' triangles; upper logos/arms intact');
