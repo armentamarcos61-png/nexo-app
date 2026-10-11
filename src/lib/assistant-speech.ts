@@ -166,8 +166,8 @@ export async function speakAsAssistant(
     callbacks.onStart?.();
   };
 
-  reportStart();
-
+  // Animate Nexa when the platform starts PLAYING audio, not while the
+  // voice list loads or while Android queues the speech engine.
   Speech.speak(spokenText, {
     language: voice?.language || 'es-MX',
     voice: voice?.identifier,
