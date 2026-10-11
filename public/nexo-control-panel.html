@@ -70,6 +70,7 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <div class="row" style="margin-top:12px">
  <button class="btn primary" id="signin">Entrar con mi contraseña</button>
  <button class="btn" id="send">Enviar enlace a mi correo</button>
+ <button class="btn" id="link-nexo">Vincular mi contraseña de Nexo</button>
  <button class="btn" id="recover">No recuerdo mi contraseña</button>
 </div>
 <div id="verify-zone" class="hidden">
@@ -77,6 +78,7 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <textarea id="code" rows="3" placeholder="Pega aquí el enlace completo del mensaje de Supabase; también sirve un código si llega uno"></textarea>
 <button class="btn primary" id="verify">Verificar enlace y abrir panel</button>
 </div>
+<p class="note">Nexo guarda las contraseñas de registro en este navegador, pero este panel usa una cuenta verificada de Supabase. «Vincular mi contraseña de Nexo» comprueba tu clave local y después solicita verificar el correo para que puedas utilizar la misma contraseña en ambos sistemas.</p>
 <p class="note">Actualmente Supabase está enviando un enlace, no un código de seis dígitos. Si al tocarlo aparece localhost:3000, no abras esa dirección: copia el enlace original del correo y pégalo arriba. Nunca compartas tu contraseña ni el enlace.</p>
 <details style="margin-top:12px;color:#BCD7F0;font-size:12px;line-height:1.6">
  <summary style="cursor:pointer;font-weight:800">¿Cómo activar el código de seis dígitos?</summary>
@@ -166,6 +168,7 @@ const allowedScreens={
 const supported=['employment','services','products','offer'];
 const statusNames={pending:'Pendiente',review:'Revisión',approved:'Aprobada',implemented:'Implementada',rejected:'Descartada'};
 let dashboard=null,draft=null,proposal=null,busy=false;
+let pendingLinkPassword=null,pendingLinkEmail=null;
 const show=(id,visible)=>$(id).classList.toggle('hidden',!visible);
 const text=(id,value)=>$(id).textContent=String(value??'');
 function clearMessage(){$('notice').className='';$('notice').textContent='';}
@@ -204,6 +207,49 @@ async function request(action,body){
  return parse(await fetch(API,{method:action,headers:{...headers(),Authorization:'Bearer '+access},
   ...(body?{body:JSON.stringify(body)}:{})}));
 }
+/**
+ * The regular Nexo registration stores salted PBKDF2 credentials locally.
+ * This proof alone NEVER grants admin access. Linking requires a second,
+ * independent, email-verified Supabase recovery session.
+ */
+async function matchesLocalNexoPassword(email,password){
+ if(!window.crypto?.subtle)return false;
+ let accounts=[];
+ try{
+  const stored=JSON.parse(localStorage.getItem('nexo.local-accounts.v1')||'[]');
+  if(Array.isArray(stored))accounts=stored;
+ }catch{return false;}
+ const account=accounts.find(x=>typeof x?.email==='string'&&
+  x.email.trim().toLowerCase()===email.trim().toLowerCase()&&
+  typeof x.passwordHash==='string'&&typeof x.passwordSalt==='string');
+ if(!account)return false;
+ try{
+  const salt=Uint8Array.from(atob(account.passwordSalt),x=>x.charCodeAt(0));
+  if(salt.length!==16)return false;
+  const material=await crypto.subtle.importKey('raw',
+   new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({
+   name:'PBKDF2',salt,iterations:120000,hash:'SHA-256',
+  },material,256);
+  const candidate=btoa(String.fromCharCode(...new Uint8Array(bits)));
+  return candidate===account.passwordHash;
+ }catch{return false;}
+}
+async function sendRecovery(email){
+ const redirect=location.origin+'/nexo-app/nexo-control-panel.html';
+ await parse(await fetch(BASE+'/auth/v1/recover?redirect_to='+encodeURIComponent(redirect),{
+  method:'POST',headers:headers(),body:JSON.stringify({email}),
+ }));
+ show('verify-zone',true);
+}
+async function setSupabasePassword(password){
+ const access=await token();
+ return parse(await fetch(BASE+'/auth/v1/user',{
+  method:'PUT',headers:{...headers(),Authorization:'Bearer '+access},
+  body:JSON.stringify({password}),
+ }));
+}
+
 async function load(){
  const data=await request('GET');dashboard=data;draft={accent:data.settings.accent,action_order:[...data.settings.action_order]};
  show('login',false);show('dashboard',true);text('sessionline',data.account.email+' · '+data.account.role);
@@ -364,12 +410,36 @@ $('send').addEventListener('click',()=>run(async()=>{
 $('recover').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim();
  if(!email||!email.includes('@'))throw Error('Escribe el correo de tu cuenta.');
- await parse(await fetch(BASE+'/auth/v1/recover?redirect_to='+
-  encodeURIComponent(location.origin+'/nexo-app/nexo-control-panel.html'),{
-  method:'POST',headers:headers(),body:JSON.stringify({email}),
- }));
- show('verify-zone',true);
- message('Si la cuenta existe, Supabase enviará un enlace de recuperación. Copia el enlace original, pégalo aquí y pulsa Verificar. Después podrás cambiar tu contraseña desde el panel.');
+ pendingLinkPassword=null;pendingLinkEmail=null;
+ await sendRecovery(email);
+ message('Si la cuenta existe, Supabase enviará un enlace de recuperación. COPIA el enlace original sin abrirlo, pégalo aquí y pulsa Verificar. Después podrás cambiar tu contraseña desde el panel.');
+}));
+$('link-nexo').addEventListener('click',()=>run(async()=>{
+ const email=$('email').value.trim().toLowerCase();
+ const password=$('password').value;
+ if(!email||!password)throw Error('Escribe primero tu correo y la contraseña que usas en Nexo.');
+ const matches=await matchesLocalNexoPassword(email,password);
+ if(!matches)throw Error('No puedo comprobar esa contraseña en las cuentas locales de este navegador. Comprueba que estés usando el mismo navegador donde te registraste en Nexo, o usa «No recuerdo mi contraseña».');
+ if(password.length<6||password.length>128)
+  throw Error('La contraseña local no cumple los requisitos de Supabase. Debes elegir una nueva mediante recuperación.');
+ // Never store this password in localStorage or sessionStorage.
+ pendingLinkPassword=password;pendingLinkEmail=email;
+ $('password').value='';
+ if(session()){
+  const info=await parse(await fetch(BASE+'/auth/v1/user',{
+   headers:{...headers(),Authorization:'Bearer '+await token()},
+  }));
+  if(info.email?.trim().toLowerCase()!==email)throw Error('La sesión verificada no corresponde al correo solicitado.');
+  await setSupabasePassword(password);
+  pendingLinkPassword=null;pendingLinkEmail=null;
+  await load();
+  message('Tu contraseña local de Nexo ya quedó vinculada a Supabase.');
+  return;
+ }
+ try{
+  await sendRecovery(email);
+ }catch(e){pendingLinkPassword=null;pendingLinkEmail=null;throw e;}
+ message('Tu contraseña SÍ coincide con tu cuenta Nexo guardada en este dispositivo. Para vincularla al panel de administrador, verifica que también controlas el correo: copia el enlace de recuperación que llegue y pégalo en el campo de abajo, sin abrirlo primero.');
 }));
 $('signin').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim();
@@ -382,7 +452,9 @@ $('signin').addEventListener('click',()=>run(async()=>{
   }));
  }catch(e){
   if(/Invalid login credentials|invalid_credentials/i.test(e.message||'')){
-   throw Error('Supabase no reconoció ese correo y contraseña. Puede ser distinta de la utilizada en otras aplicaciones. Pulsa «No recuerdo mi contraseña» para recuperar el acceso sin compartirla.');
+   const local=await matchesLocalNexoPassword(email,password);
+   if(local)throw Error('Esta contraseña SÍ corresponde a tu cuenta local de Nexo. Para reconocerla también en el panel, pulsa «Vincular mi contraseña de Nexo» y verifica tu correo.');
+   throw Error('Supabase no reconoció esas credenciales y tampoco se pudieron confirmar en la cuenta local de este navegador. Usa «No recuerdo mi contraseña» o vuelve al navegador donde te registraste en Nexo.');
   }
   throw e;
  }
@@ -404,25 +476,37 @@ $('verify').addEventListener('click',()=>run(async()=>{
   input={token_hash:hash,type};
  }
  const data=await parse(await fetch(BASE+'/auth/v1/verify',{method:'POST',headers:headers(),body:JSON.stringify(input)}));
- saveSession(data);await load();
- if(input.type==='recovery')$('change-password-box').open=true;
- message(input.type==='recovery'?
-  'Enlace de recuperación verificado. Cambia tu contraseña nueva en el panel.':
-  'Sesión de desarrollador verificada.');
+ if(data.user?.email?.trim().toLowerCase()!==email.toLowerCase())
+  throw Error('La identidad verificada no coincide con el correo que intentas vincular.');
+ saveSession(data);
+ if(pendingLinkPassword&&pendingLinkEmail===email.toLowerCase()){
+  if(input.type!=='recovery')throw Error('Para vincular contraseñas debes utilizar el enlace de recuperación.');
+  const selectedPassword=pendingLinkPassword;
+  pendingLinkPassword=null;pendingLinkEmail=null;
+  await setSupabasePassword(selectedPassword);
+  await load();
+  message('¡Listo! Tu contraseña de Nexo ahora también funciona en Nexo Control.');
+ }else{
+  await load();
+  if(input.type==='recovery')$('change-password-box').open=true;
+  message(input.type==='recovery'?
+   'Enlace verificado. Ahora puedes crear tu contraseña desde el panel.':
+   'Sesión de desarrollador verificada.');
+ }
 }));
 $('update-password').addEventListener('click',()=>run(async()=>{
  const newPassword=$('newpassword').value;
  if(newPassword.length<10||newPassword.length>128)
   throw Error('La contraseña nueva debe tener entre 10 y 128 caracteres.');
- const access=await token();
- await parse(await fetch(BASE+'/auth/v1/user',{
-  method:'PUT',headers:{...headers(),Authorization:'Bearer '+access},
-  body:JSON.stringify({password:newPassword}),
- }));
+ await setSupabasePassword(newPassword);
  $('newpassword').value='';$('change-password-box').open=false;
  message('Contraseña actualizada. La próxima vez podrás entrar directamente con ella.');
 }));
-$('logout').addEventListener('click',()=>{sessionStorage.removeItem(STORAGE);dashboard=null;show('login',true);show('dashboard',false);message('Sesión cerrada.');});
+$('logout').addEventListener('click',()=>{
+ pendingLinkPassword=null;pendingLinkEmail=null;
+ sessionStorage.removeItem(STORAGE);dashboard=null;
+ show('login',true);show('dashboard',false);message('Sesión cerrada.');
+});
 for(const tab of document.querySelectorAll('[data-tab]'))tab.addEventListener('click',()=>{
  for(const b of document.querySelectorAll('[data-tab]'))b.setAttribute('aria-selected',String(tab===b));
  for(const el of document.querySelectorAll('[data-page]'))show(el.id,el.id===tab.dataset.tab);
