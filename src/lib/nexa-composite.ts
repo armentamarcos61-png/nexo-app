@@ -1234,37 +1234,192 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
 
 
 /**
- * One small matte neck inset, recessed within the original black/white
- * uniform. Do not add a floating white collar, V-shaped tubes, or hard plates.
- * The original approved Studio hair and jaw are preserved untouched.
+ * Merge the approved helmet/hair silhouette into the long back ponytail.
+ *
+ * Meshy's two GLBs have different hair shapes. We preserve the real Studio
+ * helmet, face and headset, but create one light, skin-independent back-hair
+ * surface beginning UNDER the helmet and continuing into the body's existing
+ * ponytail. The surface is attached to Studio's Head joint, so blinking and
+ * small head rotations cannot leave it floating in world space.
  */
-export function addNexaCollar(THREE:any,parent:any,studio:any,seamY:number):any {
+export function joinNexaBackHair(
+  THREE:any, avatarRoot:any, studio:any, body:any, seamY:number,
+):any {
+  const existing=avatarRoot.userData?.nexaJoinedBackHair;
+  if(existing)return existing;
+  const eye=landmarks(THREE,studio);
+  const head=studio.getObjectByName('mixamorig:Head');
+  if(!eye || !head || !Number.isFinite(seamY))return null;
+
+  const unit=eye.width;
+  studio.updateMatrixWorld(true);
+  body.updateMatrixWorld(true);
+  head.updateMatrixWorld(true);
+
+  // Find the existing ponytail's back silhouette from live body vertices,
+  // not a fixed world z value. Nearby skinned shoulder surfaces are rejected
+  // by the rear-depth constraint. The conservative fallback stays hidden
+  // directly behind the helmet when a low-poly export lacks such vertices.
+  const samples:number[]=[];
+  const probe=new THREE.Vector3();
+  const readMeshes=new Set<any>();
+  body.traverse((mesh:any)=>{
+    if(!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position ||
+       readMeshes.has(mesh.geometry))return;
+    readMeshes.add(mesh.geometry);
+    const pos=mesh.geometry.attributes.position;
+    for(let i=0;i<pos.count;i+=3){
+      probe.fromBufferAttribute(pos,i);
+      if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,probe);
+      mesh.localToWorld(probe);
+      if(probe.y<seamY-unit*1.25 || probe.y>seamY+unit*0.12 ||
+         Math.abs(probe.x-eye.center.x)>unit*0.88 ||
+         probe.z>eye.center.z-unit*1.06)continue;
+      samples.push(probe.z);
+    }
+  });
+  samples.sort((a,b)=>a-b);
+  const silhouetteZ=samples.length>=5
+    ? samples[Math.floor(samples.length*0.22)]
+    : eye.center.z-unit*1.60;
+  const tailZ=THREE.MathUtils.clamp(
+    silhouetteZ,eye.center.z-unit*2.35,eye.center.z-unit*1.17,
+  );
+
+  // Curved black shell: t=0 penetrates the original helmet, t=1 overlaps
+  // the existing long black hair so there is no hard line or hanging gap.
+  const rows=22, columns=20;
+  const vertices:number[]=[];
+  const indices:number[]=[];
+  const normals:number[]=[];
+  const helmetZ=eye.center.z-unit*1.40;
+  const topY=eye.center.y+unit*0.30;
+  const bottomY=seamY-unit*1.07;
+  for(let row=0;row<=rows;row++){
+    const t=row/rows;
+    const ease=t*t*(3-2*t);
+    const y=topY+(bottomY-topY)*t;
+    const z=helmetZ+(tailZ-helmetZ)*ease
+      -unit*0.21*Math.sin(Math.PI*t);
+    const width=unit*(0.78-0.23*ease);
+    const depth=unit*(0.24+0.11*Math.sin(Math.PI*t));
+    for(let col=0;col<=columns;col++){
+      const lateral=(col/columns)*2-1;
+      const world=new THREE.Vector3(
+        eye.center.x+lateral*width,
+        y-unit*0.035*(lateral*lateral),
+        z-depth*Math.sqrt(Math.max(0,1-lateral*lateral)),
+      );
+      // Convert to HEAD-local rather than positioning against a frozen
+      // frame; this also handles Studio's original non-unit root scale.
+      head.worldToLocal(world);
+      vertices.push(world.x,world.y,world.z);
+      normals.push(0,0,-1);
+      if(row<rows && col<columns){
+        const a=row*(columns+1)+col;
+        const b=a+columns+1;
+        indices.push(a,b,a+1,b,b+1,a+1);
+      }
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  const material=new THREE.MeshStandardMaterial({
+    color:0x15121e,roughness:0.69,metalness:0.035,
+    side:THREE.DoubleSide,
+  });
+  const bridge=new THREE.Mesh(geometry,material);
+  bridge.name='Nexa connected rear hair and ponytail';
+  bridge.frustumCulled=false;
+  head.add(bridge);
+  avatarRoot.userData.nexaJoinedBackHair=bridge;
+  // Store target depth for visual regressions and model diagnostics.
+  bridge.userData.nexaHairAnchors={topY,bottomY,helmetZ,tailZ};
+  return bridge;
+}
+
+/** Unload only the generated back-hair connector, never the approved GLBs. */
+export function disposeNexaBackHair(avatarRoot:any):void {
+  const hair=avatarRoot?.userData?.nexaJoinedBackHair;
+  if(!hair)return;
+  hair.geometry?.dispose?.();
+  hair.material?.dispose?.();
+  hair.removeFromParent();
+  delete avatarRoot.userData.nexaJoinedBackHair;
+}
+
+/**
+ * Cloth neckline with a rounded shoulder transition, inspired by the
+ * original suit rather than a hard white floating ring. Top is tucked under
+ * Studio's chin, the lower radius extends INSIDE the complete body's suit.
+ * Side seams trace the shirt as in the approved yellow profile reference.
+ */
+export function addNexaCollar(
+  THREE:any,parent:any,studio:any,seamY:number,body?:any,
+):any {
   const existing=parent.userData?.nexaUniformCollar;
   if(existing)return existing;
   const eye=landmarks(THREE,studio);
-  if(!eye || !Number.isFinite(seamY)){
+  if(!eye || !Number.isFinite(seamY)) {
     throw new Error('No se pudo medir la unión 3D para el cuello de Nexa');
   }
   const unit=eye.width;
+  const profile=body
+    ? torsoSection(THREE,body,seamY-unit*0.22,unit*0.15)
+    : null;
+  const bottomRadius=profile
+    ? THREE.MathUtils.clamp(profile.rx*0.78,unit*0.68,unit*1.02)
+    : unit*0.76;
+  const centerZ=profile?.z??(eye.center.z-unit*0.67);
   parent.updateMatrixWorld(true);
   const world=eye.center.clone();
-  world.y=seamY-unit*0.015;
-  world.z-=unit*0.68;
+  world.y=seamY-unit*0.11;
+  world.z=centerZ;
   const group=new THREE.Group();
-  group.name='Nexa recessed soft neck transition';
+  group.name='Nexa fitted neckline blended into suit';
   group.position.copy(parent.worldToLocal(world));
   group.scale.z=0.87;
+
   const charcoal=new THREE.MeshStandardMaterial({
-    color:0x101017,roughness:0.90,metalness:0,side:THREE.DoubleSide,
+    color:0x11121b,roughness:0.75,metalness:0.035,
+    side:THREE.DoubleSide,
   });
-  const insert=new THREE.Mesh(
-    new THREE.CylinderGeometry(unit*0.43,unit*0.58,unit*0.12,40,1,true),
-    charcoal,
-  );
-  insert.name='Nexa soft black neckline inset';
-  insert.frustumCulled=false;
-  group.add(insert);
-  group.userData.nexaCollarResources={charcoal};
+  const seamMaterial=new THREE.MeshStandardMaterial({
+    color:0xc7c9d2,roughness:0.72,metalness:0.04,
+    side:THREE.DoubleSide,
+  });
+  const points=[
+    new THREE.Vector2(unit*0.40,unit*0.20),
+    new THREE.Vector2(unit*0.47,unit*0.09),
+    new THREE.Vector2(unit*0.53,-unit*0.02),
+    new THREE.Vector2(bottomRadius*0.82,-unit*0.18),
+    new THREE.Vector2(bottomRadius,-unit*0.30),
+  ];
+  const piece=new THREE.Mesh(new THREE.LatheGeometry(points,48),charcoal);
+  piece.name='Nexa smooth tapered shirt neckline';
+  piece.frustumCulled=false;
+  group.add(piece);
+
+  // Two FINE stitched side hems, conforming to the shoulder taper.
+  // No rigid white collar plates, floating circles, or duplicated throat.
+  for(const side of [-1,1]){
+    const curve=new THREE.CatmullRomCurve3([
+      new THREE.Vector3(side*unit*0.40,unit*0.13,unit*0.14),
+      new THREE.Vector3(side*unit*0.52,-unit*0.04,unit*0.22),
+      new THREE.Vector3(side*bottomRadius*0.81,-unit*0.22,unit*0.30),
+    ]);
+    const stitch=new THREE.Mesh(
+      new THREE.TubeGeometry(curve,14,unit*0.008,4,false),
+      seamMaterial,
+    );
+    stitch.name=side<0?'Nexa left soft shirt seam':'Nexa right soft shirt seam';
+    stitch.frustumCulled=false;
+    group.add(stitch);
+  }
+  group.userData.nexaCollarResources={charcoal,seamMaterial};
   parent.add(group);
   parent.userData.nexaUniformCollar=group;
   return group;
@@ -1278,7 +1433,7 @@ export function disposeNexaCollar(parent:any):void {
     if (child.isMesh) child.geometry?.dispose?.();
   });
   const resources=collar.userData.nexaCollarResources;
-  for(const material of [resources?.charcoal]) {
+  for(const material of [resources?.charcoal,resources?.seamMaterial]) {
     material?.dispose?.();
   }
   collar.removeFromParent();
