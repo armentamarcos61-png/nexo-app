@@ -103,13 +103,17 @@ export function calibrateNexaFacialMorphs(root:any):number {
         const feather=Math.pow(Math.max(0,1-dx*dx),1.25)*front;
         const upper=Math.max(0,y-eye.y);
         const lower=Math.max(0,eye.y-y);
-        const upperDelta=-Math.min(upper,eyeWidth*.108)*feather*.95;
-        const lowerDelta=Math.min(lower,eyeWidth*.045)*feather*.14;
+        // A controlled upper-lid movement, the same maximum on BOTH eyes.
+        // Do not derive its strength from the irregular original GLB targets.
+        const upperDelta=-eyeWidth*.066*feather*
+          clamp(upper/(eyeWidth*.029),0,1);
+        const lowerDelta=eyeWidth*.0075*feather*
+          clamp(lower/(eyeWidth*.023),0,1);
         const isUpper=upper>eyeWidth*.004;
         const isLower=lower>eyeWidth*.004 && lower<eyeWidth*.053;
         if(!isUpper&&!isLower)continue;
-        const next=(isUpper?Math.min(upperDelta,original.getY(i)):lowerDelta);
-        const bounded=clamp(next,-eyeWidth*.082,eyeWidth*.010);
+        const next=isUpper?upperDelta:lowerDelta;
+        const bounded=clamp(next,-eyeWidth*.070,eyeWidth*.009);
         original.setXYZ(i,original.getX(i),bounded,original.getZ(i));
       }
       original.needsUpdate=true;
