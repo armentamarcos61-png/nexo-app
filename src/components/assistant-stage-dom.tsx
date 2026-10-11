@@ -7,9 +7,11 @@ import type { AssistantProfile } from '@/state/assistant';
 export default function AssistantStageDom({
   profile,
   speaking = false,
+  speechText = '',
 }: {
   profile: AssistantProfile;
   speaking?: boolean;
+  speechText?: string;
   dom?: import('expo/dom').DOMProps;
 }) {
   return (
@@ -17,7 +19,7 @@ export default function AssistantStageDom({
       height: '100%', width: '100%', overflow: 'hidden',
       margin: 0, padding: 0, background: '#09111e',
     }}>
-      <AssistantStage profile={profile} speaking={speaking} />
+      <AssistantStage profile={profile} speaking={speaking} speechText={speechText} />
     </main>
   );
 }
