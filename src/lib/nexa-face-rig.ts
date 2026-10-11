@@ -6,6 +6,7 @@
 export interface NexaFaceRig {
   available: boolean;
   beforeUpdate(): void;
+  setSpeechText(text: string): void;
   update(dt: number, seconds: number, speaking: boolean): void;
 }
 type CoreName = 'MouthOpen'|'MouthO'|'MouthWide'|'MouthSmile'|
@@ -44,6 +45,25 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
   let speechStart=0;
   let blinkAt=2.35;
   let recentSeconds=0;
+  // Text-driven pseudo-visemes are synchronized with the voice onStart event.
+  // Expo TTS does not expose reliable phoneme timestamps: these are estimated,
+  // never presented as exact audio-level lip synchronization.
+  let speechUnits: { shape: number; wide: number; open: number; length: number }[] = [];
+  const parseSpeech=(text:string)=>{
+    const normalized=text.toLocaleLowerCase('es').normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'');
+    const units: typeof speechUnits=[];
+    for(const char of normalized.slice(0,1100)){
+      if(/[.,;:!?]/.test(char))units.push({shape:0,wide:0,open:0,length:0.23});
+      else if(/[a]/.test(char))units.push({shape:0.04,wide:0.62,open:0.73,length:0.12});
+      else if(/[eiy]/.test(char))units.push({shape:0.04,wide:0.74,open:0.32,length:0.10});
+      else if(/[ou]/.test(char))units.push({shape:0.72,wide:0,open:0.40,length:0.14});
+      else if(/[bmp]/.test(char))units.push({shape:0,wide:0,open:0.03,length:0.07});
+      else if(char===' ')units.push({shape:0,wide:0,open:0.08,length:0.05});
+      else if(/[a-zñ]/.test(char))units.push({shape:0.05,wide:0.20,open:0.20,length:0.065});
+    }
+    speechUnits=units;
+  };
   return {
     available:binding.length>0,
     beforeUpdate(){
@@ -53,6 +73,10 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       head.rotation.y-=headY;
       headX=0;
       headY=0;
+    },
+    setSpeechText(text:string){
+      parseSpeech(text);
+      speechStart=recentSeconds;
     },
     update(dt:number,seconds:number,speaking:boolean){
       if (!Number.isFinite(dt)||dt<=0||!binding.length) return;
@@ -69,10 +93,24 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       const pulse=0.5+0.5*Math.sin(t*13.8+0.3);
       const syllable=0.5+0.5*Math.sin(t*7.1-0.8);
       const pause=ease((Math.sin(t*2.2+0.5)+0.16)*3);
-      const vowel=(0.28+0.51*pulse)*(0.68+0.32*syllable)*pause;
-      set('MouthOpen',speaking?vowel:0,speaking?18:12);
-      set('MouthO',speaking?(0.5+0.5*Math.sin(t*3.4))*vowel*0.20:0,11);
-      set('MouthWide',speaking?(0.5+0.5*Math.sin(t*4.1+1.6))*vowel*0.18:0,11);
+      let vowel=(0.28+0.51*pulse)*(0.68+0.32*syllable)*pause;
+      let round=0.12*vowel,wide=0.14*vowel;
+      if(speechUnits.length){
+        // Use the actual response's sound classes, not a perpetual
+        // arbitrary sine wave with identical mouth shapes for all phrases.
+        let cycle=0;
+        for(const item of speechUnits)cycle+=item.length;
+        let clock=t%Math.max(0.12,cycle);
+        let selected=speechUnits[speechUnits.length-1];
+        for(const item of speechUnits){clock-=item.length;if(clock<=0){selected=item;break;}}
+        const articulation=0.76+0.24*pulse;
+        vowel=selected.open*articulation;
+        round=selected.shape*articulation;
+        wide=selected.wide*articulation;
+      }
+      set('MouthOpen',speaking?vowel:0,speaking?16:12);
+      set('MouthO',speaking?round:0,14);
+      set('MouthWide',speaking?wide:0,14);
       set('MouthSmile',speaking?0.055:0.085,3);
       // Local eyelid morphs; never deform temples or change neck coordinates.
       let blink=0;
