@@ -41,7 +41,7 @@ function Stat({label,count,sub}: {label:string;count:number|string;sub?:string})
  </View>;
 }
 export default function NexoControlScreen(){
- const [email,setEmail]=useState('armentamarcos61@gmail.com');
+ const [email,setEmail]=useState('');
  const [verification,setVerification]=useState('');
  const [sent,setSent]=useState(false);
  const [dashboard,setDashboard]=useState<ControlDashboard|null>(null);
