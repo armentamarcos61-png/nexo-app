@@ -350,9 +350,10 @@ const root=new G();
 const neckSeam=.09;
 const collar=collarFactory(MockThree,root,studioMock,neckSeam);
 assert.equal(root.children.length,1,'exactly one collar group must be visible');
-assert.equal(collar.children.length,5,'fitted neckline, two small nape triangle covers and two shirt seams');
-assert(collar.children.filter(part=>part.name?.includes('nape triangle cover')).length===2,
-  'both neck triangle gaps must have their own small 3D inserts');
+assert.equal(collar.children.length,3,
+  'neck must be one continuous fitted piece with only two delicate seams');
+assert(collar.children.every(part=>!part.name?.includes('triangle cover')),
+  'the detached black triangular plates must never return');
 assert(Math.abs(collar.position.y-(neckSeam-.14*.11))<1e-8,
   'collar must bridge the world-space seam at neck height');
 assert(Math.abs(collar.position.z-(.15-.14*.67))<1e-8,
@@ -364,8 +365,8 @@ assert.equal(collar.children[0].geometry.args[0].length,5,
 assert(collar.children[0].geometry.args[0][4].x >
        collar.children[0].geometry.args[0][0].x,
   'shirt neck must widen into the original shoulders');
-assert(collar.children[3].geometry.args[2] < .14*.01 &&
-       collar.children[4].geometry.args[2] < .14*.01,
+assert(collar.children[1].geometry.args[2] < .14*.01 &&
+       collar.children[2].geometry.args[2] < .14*.01,
   'shirt contours must be fine soft piping, not white armor plates');
 assert.equal(collarFactory(MockThree,root,studioMock,neckSeam),collar,
   're-loading must not create a second collar');
@@ -445,13 +446,16 @@ assert(connected && connected.parent===liveHead,
   'new long hair must attach to moving Head bone, not the torso or world');
 assert(connected.geometry.getAttribute('position').count>350,
   'actual 3D back-hair surface must be smooth, not one static texture');
-const hairInserts=connected.children.filter(part=>
-  part.name?.includes('small diagonal hair connection'));
-assert.equal(hairInserts.length,2,
-  'small diagonal hair pieces must join headset to the rear curtain on BOTH sides');
-assert(hairInserts.every(part=>
-  part.geometry.getAttribute('position').count>180),
-  'the diagonal additions are real rounded geometry, never images');
+assert.equal(connected.children.length,0,
+  'no attached rectangular strips or floating black hair plates');
+assert.equal(connected.userData.nexaHairAnchors.sidePanels,2,
+  'the connector has only two short tapered sections');
+const hairBounds=new realThree.Box3().setFromBufferAttribute(
+  connected.geometry.getAttribute('position'));
+assert(hairBounds.max.y-hairBounds.min.y < .16*2.1,
+  'hair bridge must remain a small cap-to-ponytail wedge, not a long curtain');
+assert(hairBounds.max.y-hairBounds.min.y > .16*.35,
+  'hair bridge must be a real connected 3D surface rather than a flat line');
 assert(connected.userData.nexaHairAnchors.topY>
        connected.userData.nexaHairAnchors.bottomY,
   'new hair spans seamlessly from underneath helmet down into ponytail');
