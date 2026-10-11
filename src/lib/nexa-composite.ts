@@ -767,9 +767,16 @@ function tailoredWaistPanel(
   const vertices: number[] = [];
   const colors: number[] = [];
   const triangles: number[] = [];
-  const dark = new THREE.Color(0x171822);
-  const pearl = new THREE.Color(0xd6d9e7);
+  // Match Nexa's approved suit, not the flat grey of the old bridge.
+  // Colors stay in the vertex material; the 3D geometry and N logo do not move.
+  const ink = new THREE.Color(0x10131c);
+  const graphite = new THREE.Color(0x1c2233);
+  const coolShadow = new THREE.Color(0xc9cedd);
+  const pearl = new THREE.Color(0xe7e9f2);
+  const ceramicHighlight = new THREE.Color(0xf5f7fb);
+  const violetRim = new THREE.Color(0x6e59d9);
   const color = new THREE.Color();
+  const ceramic = new THREE.Color();
   body.updateMatrixWorld(true);
   for (let row = 0; row <= rings; row++) {
     const t = row/rings;
@@ -792,12 +799,21 @@ function tailoredWaistPanel(
       const local = body.worldToLocal(new THREE.Vector3(x,y,z));
       vertices.push(local.x,local.y,local.z);
       const side = Math.abs(Math.sin(angle));
-      // Broad PEARL centre plate with black side panels. Unlike the
-      // previous black strip, this reads as a continuous white Nexo bust.
+      // Keep the same existing contour. Repaint it as a pearl ceramic chest
+      // plate with dark ink side panels, subtle cool shadow and violet rim.
       const frontBlend = Math.max(0, Math.min(1, (front-0.07)/0.51));
       const softFront = frontBlend*frontBlend*(3-2*frontBlend);
-      const zipper = side<0.055 && t<0.34 ? 0.28 : 1;
-      color.copy(dark).lerp(pearl,softFront*(0.94-0.04*t)*zipper);
+      const zipper = side<0.055 && t<0.34 ? 0.20 : 1;
+      ceramic.copy(coolShadow).lerp(pearl,0.86);
+      ceramic.lerp(ceramicHighlight,
+        (0.07+0.16*(1-t))*Math.max(0,front));
+      color.copy(ink).lerp(graphite,0.24+0.20*side);
+      // A near-white centre prevents a flat grey rectangular patch.
+      color.lerp(ceramic,Math.min(1,softFront*(0.997-0.004*t)*zipper));
+      // Accent only the material transition: violet must never tint the N.
+      const rimIn = Math.max(0,Math.min(1,(front-0.07)/0.20));
+      const rimOut = 1-Math.max(0,Math.min(1,(front-0.40)/0.16));
+      color.lerp(violetRim,0.055*rimIn*rimOut);
       colors.push(color.r,color.g,color.b);
     }
   }
@@ -816,7 +832,7 @@ function tailoredWaistPanel(
   geometry.setIndex(triangles);
   geometry.computeVertexNormals();
   const material = new THREE.MeshStandardMaterial({
-    vertexColors:true,roughness:0.55,metalness:0.08,side:THREE.DoubleSide,
+    vertexColors:true,roughness:0.42,metalness:0.10,side:THREE.DoubleSide,
   });
   const panel = new THREE.Mesh(geometry,material);
   panel.name = 'Nexa continuous 3D tapered waist';
