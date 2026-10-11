@@ -583,3 +583,49 @@ assert(!stage.includes(' -0.36, 0.36') &&
        !stage.includes(',-0.14,0.14'),
   'old restrictive side-to-side and vertical camera limits must be removed');
 console.log('PASS: full-height vertical camera pan, 360-degree horizontal orbit and two-finger tilt');
+
+
+// Calibrate the REAL shipped Studio GLB geometry, not just fake rig weights.
+// Ensure the eyelid actually moves and the forehead is never distorted.
+const facialRigCode=fs.readFileSync('src/lib/nexa-face-rig.ts','utf8');
+const facialExports={};
+new Function('exports',ts.transpileModule(facialRigCode,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020},
+}).outputText)(facialExports);
+const actualFace=studio.doc.meshes.find(m=>(m.extras?.targetNames||[]).includes('EyeBlinkLeft'));
+assert(actualFace,'Studio must include the expressive facial GLB mesh');
+const facialPrimitive=actualFace.primitives.find(p=>p.targets?.length);
+const facialGeometry=new realThree.BufferGeometry();
+const asFloatAttr=id=>new realThree.Float32BufferAttribute(
+  accessor(studio,id).flat(),3);
+facialGeometry.setAttribute('position',asFloatAttr(facialPrimitive.attributes.POSITION));
+facialGeometry.morphAttributes.position=facialPrimitive.targets.map(
+  target=>asFloatAttr(target.POSITION));
+const targetNames=actualFace.extras.targetNames;
+const faceDict=Object.fromEntries(targetNames.map((n,i)=>[n,i]));
+const facialMesh={geometry:facialGeometry,morphTargetDictionary:faceDict};
+const faceMorph=name=>facialGeometry.morphAttributes.position[faceDict[name]];
+const peakOf=attribute=>{
+  let max=0;
+  for(let i=0;i<attribute.count;i++){
+    max=Math.max(max,Math.hypot(attribute.getX(i),attribute.getY(i),attribute.getZ(i)));
+  }
+  return max;
+};
+const preBlink=peakOf(faceMorph('EyeBlinkLeft'));
+const preMouth=peakOf(faceMorph('MouthOpen'));
+const eyeBaseline=Array.from(faceMorph('EyeBlinkLeft').array);
+const facialTuned=facialExports.calibrateNexaFacialMorphs({traverse:fn=>fn(facialMesh)});
+assert(facialTuned>=5,'Studio must tune blink, gaze and mouth of its shipped geometry');
+assert(peakOf(faceMorph('EyeBlinkLeft'))>preBlink*1.12,
+  'real Studio eye must close more, not only report a target channel');
+assert(peakOf(faceMorph('MouthOpen'))>preMouth*1.45,
+  'real Studio lips must articulate visibly while speaking');
+const cheekAndBrowLimit=eyes(studio,'EyeBlinkLeft')[1]+.026;
+const basePosition=facialGeometry.getAttribute('position');
+for(let i=0;i<basePosition.count;i++){
+  if(basePosition.getY(i)<cheekAndBrowLimit)continue;
+  assert(Math.abs(faceMorph('EyeBlinkLeft').getY(i)-eyeBaseline[i*3+1])<1e-7,
+    'blink must not move brow, forehead or skull');
+}
+console.log('PASS: original Studio eye and mouth vertices visibly calibrated, brows/skull preserved');
