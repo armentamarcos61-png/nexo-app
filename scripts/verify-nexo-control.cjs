@@ -60,4 +60,42 @@ assert.equal(parseCommand('Construye un sistema nuevo de pagos').type,'idea',
  'Unsupported code-change requests must not claim they were executed');
 console.log('PASS: voice commands apply approved layout operations and queue unsupported code changes safely');
 
+
+assert(html.includes('id="link-nexo"'), 'Admin login must offer to link the existing Nexo local password');
+assert(html.includes("data.user?.email?.trim().toLowerCase()!==email.toLowerCase()"),
+ 'The recovered Supabase identity must match the claimed local account email');
+assert(html.includes("if(input.type!=='recovery')"),
+ 'Linking local credentials must require email verification with a recovery session');
+assert(html.includes('await setSupabasePassword(selectedPassword)'),
+ 'Password must be adopted by Supabase only after email-verified recovery, not merely local proof');
+assert(!html.includes('localStorage.setItem(\'nexo.control.admin'),
+ 'Administrator credentials must not be written to localStorage');
+// Reproduce registration's salted PBKDF2 hash, then check the actual in-panel
+// credential verifier against a correct password, an incorrect one, and an
+// unrelated email, without calling the remote authentication server.
+const startLocal=standaloneScript.indexOf('async function matchesLocalNexoPassword(email,password){');
+const endLocal=standaloneScript.indexOf('async function sendRecovery(email){',startLocal);
+assert(startLocal>=0&&endLocal>startLocal,'Local password linking verifier must exist');
+const crypto=require('node:crypto');
+const {webcrypto,pbkdf2Sync}=crypto;
+const seed=Buffer.from('74a023ef98886db18366ce372d907e2f','hex');
+const password='MyNexoUserPassword12!';
+const hash=pbkdf2Sync(password,seed,120000,32,'sha256').toString('base64');
+const localAccount={email:'owner@example.test',passwordSalt:seed.toString('base64'),passwordHash:hash};
+const fakeStorage={getItem:key=>key==='nexo.local-accounts.v1'?JSON.stringify([localAccount]):null};
+const verifyLocal=vm.runInNewContext('('+standaloneScript.slice(startLocal,endLocal).trim()+')',{
+ window:{crypto:webcrypto},crypto:webcrypto,
+ localStorage:fakeStorage,TextEncoder,Uint8Array,atob,
+ btoa,
+});
+(async()=>{
+ assert.equal(await verifyLocal('owner@example.test',password),true,
+  'A valid Nexo password must match its actual registration hash');
+ assert.equal(await verifyLocal('owner@example.test','IncorrectPassword!'),false,
+  'Invalid Nexo passwords must never be treated as verified');
+ assert.equal(await verifyLocal('different@example.test',password),false,
+  'Password linking must reject other email identities');
+ console.log('PASS: PBKDF2 Nexo password checked without bypassing Supabase verification');
+})().catch(e=>{console.error(e);process.exitCode=1;});
+
 console.log('PASS: standalone admin HTML parses, auth is gated, no Expo routing dependency');
