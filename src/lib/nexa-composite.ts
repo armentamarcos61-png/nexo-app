@@ -980,7 +980,7 @@ export function maskNexaStudioHead(THREE: any, studio: any, renderer: any): numb
   // seam UNDER the chin but ABOVE the original shoulder armor. Hard bounds
   // prevent the plane from cutting off the mouth or leaving a second chest.
   const seamY=THREE.MathUtils.clamp(
-    eye.center.y-eye.width*1.60,
+    eye.center.y-eye.width*1.17,
     bounds.min.y+h*0.43,
     bounds.min.y+h*0.73,
   );
@@ -1054,6 +1054,82 @@ export function lowerNexaStudioHead(THREE:any,studio:any,eyeWidth:number):number
   return loweredSeam;
 }
 
+/**
+ * The original full-body export still contains a second head, neck armor and
+ * long back-hair polygons. A horizontal neck clipping plane alone CANNOT
+ * remove the portions of those head-weighted polygons hanging below it.
+ * They were the detached black strips visible behind the Studio hair from
+ * side and rear views. Remove only triangles weighted to the obsolete HEAD
+ * and NECK bones. The approved Studio face and its attached hair are separate
+ * GLB objects and are never modified here.
+ */
+export function removeNexaLegacyHeadFragments(body:any):number {
+  if (body.userData.nexaLegacyHeadRemoved) return 0;
+  const visited=new Set<any>();
+  let removed=0;
+  body.traverse((mesh:any)=>{
+    if (!mesh.isSkinnedMesh || !mesh.skeleton?.bones?.length) return;
+    const geometry=mesh.geometry;
+    if (!geometry || visited.has(geometry)) return;
+    visited.add(geometry);
+    const position=geometry.getAttribute('position');
+    if (!position) return;
+    const skinHead=new Float32Array(position.count);
+    const boneNames=mesh.skeleton.bones.map((bone:any)=>String(bone.name??''));
+    let weighted=0;
+    for (let set=0;set<3;set++) {
+      const suffix=set?String(set):'';
+      const joints=geometry.getAttribute('skinIndex'+suffix);
+      const weights=geometry.getAttribute('skinWeight'+suffix);
+      if (!joints || !weights) continue;
+      const channels=Math.min(joints.itemSize,weights.itemSize,4);
+      for(let i=0;i<position.count;i++){
+        for(let c=0;c<channels;c++){
+          const bone=boneNames[joints.getComponent(i,c)]??'';
+          if (/(?:^|:)Head(?:Top_End)?$|(?:^|:)Neck$|(?:^|:)Jaw$/i.test(bone)) {
+            skinHead[i]+=weights.getComponent(i,c);
+            weighted++;
+          }
+        }
+      }
+    }
+    if (!weighted) return;
+    const index=geometry.index;
+    const total=index?index.count:position.count;
+    const idx=(n:number)=>index?index.getX(n):n;
+    const groups=geometry.groups.length?geometry.groups:
+      [{start:0,count:total,materialIndex:0}];
+    const kept:number[]=[];
+    const newGroups:{start:number;count:number;materialIndex:number}[]=[];
+    let cut=0;
+    for(const group of groups){
+      const first=kept.length;
+      const end=Math.min(total,group.start+group.count);
+      for(let i=group.start;i+2<end;i+=3){
+        const a=idx(i),b=idx(i+1),c=idx(i+2);
+        const maximum=Math.max(skinHead[a],skinHead[b],skinHead[c]);
+        const average=(skinHead[a]+skinHead[b]+skinHead[c])/3;
+        // A threshold across ALL 3 vertices prevents removing actual
+        // shoulders, chest and arm triangles near the costume neckline.
+        if (maximum>=0.57 && average>=0.35) cut++;
+        else kept.push(a,b,c);
+      }
+      if(kept.length>first)newGroups.push({
+        start:first,count:kept.length-first,materialIndex:group.materialIndex??0,
+      });
+    }
+    if (!cut) return;
+    geometry.setIndex(kept);
+    geometry.clearGroups();
+    for(const group of newGroups) geometry.addGroup(group.start,group.count,group.materialIndex);
+    geometry.computeBoundingSphere();
+    removed+=cut;
+  });
+  body.userData.nexaLegacyHeadRemoved=true;
+  if(removed) console.info('[Nexa 3D] Fragmentos de cabello/cuello antiguo retirados:',removed);
+  return removed;
+}
+
 export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:any):Result {
   const studioEyes=landmarks(THREE,studio);
   const bodyEyes=landmarks(THREE,body);
@@ -1072,6 +1148,9 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
   // THEN lower Studio's head alone, while moving its clip plane to the new
   // neck height. The procedural uniform collar uses this exact same seam.
   const seamY=lowerNexaStudioHead(THREE,studio,studioEyes.width);
+  // Keep the second body's suit only, never dangling geometry from its
+  // discarded head/hair (which clipping planes do not remove below the jaw).
+  removeNexaLegacyHeadFragments(body);
 
   const lower=new THREE.Box3().setFromObject(body);
   const upper=new THREE.Box3().setFromObject(studio);
@@ -1155,69 +1234,37 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
 
 
 /**
- * Discreet tailored neckline, not an extra neck or two rigid armor plates.
- * The Studio head supplies the real chin and throat; the complete GLB supplies
- * the original white suit. This thin, dark, tapered inset covers only the shared
- * clipping line. Two fine stitched piping curves sit INSIDE the suit neckline.
- * No white cylindrical sectors may jut out under Nexa's face.
+ * One small matte neck inset, recessed within the original black/white
+ * uniform. Do not add a floating white collar, V-shaped tubes, or hard plates.
+ * The original approved Studio hair and jaw are preserved untouched.
  */
-export function addNexaCollar(THREE:any, parent:any, studio:any, seamY:number):any {
+export function addNexaCollar(THREE:any,parent:any,studio:any,seamY:number):any {
   const existing=parent.userData?.nexaUniformCollar;
-  if (existing) return existing;
+  if(existing)return existing;
   const eye=landmarks(THREE,studio);
-  if (!eye || !Number.isFinite(seamY)) {
+  if(!eye || !Number.isFinite(seamY)){
     throw new Error('No se pudo medir la unión 3D para el cuello de Nexa');
   }
   const unit=eye.width;
-  const height=unit*0.20;
-  const topRadius=unit*0.49;
-  const bottomRadius=unit*0.66;
-  const segments=40;
-
   parent.updateMatrixWorld(true);
-  const neckWorld=eye.center.clone();
-  // The actual neck is behind the facial eye plane; place the insert lower
-  // than the jaw so it cannot appear as a second white or silver neck.
-  neckWorld.y=seamY-unit*0.018;
-  neckWorld.z-=unit*0.72;
-
+  const world=eye.center.clone();
+  world.y=seamY-unit*0.015;
+  world.z-=unit*0.68;
   const group=new THREE.Group();
-  group.name='Nexa discreet tailored neckline';
-  group.position.copy(parent.worldToLocal(neckWorld));
-  group.scale.z=0.91;
-
+  group.name='Nexa recessed soft neck transition';
+  group.position.copy(parent.worldToLocal(world));
+  group.scale.z=0.87;
   const charcoal=new THREE.MeshStandardMaterial({
-    color:0x10121a,roughness:0.73,metalness:0.03,side:THREE.DoubleSide,
+    color:0x101017,roughness:0.90,metalness:0,side:THREE.DoubleSide,
   });
-  const pearl=new THREE.MeshStandardMaterial({
-    color:0xc7cbd7,roughness:0.69,metalness:0.04,side:THREE.DoubleSide,
-  });
-  const place=(name:string,geometry:any,material:any)=>{
-    const mesh=new THREE.Mesh(geometry,material);
-    mesh.name=name;
-    mesh.frustumCulled=false;
-    group.add(mesh);
-    return mesh;
-  };
-
-  // Small matte-black insert, almost flush with the existing suit surface.
-  // Unlike the previous collar there are NO tall white cylinder panels.
-  place('Nexa dark recessed neckline',
-    new THREE.CylinderGeometry(topRadius,bottomRadius,height,segments,1,true),
-    charcoal);
-
-  // Flat fine V seam tracing the garment, not floating armor lapels.
-  for (const side of [-1,1]) {
-    const curve=new THREE.CatmullRomCurve3([
-      new THREE.Vector3(side*unit*0.07,height*0.28,topRadius*0.92),
-      new THREE.Vector3(side*unit*0.27,-height*0.07,unit*0.56),
-      new THREE.Vector3(side*unit*0.52,-height*0.55,unit*0.59),
-    ]);
-    place(side<0?'Nexa left sewn neckline':'Nexa right sewn neckline',
-      new THREE.TubeGeometry(curve,12,unit*0.010,5,false),pearl);
-  }
-
-  group.userData.nexaCollarResources={charcoal,pearl};
+  const insert=new THREE.Mesh(
+    new THREE.CylinderGeometry(unit*0.43,unit*0.58,unit*0.12,40,1,true),
+    charcoal,
+  );
+  insert.name='Nexa soft black neckline inset';
+  insert.frustumCulled=false;
+  group.add(insert);
+  group.userData.nexaCollarResources={charcoal};
   parent.add(group);
   parent.userData.nexaUniformCollar=group;
   return group;
@@ -1231,7 +1278,7 @@ export function disposeNexaCollar(parent:any):void {
     if (child.isMesh) child.geometry?.dispose?.();
   });
   const resources=collar.userData.nexaCollarResources;
-  for(const material of [resources?.charcoal,resources?.pearl]) {
+  for(const material of [resources?.charcoal]) {
     material?.dispose?.();
   }
   collar.removeFromParent();
