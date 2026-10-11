@@ -192,8 +192,11 @@ assert(headMaskStart>=0 && maskCode.includes('eye.center.y-eye.width*2.25'),
   'Studio head mask must be placed beneath the jaw from real eyelid landmarks');
 assert(maskCode.includes('new THREE.Plane(new THREE.Vector3(0,1,0),-seamY)'),
   'Studio must keep the y >= neck half-space');
-assert(newCompose.includes('const seamY=maskNexaStudioHead(THREE,studio,renderer)'),
-  'Studio and full body must use precisely the same neck seam');
+assert(newCompose.includes('const seamY=lowerNexaStudioHead(THREE,studio,studioEyes.width)'),
+  'the neck seam must follow the Studio head when it is lowered');
+assert(newCompose.indexOf('body.position.copy(studioEyes.center)') <
+       newCompose.indexOf('lowerNexaStudioHead(THREE,studio,studioEyes.width)'),
+  'head must move AFTER body alignment or the whole avatar moves instead');
 assert(newCompose.includes('new THREE.Plane(new THREE.Vector3(0,-1,0),seamY)'),
   'full-body suit must keep y <= neck, including complete arms and chest');
 assert(newCompose.includes('body.scale.setScalar(ratio)') &&
@@ -245,6 +248,31 @@ const sandbox={exports:{},console};
 vm.runInNewContext(ts.transpileModule(polish,{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020},
 }).outputText,sandbox,{timeout:6000});
+const moveHead=sandbox.exports.lowerNexaStudioHead;
+assert.equal(typeof moveHead,'function');
+const originalY=1.13;
+const originalSeam=.80;
+const headPlane={normal:{x:0,y:1,z:0},constant:-originalSeam};
+const sourceHead={
+  userData:{nexaHeadOnlySeamY:originalSeam},
+  position:{y:originalY},
+  updateMatrixWorld(){this.updated=true;},
+  traverse(cb){cb({isMesh:true,material:{clippingPlanes:[headPlane]}});},
+};
+const expectedDrop=.14*.35;
+const movedSeam=moveHead({MathUtils:{clamp:(v,lo,hi)=>Math.max(lo,Math.min(hi,v))}},
+  sourceHead,.14);
+assert(Math.abs(sourceHead.position.y-(originalY-expectedDrop))<1e-10,
+  'Nexa Studio head must be lowered ONLY about one third of an eye-width');
+assert(Math.abs(movedSeam-(originalSeam-expectedDrop))<1e-10 &&
+       Math.abs(headPlane.constant+movedSeam)<1e-10,
+  'neck plane must lower by EXACTLY the same amount as the face');
+assert(sourceHead.updated,'head world matrices must be refreshed for the collar');
+assert.equal(moveHead({MathUtils:{clamp:v=>v}},sourceHead,.14),movedSeam,
+  'repeated composition must never lower Nexa twice');
+assert(Math.abs(sourceHead.position.y-(originalY-expectedDrop))<1e-10,
+  'head position must remain stable on repeat calls');
+console.log('PASS: head lowered a subtle eye-relative distance and collar/clip seam stay aligned');
 const collarFactory=sandbox.exports.addNexaCollar;
 const collarCleanup=sandbox.exports.disposeNexaCollar;
 assert.equal(typeof collarFactory,'function');
