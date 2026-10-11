@@ -188,7 +188,7 @@ assert(index>=0,'new definitive head+body compositor must exist');
 const newCompose=polish.slice(index);
 const headMaskStart=polish.indexOf('export function maskNexaStudioHead(');
 const maskCode=polish.slice(headMaskStart,index);
-assert(headMaskStart>=0 && maskCode.includes('eye.center.y-eye.width*2.25'),
+assert(headMaskStart>=0 && maskCode.includes('eye.center.y-eye.width*1.75'),
   'Studio head mask must be placed beneath the jaw from real eyelid landmarks');
 assert(maskCode.includes('new THREE.Plane(new THREE.Vector3(0,1,0),-seamY)'),
   'Studio must keep the y >= neck half-space');
@@ -217,6 +217,10 @@ assert(!stage.includes('composeNexaBody(') &&
   'legacy torso patching must be entirely absent from live path');
 assert(stage.includes("setVariant('full')"),
   'if the secondary body fails, never display a disembodied head');
+assert(newCompose.includes('const gestureBones:') &&
+       newCompose.includes('gestureBlend+=') &&
+       newCompose.includes('if (speaking) gestureTime+=frame'),
+  'full-body forearms must gesture smoothly only during audible speech');
 assert(stage.includes('faceRig=installNexaFaceRig(THREE,modelRoot)'),
   'original expressive Studio facial rig must remain active');
 const fullBones=new Set((full.doc.skins||[]).flatMap(skin=>
@@ -259,11 +263,11 @@ const sourceHead={
   updateMatrixWorld(){this.updated=true;},
   traverse(cb){cb({isMesh:true,material:{clippingPlanes:[headPlane]}});},
 };
-const expectedDrop=.14*.45;
+const expectedDrop=.14*.64;
 const movedSeam=moveHead({MathUtils:{clamp:(v,lo,hi)=>Math.max(lo,Math.min(hi,v))}},
   sourceHead,.14);
 assert(Math.abs(sourceHead.position.y-(originalY-expectedDrop))<1e-10,
-  'Nexa Studio head must lower a controlled 0.45 of the measured eye width');
+  'Nexa Studio head must lower a controlled 0.64 of the measured eye width');
 assert(Math.abs(movedSeam-(originalSeam-expectedDrop))<1e-10 &&
        Math.abs(headPlane.constant+movedSeam)<1e-10,
   'neck plane must lower by EXACTLY the same amount as the face');
@@ -335,11 +339,11 @@ const neckSeam=.09;
 const collar=collarFactory(MockThree,root,studioMock,neckSeam);
 assert.equal(root.children.length,1,'exactly one collar group must be visible');
 assert.equal(collar.children.length,5,'one undershirt, two lapels and two accent edges');
-assert(Math.abs(collar.position.y-(neckSeam+.14*.025))<1e-8,
+assert(Math.abs(collar.position.y-(neckSeam+.14*.018))<1e-8,
   'collar must bridge the world-space seam at neck height');
-assert(Math.abs(collar.position.z-(.15-.14*.82))<1e-8,
+assert(Math.abs(collar.position.z-(.15-.14*.69))<1e-8,
   'collar must sit at the neck, behind the eyes');
-assert(Math.abs(collar.scale.z-.88)<1e-8,
+assert(Math.abs(collar.scale.z-.90)<1e-8,
   'collar must have an anatomical oval cross-section');
 assert(collar.children[1].geometry.args[6]>0 &&
        collar.children[2].geometry.args[6]>0,
