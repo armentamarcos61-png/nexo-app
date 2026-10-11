@@ -1022,9 +1022,10 @@ export function lowerNexaStudioHead(THREE:any,studio:any,eyeWidth:number):number
   if (!Number.isFinite(oldSeam) || !Number.isFinite(eyeWidth) || eyeWidth<=0) {
     throw new Error('La cabeza y el cuello necesitan referencias 3D válidas');
   }
-  // Around one third of the distance between the eyes: a SMALL anatomical
-  // correction, not a new remodel or a change to Nexa's face dimensions.
-  const drop=THREE.MathUtils.clamp(eyeWidth*0.35,0.015,0.065);
+  // A slightly lower head-to-uniform fit (0.45 eye-width vs. 0.35).
+  // Adjust only this natural neck drop, not the face, full body or helmet.
+  // The shared clipping seam and collar follow this exact displacement.
+  const drop=THREE.MathUtils.clamp(eyeWidth*0.45,0.015,0.075);
   const loweredSeam=oldSeam-drop;
   let corrected=0;
   studio.traverse((object:any)=>{
