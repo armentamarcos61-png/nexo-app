@@ -1250,98 +1250,103 @@ export function joinNexaBackHair(
   const eye=landmarks(THREE,studio);
   const head=studio.getObjectByName('mixamorig:Head');
   if(!eye || !head || !Number.isFinite(seamY))return null;
-
   const unit=eye.width;
   studio.updateMatrixWorld(true);
   body.updateMatrixWorld(true);
   head.updateMatrixWorld(true);
 
-  // Measure the actual back of the remaining ponytail rather than guessing
-  // from a fixed model export: the head and body are separate scaled GLBs.
-  const depths:number[]=[];
-  const point=new THREE.Vector3();
+  // Sample visible rear-hair vertices AFTER aligning the two actual GLBs.
+  // The earlier thin side strips did not reach the main ponytail silhouette.
+  // A continuous rounded 3D section will join the rear cap to that curtain.
+  const tail:{x:number;y:number;z:number}[]=[];
+  const vertex=new THREE.Vector3();
   const visited=new Set<any>();
   body.traverse((mesh:any)=>{
     if(!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position ||
        visited.has(mesh.geometry))return;
     visited.add(mesh.geometry);
-    const pos=mesh.geometry.attributes.position;
-    for(let i=0;i<pos.count;i+=3){
-      point.fromBufferAttribute(pos,i);
-      if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,point);
-      mesh.localToWorld(point);
-      if(point.y<seamY-unit*0.58 || point.y>seamY+unit*0.05 ||
-         Math.abs(point.x-eye.center.x)>unit*0.90 ||
-         point.z>eye.center.z-unit*1.05)continue;
-      depths.push(point.z);
+    const position=mesh.geometry.attributes.position;
+    for(let i=0;i<position.count;i+=2){
+      vertex.fromBufferAttribute(position,i);
+      if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,vertex);
+      mesh.localToWorld(vertex);
+      if(vertex.y<seamY-unit*1.40 || vertex.y>seamY+unit*0.12 ||
+         Math.abs(vertex.x-eye.center.x)>unit*0.82 ||
+         vertex.z>eye.center.z-unit*1.08)continue;
+      tail.push({x:vertex.x,y:vertex.y,z:vertex.z});
     }
   });
-  depths.sort((a,b)=>a-b);
+  const quantile=(values:number[],q:number,fallback:number)=>{
+    if(!values.length)return fallback;
+    values.sort((a,b)=>a-b);
+    return values[Math.floor((values.length-1)*q)];
+  };
+  // Target the TOP of the actual long hair, not the shoulder, sleeve or
+  // bottom of the ponytail. Include enough overlap to hide its horizontal cap.
+  const tailTopY=quantile(tail.map(p=>p.y),0.93,seamY-unit*0.28);
   const tailZ=THREE.MathUtils.clamp(
-    depths.length>=5 ? depths[Math.floor(depths.length*0.67)] : eye.center.z-unit*1.55,
-    eye.center.z-unit*1.95,eye.center.z-unit*1.09,
+    quantile(tail.filter(p=>p.y>=tailTopY-unit*0.22).map(p=>p.z),
+      0.44,eye.center.z-unit*1.50),
+    eye.center.z-unit*2.25,eye.center.z-unit*1.10,
   );
+  const tailXs=tail.filter(p=>p.y>=tailTopY-unit*0.30);
+  const tailRadius=tailXs.length>=8
+    ? THREE.MathUtils.clamp(
+        quantile(tailXs.map(p=>Math.abs(p.x-eye.center.x)),0.80,unit*0.48),
+        unit*0.33,unit*0.65)
+    : unit*0.48;
 
-  // Replace the three broad overlapping sheets with only TWO short tapered
-  // connections, one on each side. Both are tucked underneath the original
-  // headset/helmet above and the surviving ponytail below. There are no
-  // rectangular caps, flat dangling planes or artificial long hair curtains.
-  // The old strip began far below the rear helmet, leaving the hair
-  // apparently detached in profile. Shift the SAME small tapered surface
-  // upward to the back of the helmet and slightly downward into the actual
-  // ponytail. It still follows the real animated Head joint.
-  const topY=eye.center.y-unit*0.12;
-  const bottomY=seamY-unit*0.58;
-  if(bottomY>=topY-unit*0.2)return null;
-  const rows=18,columns=10;
-  const vertices:number[]=[];
+  // Top cross-section is inserted INSIDE Studio's back-of-helmet housing.
+  // The bottom cross-section penetrates the native ponytail at its top.
+  // Thus there is no rectangular cutoff, and both sides stay joined in 360°.
+  const topY=eye.center.y-unit*0.20;
+  const bottomY=Math.min(seamY-unit*0.56,tailTopY-unit*0.16);
+  const helmetZ=eye.center.z-unit*1.16;
+  const rows=36,columns=36;
+  const positions:number[]=[];
   const indices:number[]=[];
-  for(const side of [-1,1]){
-    const offset=vertices.length/3;
-    for(let row=0;row<=rows;row++){
-      const t=row/rows;
-      const ease=t*t*(3-2*t);
-      // Pointed at both ends: no rectangular top or visible lower cut.
-      const radius=unit*(0.022+0.23*Math.pow(Math.sin(Math.PI*t),0.8));
-      // At the top the narrow tip disappears beneath the helmet; below it
-      // widens and sinks a little inside the original straight hair.
-      const centerX=eye.center.x+side*unit*(0.63-0.04*ease);
-      const centerY=topY+(bottomY-topY)*t;
-      const centerZ=eye.center.z-unit*1.13+
-        (tailZ-eye.center.z+unit*1.13)*ease;
-      for(let col=0;col<=columns;col++){
-        const across=col/columns*2-1;
-        const world=new THREE.Vector3(
-          centerX+side*radius*across,
-          centerY-unit*0.035*(1-t)*across*across,
-          centerZ+unit*0.085*(1-across*across)*Math.sin(Math.PI*t)
-            +unit*0.025*across,
-        );
-        head.worldToLocal(world);
-        vertices.push(world.x,world.y,world.z);
-        if(row<rows && col<columns){
-          const k=offset+row*(columns+1)+col;
-          const n=k+columns+1;
-          indices.push(k,n,k+1,n,n+1,k+1);
-        }
+  for(let row=0;row<=rows;row++){
+    const t=row/rows;
+    const eased=t*t*(3-2*t);
+    const y=topY+(bottomY-topY)*t;
+    const z=helmetZ+(tailZ-helmetZ)*eased;
+    // The middle swells smoothly and the lower end follows the native
+    // ponytail width, instead of the old thin, almost invisible strips.
+    const rx=unit*(0.35+0.17*Math.sin(Math.PI*t))*(1-eased)+tailRadius*eased;
+    const rz=unit*(0.12+0.085*Math.sin(Math.PI*t));
+    for(let col=0;col<=columns;col++){
+      const a=col/columns*Math.PI*2;
+      const world=new THREE.Vector3(
+        eye.center.x+rx*Math.cos(a),
+        y-unit*0.035*(1-t)*Math.cos(a)**2,
+        z+rz*Math.sin(a),
+      );
+      head.worldToLocal(world);
+      positions.push(world.x,world.y,world.z);
+      if(row<rows && col<columns){
+        const k=row*(columns+1)+col,b=k+columns+1;
+        indices.push(k,k+1,b,b,k+1,b+1);
       }
     }
   }
   const geometry=new THREE.BufferGeometry();
-  geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   const material=new THREE.MeshStandardMaterial({
-    color:0x14111b,roughness:0.61,metalness:0.04,
+    color:0x16121d,roughness:0.68,metalness:0.02,
     side:THREE.DoubleSide,
   });
   const bridge=new THREE.Mesh(geometry,material);
-  bridge.name='Nexa subtle tapered headset-to-ponytail join';
+  bridge.name='Nexa continuous helmet-to-ponytail hair volume';
   bridge.frustumCulled=false;
   head.add(bridge);
   avatarRoot.userData.nexaJoinedBackHair=bridge;
-  bridge.userData.nexaHairAnchors={topY,bottomY,tailZ,sidePanels:2};
+  bridge.userData.nexaHairAnchors={
+    topY,bottomY,tailZ,tailTopY,tailRadius,
+    sidePanels:0,continuousVolume:true,
+  };
   return bridge;
 }
 
