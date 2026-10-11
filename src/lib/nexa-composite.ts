@@ -1322,7 +1322,10 @@ export function joinNexaBackHair(
   // overlap the meshes they join; there is no visible rectangular cutoff,
   // disjoint paper strip, detached wig, or change to face/collar/body.
   const topY=eye.center.y-unit*0.29;
-  const bottomY=Math.min(seamY-unit*0.64,topOfTail-unit*0.20);
+  // Continue below the visible cut and into the existing long strands;
+  // the highest remaining body vertices can be collar/shoulder triangles,
+  // not the first truly visible ponytail strands.
+  const bottomY=Math.min(seamY-unit*1.05,topOfTail-unit*0.45);
   if(bottomY>=topY-unit*0.30)return null;
   const rows=32,columns=40,points:number[]=[],indices:number[]=[];
   const startZ=capZ+unit*0.16;
