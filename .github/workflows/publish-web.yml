@@ -58,8 +58,38 @@ jobs:
           fs.writeFileSync(file, JSON.stringify(app, null, 2) + '\n');
           NODE
 
-      - name: Compilar Nexo web
+      - name: Compilar Nexo web sin divisiones JS inestables
+        # On GitHub Pages a cached HTML entry must not rely on a JS chunk
+        # removed during a later publish (the source of Nexa's GLTFLoader 404).
+        env:
+          EXPO_NO_BUNDLE_SPLITTING: '1'
         run: npm run build:web
+
+      - name: Recuperar módulos usados por navegadores con caché anterior
+        # Old Chrome tabs can still refer to their previous Metro bundle.
+        # Rescue its original scripts once and keep them on later deploys.
+        run: |
+          set -euo pipefail
+          old_commit=eee30d5333cb566cf002f16f11aed1665da4c39f
+          folder=dist/_expo/static/js/web
+          mkdir -p "$folder"
+          for filename in \
+            GLTFLoader-ab5a874f259fec5630faff3cf5747149.js \
+            __common-c3201cda969c2bb7a2f499ce6bb764ef.js \
+            entry-5f3b891bfe41133c7e96d8647e29a936.js
+          do
+            curl --fail --location --retry 3 --silent --show-error \
+              "https://raw.githubusercontent.com/armentamarcos61-png/nexo-app/$old_commit/_expo/static/js/web/$filename" \
+              --output "$folder/$filename"
+            test -s "$folder/$filename"
+          done
+
+      - name: Verificar archivos para navegadores nuevos y antiguos
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s dist/_expo/static/js/web/GLTFLoader-ab5a874f259fec5630faff3cf5747149.js
+          find dist/_expo/static/js/web -name '*.js' -size +0c | grep -q .
 
       - name: Guardar rig facial 3D de Nexa en el repositorio
         # The GLB was built from the original uploaded model by this workflow.
@@ -83,5 +113,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
-          force_orphan: true
+          # Keep hashed assets from earlier releases for clients with cached HTML.
+          # Do not re-create an orphan branch on every release.
+          keep_files: true
+          force_orphan: false
           enable_jekyll: false
