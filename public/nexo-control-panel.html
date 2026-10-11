@@ -168,7 +168,7 @@ const allowedScreens={
 const supported=['employment','services','products','offer'];
 const statusNames={pending:'Pendiente',review:'Revisión',approved:'Aprobada',implemented:'Implementada',rejected:'Descartada'};
 let dashboard=null,draft=null,proposal=null,busy=false;
-let pendingLinkPassword=null,pendingLinkEmail=null;
+let pendingLinkPassword=null,pendingLinkEmail=null,lastEmailFlow='email';
 const show=(id,visible)=>$(id).classList.toggle('hidden',!visible);
 const text=(id,value)=>$(id).textContent=String(value??'');
 function clearMessage(){$('notice').className='';$('notice').textContent='';}
@@ -236,6 +236,7 @@ async function matchesLocalNexoPassword(email,password){
  }catch{return false;}
 }
 async function sendRecovery(email){
+ lastEmailFlow='recovery';
  const redirect=location.origin+'/nexo-app/nexo-control-panel.html';
  await parse(await fetch(BASE+'/auth/v1/recover?redirect_to='+encodeURIComponent(redirect),{
   method:'POST',headers:headers(),body:JSON.stringify({email}),
@@ -401,6 +402,7 @@ async function run(fn){
 }
 $('send').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim();
+ lastEmailFlow='email';
  if(!email||!email.includes('@'))throw Error('Escribe tu correo autorizado.');
  await parse(await fetch(BASE+'/auth/v1/otp?redirect_to='+encodeURIComponent(location.origin+'/nexo-app/nexo-control-panel.html'),{
   method:'POST',headers:headers(),body:JSON.stringify({email,create_user:false})}));
@@ -465,7 +467,7 @@ $('signin').addEventListener('click',()=>run(async()=>{
 }));
 $('verify').addEventListener('click',()=>run(async()=>{
  const email=$('email').value.trim(),raw=$('code').value.trim();if(!raw)throw Error('Escribe un código o pega el enlace completo.');
- let input={email,token:raw,type:'email'};
+ let input={email,token:raw,type:lastEmailFlow};
  if(/^https?:\/\//i.test(raw)){
   const link=new URL(raw);
   const hash=link.searchParams.get('token_hash')||link.searchParams.get('token');
