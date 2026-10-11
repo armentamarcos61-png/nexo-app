@@ -85,18 +85,23 @@ export function calibrateNexaFacialMorphs(root:any):number {
     for(const name of ['EyeBlinkLeft','EyeBlinkRight']){
       const eye=findCenter(name);
       if(!eye)continue;
-      const px=eyeWidth*0.30,py=eyeWidth*0.145;
+      const px=eyeWidth*0.325,py=eyeWidth*0.145;
       for(let i=0;i<eye.attr.count;i++){
         const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
         const ex=(x-eye.x)/px,ey=(y-eye.y)/py;
         if(Math.abs(ex)>=1||Math.abs(ey)>=1||z<eye.z-eyeWidth*.115)continue;
-        const ellipse=Math.pow(1-ex*ex,2)*Math.pow(1-ey*ey,2);
-        const forward=clamp((z-(eye.z-eyeWidth*.115))/(eyeWidth*.14),0,1);
-        const lid=clamp((y-eye.y)/(eyeWidth*.035),-1,1);
-        // Upper lid descends, lower lid closes gently; the center stays put.
-        const added=eyeWidth*ellipse*forward*(lid>0?-0.070:0.035)*Math.abs(lid);
+        // The upper eyelid closes DOWN to the eye line. Lower eyelid rises
+        // slightly. Wide horizontal feathering preserves the real contour.
+        const horizontal=Math.pow(1-ex*ex,1.15);
+        const vertical=Math.pow(1-ey*ey,0.40);
+        const front=clamp((z-(eye.z-eyeWidth*.115))/(eyeWidth*.105),0,1);
+        const lidDistance=y-eye.y;
+        const closure=lidDistance>0
+          ? -Math.min(lidDistance,eyeWidth*.115)*horizontal*vertical*front*1.15
+          : Math.min(-lidDistance,eyeWidth*.08)*horizontal*vertical*front*.53;
         const original=eye.attr.getY(i);
-        const bounded=clamp(original*1.22+added,-eyeWidth*.12,eyeWidth*.07);
+        const bounded=clamp(original*1.18+closure,
+          -eyeWidth*.135,eyeWidth*.105);
         eye.attr.setXYZ(i,eye.attr.getX(i),bounded,eye.attr.getZ(i));
       }
       eye.attr.needsUpdate=true;
@@ -131,6 +136,62 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
         .filter(name=>Number.isInteger(dict[name]))
         .map(name=>[name,dict[name]]))});
   });
+  // A small rose-tinted inner mouth, attached to the REAL head bone rather
+  // than painted on the face. Only visible through the animated lip opening.
+  // It is deliberately subtle: the resting face has no pink oval on it.
+  let mouthInterior:any=null;
+  let mouthInteriorMat:any=null;
+  let mouthOpenPosition:any=null;
+  const Three=_THREE;
+  if(Three?.SphereGeometry&&Three?.MeshStandardMaterial&&head){
+    let source:any=null,channel=-1;
+    root.traverse?.((node:any)=>{
+      if(source||!node.isSkinnedMesh||!node.geometry?.attributes?.position)return;
+      const index=node.morphTargetDictionary?.MouthOpen;
+      if(Number.isInteger(index)&&node.geometry.morphAttributes?.position?.[index]){
+        source=node;channel=index;
+      }
+    });
+    if(source){
+      const pos=source.geometry.attributes.position;
+      const d=source.geometry.morphAttributes.position[channel];
+      let x=0,y=0,z=0,total=0,largest=0;
+      for(let i=0;i<d.count;i++)
+        largest=Math.max(largest,Math.hypot(d.getX(i),d.getY(i),d.getZ(i)));
+      for(let i=0;i<d.count;i++){
+        const strength=Math.hypot(d.getX(i),d.getY(i),d.getZ(i));
+        if(strength<largest*.27)continue;
+        x+=pos.getX(i)*strength;
+        y+=pos.getY(i)*strength;
+        z+=pos.getZ(i)*strength;
+        total+=strength;
+      }
+      if(total>0){
+        const center=new Three.Vector3(x/total,y/total,z/total);
+        source.updateMatrixWorld?.(true);
+        head.updateMatrixWorld?.(true);
+        source.localToWorld(center);
+        // The pink surface sits beneath the upper lip. Its own size follows
+        // the actual Studio eye separation and MouthOpen value.
+        center.z+=0.002;
+        head.worldToLocal(center);
+        mouthInteriorMat=new Three.MeshStandardMaterial({
+          color:0x99566b,roughness:0.95,metalness:0,
+          emissive:0x241017,emissiveIntensity:0.11,
+          transparent:true,opacity:0,depthWrite:false,
+          side:Three.DoubleSide,
+        });
+        mouthInterior=new Three.Mesh(
+          new Three.SphereGeometry(1,20,12),mouthInteriorMat);
+        mouthInterior.name='Nexa soft rose mouth interior';
+        mouthInterior.position.copy(center);
+        mouthOpenPosition=center.clone();
+        mouthInterior.visible=false;
+        mouthInterior.frustumCulled=false;
+        head.add(mouthInterior);
+      }
+    }
+  }
   const values:Record<CoreName|OptionalName,number>={
     MouthOpen:0,MouthO:0,MouthWide:0,MouthSmile:0.08,
     EyeBlinkLeft:0,EyeBlinkRight:0,
@@ -205,10 +266,22 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
         round=selected.shape*articulation;
         wide=selected.wide*articulation;
       }
-      set('MouthOpen',speaking?vowel:0,speaking?16:12);
+      set('MouthOpen',speaking?clamp(vowel*1.23,0,0.95):0,speaking?19:12);
       set('MouthO',speaking?round:0,14);
       set('MouthWide',speaking?wide:0,14);
       set('MouthSmile',speaking?0.055:0.085,3);
+      if(mouthInterior&&mouthInteriorMat&&mouthOpenPosition){
+        const opening=values.MouthOpen;
+        // Hide inside the resting lips; expand in step with open vowels.
+        mouthInterior.visible=speaking&&opening>.12;
+        mouthInterior.scale.set(
+          .020+values.MouthWide*.003,
+          .0005+opening*.0105,
+          .0018
+        );
+        mouthInterior.position.y=mouthOpenPosition.y-opening*.0040;
+        mouthInteriorMat.opacity=clamp((opening-.10)*2.1,0,.83);
+      }
       // Local eyelid morphs; never deform temples or change neck coordinates.
       let blink=0;
       if(seconds>=blinkAt){
