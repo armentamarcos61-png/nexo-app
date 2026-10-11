@@ -31,7 +31,7 @@ for (const fps of [20, 30, 60, 120]) {
   }
   assert.ok(closed>0, 'Blink must reach full closure at '+fps+' fps');
   assert.ok(largestOpening>.28, 'Speech must articulate the lips');
-  assert.ok(largestBrow>.25, 'Studio eyebrows must be visible while speaking');
+  assert.ok(largestBrow>.14 && largestBrow<.27, 'Studio eyebrows should move slightly, without exaggerated expressions');
   assert.ok(largestGaze>.02, 'Eyes must change gaze without moving brows or skull');
   assert.ok(mesh.morphTargetInfluences[0]<.001, 'Lips must settle after speech');
 }
