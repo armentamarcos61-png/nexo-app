@@ -88,27 +88,27 @@ export function calibrateNexaFacialMorphs(root:any):number {
       const eye=findCenter(name);
       if(!eye)continue;
       const radiusX=eyeWidth*0.305;
-      const radiusY=eyeWidth*0.120;
+      const radiusY=eyeWidth*0.16;
       const original=eye.attr;
       for(let i=0;i<original.count;i++){
         const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
         const dx=(x-eye.x)/radiusX;
         const dy=(y-eye.y)/radiusY;
         if(Math.abs(dx)>=1||Math.abs(dy)>=1)continue;
-        const front=clamp((z-(eye.z-eyeWidth*.062))/
-          (eyeWidth*.090),0,1);
+        const front=clamp((z-(eye.z-eyeWidth*.135))/
+          (eyeWidth*.110),0,1);
         if(front<.15)continue;
         // Feather horizontally, but do not move cheeks, eyebrows or iris
         // outside the tiny eyelid envelope.
         const feather=Math.pow(Math.max(0,1-dx*dx),1.25)*front;
         const upper=Math.max(0,y-eye.y);
         const lower=Math.max(0,eye.y-y);
-        const upperDelta=-Math.min(upper,eyeWidth*.101)*feather*.82;
+        const upperDelta=-Math.min(upper,eyeWidth*.108)*feather*.95;
         const lowerDelta=Math.min(lower,eyeWidth*.045)*feather*.14;
         const isUpper=upper>eyeWidth*.004;
         const isLower=lower>eyeWidth*.004 && lower<eyeWidth*.053;
         if(!isUpper&&!isLower)continue;
-        const next=(isUpper?upperDelta:lowerDelta);
+        const next=(isUpper?Math.min(upperDelta,original.getY(i)):lowerDelta);
         const bounded=clamp(next,-eyeWidth*.082,eyeWidth*.010);
         original.setXYZ(i,original.getX(i),bounded,original.getZ(i));
       }
