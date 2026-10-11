@@ -340,6 +340,36 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {(runtimeSettings.shortcuts||[]).length>0 ? (
+          <View style={{marginBottom:16,gap:9}}>
+            <Text style={[styles.sectionTitle,{color:palette.title}]}>
+              Accesos rápidos
+            </Text>
+            <View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>
+              {(runtimeSettings.shortcuts||[]).map(shortcut=>(
+                <Pressable
+                  key={shortcut.id}
+                  accessibilityRole="button"
+                  onPress={()=>{
+                    const routes=['/explorar','/productos','/portafolios','/asistente',
+                      '/perfil','/publicar/servicio','/publicar/producto'];
+                    if(routes.includes(shortcut.route))
+                      router.push(shortcut.route as '/explorar');
+                  }}
+                  style={{
+                    borderRadius:15,paddingHorizontal:15,paddingVertical:13,
+                    minHeight:46,borderWidth:1,borderColor:'rgba(121,196,238,0.5)',
+                    backgroundColor:'rgba(28,57,94,0.90)',
+                  }}>
+                  <Text style={{color:'#F4F8FF',fontWeight:'800'}}>
+                    ✦ {shortcut.title}  →
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.infoBanner}>
           <LinearGradient
             pointerEvents="none"
