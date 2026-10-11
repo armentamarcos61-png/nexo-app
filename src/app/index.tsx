@@ -1,8 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { categorias } from '@/constants/categories';
+import { countNexoSearch, defaultNexoSettings, loadNexoPublicSettings, type ActionId, type RuntimeSettings } from '@/lib/nexo-control-api';
 import { AssistantAvatar } from '@/components/assistant-avatar';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useAuth } from '@/state/auth';
@@ -21,6 +22,7 @@ import {
 
 const actions = [
   {
+    id: 'employment' as const,
     icon: '💼',
     title: 'Buscar empleo',
     text: 'Explora oportunidades y encuentra dónde encaja tu talento.',
@@ -28,6 +30,7 @@ const actions = [
     onPress: () => router.push({ pathname: '/explorar', params: { intencion: 'empleo' } }),
   },
   {
+    id: 'services' as const,
     icon: '🤝',
     title: 'Contratar un servicio',
     text: 'Cuéntale a Nexo qué necesitas y deja que organice opciones, precio y coordinación.',
@@ -35,6 +38,7 @@ const actions = [
     onPress: () => router.push({ pathname: '/explorar', params: { intencion: 'contratar' } }),
   },
   {
+    id: 'products' as const,
     icon: '🛒',
     title: 'Productos',
     text: 'Ve el Marketplace completo, busca lo que necesitas o publica lo tuyo.',
@@ -42,6 +46,7 @@ const actions = [
     onPress: () => router.push('/productos'),
   },
   {
+    id: 'offer' as const,
     icon: '🛠️',
     title: 'Ofrecer un servicio',
     text: 'Muestra lo que sabes hacer y consigue nuevos clientes.',
@@ -50,8 +55,22 @@ const actions = [
   },
 ];
 
+const heroColors={
+ cyan:['#0C315D','#342A79','#7A2E88','#136A78'],
+ violet:['#292067','#663A93','#51307B','#19769B'],
+ orange:['#55336B','#A74469','#DA773E','#265C81'],
+ teal:['#0A3C55','#156B71','#273976','#3A7E89'],
+} as const;
 export default function HomeScreen() {
   const [busqueda, setBusqueda] = useState('');
+  const [runtimeSettings,setRuntimeSettings]=useState<RuntimeSettings>(defaultNexoSettings);
+  useEffect(()=>{
+    let active=true;
+    void loadNexoPublicSettings().then(settings=>{if(active)setRuntimeSettings(settings);}).catch(()=>{});
+    return ()=>{active=false;};
+  },[]);
+  const orderedActions=runtimeSettings.action_order
+    .map(id=>actions.find(action=>action.id===id)).filter((action):action is typeof actions[number]=>!!action);
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { profile } = useProfessionalProfile();
@@ -62,6 +81,7 @@ export default function HomeScreen() {
   const profileInitial = greetingName ? greetingName.charAt(0).toUpperCase() : 'N';
 
   function buscar() {
+    if(busqueda.trim())void countNexoSearch('marketplace','general');
     router.push({ pathname: '/explorar', params: { q: busqueda.trim() } });
   }
 
@@ -244,7 +264,7 @@ export default function HomeScreen() {
         <View style={styles.hero}>
           <LinearGradient
             pointerEvents="none"
-            colors={['#0C315D', '#342A79', '#7A2E88', '#136A78']}
+            colors={heroColors[runtimeSettings.accent]}
             locations={[0, 0.38, 0.70, 1]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -277,7 +297,7 @@ export default function HomeScreen() {
         <Text style={[styles.sectionSub, { color: palette.muted }]}>Todo conectado dentro de Nexo.</Text>
 
         <View style={styles.actionGrid}>
-          {actions.map((action) => (
+          {orderedActions.map((action) => (
             <Pressable
               key={action.title}
               accessibilityRole="button"
@@ -286,7 +306,7 @@ export default function HomeScreen() {
             >
               <LinearGradient
                 pointerEvents="none"
-                colors={action.colors}
+                colors={runtimeSettings.accent==='cyan'?action.colors:heroColors[runtimeSettings.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.actionGradient}
