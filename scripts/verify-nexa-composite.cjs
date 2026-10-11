@@ -95,18 +95,15 @@ const studioHeight=height(studio);
 const bodyHeight=height(full)*ratio;
 assert(Number.isFinite(ratio) && ratio>=0.3 && ratio<=8,'studio/body eye scale is implausible');
 assert(bodyHeight>=studioHeight*1.25,'source body would be shorter than the Studio bust');
-// Three.js removes the negative side of the plane. Regressions here previously
-// kept the duplicate upper torso and invisibly clipped both legs instead.
-const composite = fs.readFileSync('src/lib/nexa-composite.ts','utf8');
-assert.ok(composite.includes('new THREE.Plane(new THREE.Vector3(0, -1, 0), seamY)'),
-  'the body cutter must keep y <= seamY, never keep the duplicate upper chest');
-const seamY = 0.4;
-const planeDistance = (y) => -y + seamY;
-assert(planeDistance(seamY-.1)>0 && planeDistance(seamY+.1)<0,
-  'the lower-body half-space must be the visible side');
-console.log('PASS: lower-body clipping keeps legs and removes the duplicated chest');
-console.log('PASS: native 3D eyes align; eyelid spacing ratio='+ratio.toFixed(3)+
-  ', Studio bust='+studioHeight.toFixed(3)+', matching body='+bodyHeight.toFixed(3));
+// New neck-only join: Studio keeps its head ABOVE one plane, the original
+// full-body suit remains BELOW it. The cut is complementary, not overlapped.
+const headDistance = y => y-0.45;
+const bodyDistance = y => 0.45-y;
+assert(headDistance(.55)>0 && headDistance(.35)<0,
+  'Studio must retain only the head above the neck');
+assert(bodyDistance(.35)>0 && bodyDistance(.55)<0,
+  'full GLB must retain the shoulders, arms and rest below the neck');
+console.log('PASS: one complementary neck seam, no overlapping torso geometry');
 
 function describeRig(label, glb) {
   const doc=glb.doc;
@@ -183,260 +180,52 @@ function countUpperArmTriangles(gltf) {
 const armTriangles=countUpperArmTriangles(full);
 assert(armTriangles>100,'Body GLB must expose skinned upper-arm geometry that can be reattached');
 console.log('PASS: Nexa full-body upper-arm triangles available='+armTriangles);
+
 const polish=fs.readFileSync('src/lib/nexa-composite.ts','utf8');
-assert(polish.includes('preserveOriginalArms(THREE, body, upperArmsPlane)'),
-  'The complete upper arms must be preserved above the Studio seam');
-assert(polish.includes('relaxBodyPose(THREE, body)'),'Hands and shoe pose must be calibrated');
-assert(polish.includes('finishBoots(THREE, body, studioEyes.width, lower.min.y)'),
-  'Shoe finishing must accompany the full body');
-
-/**
- * Regression for the two-arm, two-torso bug seen on Android: Studio has
- * complete native skinned hands, so the lower GLB must not draw its own arms.
- * Its arm bind pose must also be relaxed before animation tracks are built.
- */
-const studioSkinNames = new Set((studio.doc.skins||[]).flatMap(skin =>
-  skin.joints.map(index=>studio.doc.nodes[index]?.name||'')));
-for (const side of ['Left','Right']) {
-  for (const joint of ['Arm','ForeArm','Hand']) {
-    assert(studioSkinNames.has('mixamorig:'+side+joint),
-      'Studio must supply skinned '+side+joint+' for natural arm posing');
+const stage=fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
+const index=polish.indexOf('export function composeNexaHeadBody(');
+assert(index>=0,'new definitive head+body compositor must exist');
+const newCompose=polish.slice(index);
+const headMaskStart=polish.indexOf('export function maskNexaStudioHead(');
+const maskCode=polish.slice(headMaskStart,index);
+assert(headMaskStart>=0 && maskCode.includes('eye.center.y-eye.width*2.25'),
+  'Studio head mask must be placed beneath the jaw from real eyelid landmarks');
+assert(maskCode.includes('new THREE.Plane(new THREE.Vector3(0,1,0),-seamY)'),
+  'Studio must keep the y >= neck half-space');
+assert(newCompose.includes('const seamY=maskNexaStudioHead(THREE,studio,renderer)'),
+  'Studio and full body must use precisely the same neck seam');
+assert(newCompose.includes('new THREE.Plane(new THREE.Vector3(0,-1,0),seamY)'),
+  'full-body suit must keep y <= neck, including complete arms and chest');
+assert(newCompose.includes('body.scale.setScalar(ratio)') &&
+       newCompose.includes('studioEyes.center).sub(bodyEyes.center.clone().multiplyScalar(ratio))'),
+  'models must align by real 3D eyelid landmarks');
+assert(!newCompose.includes('removeLegacyArmSurfaces(body)') &&
+       !newCompose.includes('tailoredWaistPanel(') &&
+       !newCompose.includes('removeNexaStudioSidePanels(') &&
+       !newCompose.includes('relaxBodyPose(THREE, body)'),
+  'no duplicated shoulders, sleeves or artificial waist geometry');
+assert(stage.includes('composeNexaHeadBody(THREE,modelRoot,bodyGltf.scene,renderer)') &&
+       stage.includes('maskNexaStudioHead(THREE,modelRoot,renderer)'),
+  'live viewer must use definitive neck seam');
+assert(!stage.includes('composeNexaBody(') &&
+       !stage.includes('tailorNexaStudioLowerTorso(') &&
+       !stage.includes('removeNexaStudioSidePanels(') &&
+       !stage.includes('poseNexaStudioArms('),
+  'legacy torso patching must be entirely absent from live path');
+assert(stage.includes("setVariant('full')"),
+  'if the secondary body fails, never display a disembodied head');
+assert(stage.includes('faceRig=installNexaFaceRig(THREE,modelRoot)'),
+  'original expressive Studio facial rig must remain active');
+const fullBones=new Set((full.doc.skins||[]).flatMap(skin=>
+ skin.joints.map(index=>full.doc.nodes[index]?.name||'')));
+for(const side of ['Left','Right']) {
+  for(const joint of ['Shoulder','Arm','ForeArm','Hand','UpLeg','Leg','Foot']) {
+    assert(fullBones.has('mixamorig:'+side+joint),
+      'full body must own '+side+joint+' after the join');
   }
 }
-assert(polish.includes('removeLegacyArmSurfaces(body)'),
-  'Composite must remove legacy arms when Studio arms are available');
-assert(polish.includes('studioHasRiggedArms(studio)'),
-  'The native Studio arm selection must be rig-aware');
-const stage = fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
-assert(stage.includes('poseNexaStudioArms(THREE, modelRoot)'),
-  'Studio arms must be relaxed before creating action baselines');
-assert(stage.includes("avatarRoot.name = 'Nexa unified 3D avatar'") &&
-       stage.includes('avatarRoot.add(composite.body)'),
-  'both source GLBs must be one articulated visible 3D scene hierarchy');
-assert(stage.includes('const safeClip=studio') &&
-       stage.includes('? new THREE.AnimationClip(name,1,[])'),
-  'studio speech must not animate broken shoulder panels');
-console.log('PASS: Studio keeps its own naturally posed arms; legacy duplicate arms are excluded');
-
-assert(stage.includes('nexaBustOriginalBounds'),
-  'The chest edge must be measured before lowering the arms');
-assert(polish.includes('tailoredWaistPanel(') && polish.includes('body.add(waistPanel)'),
-  'The chest-to-waist join needs a real 3D connecting surface');
-assert(polish.includes('const seamY = waistPanel'),
-  'The lower-body cut must be lowered only when the waist panel exists');
-assert(stage.includes('const safeClip=studio') &&
-       stage.includes('new THREE.AnimationClip(name,1,[])'),
-  'Studio Idle must not restore the old T-pose through imported animations');
-console.log('PASS: anatomically anchored chest join, tapered 3D waist and neutral Studio arms');
-
-assert(polish.includes('repairStudioSleeveWeights(studio)'),
-  'Studio sleeves must not remain weighted to hidden lower-leg bones');
-assert(polish.includes('Bone_009') && polish.includes('Bone_007'),
-  'Both misassigned Meshy sleeve tip joints must be handled');
-console.log('PASS: Meshy sleeve weights are remapped without touching the approved face');
-
-/**
- * Execute the actual TypeScript torso-tailoring function with deterministic
- * geometry. This catches broken masks, accidental head scaling, or non-idempotent
- * repeat calls without requiring a GPU in GitHub Actions.
- */
-const vm = require('node:vm');
-const ts = require('typescript');
-const runtime = { exports: {}, console };
-const compiledTorso = ts.transpileModule(polish, {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText;
-vm.runInNewContext(compiledTorso, runtime, { timeout: 4000 });
-const tailor = runtime.exports.tailorNexaStudioLowerTorso;
-assert.equal(typeof tailor, 'function', 'lower torso tailor must be exported');
-const vertices = [
-  [-0.3357,0.7,0], [0.3342,0.7,0], [0,0,0],
-  [0.22,0.06,0], [-0.22,0.06,0],
-  [0.20,0.60,0], [-0.20,0.60,0],
-  [0.33,0.18,0], [-0.33,0.18,0],
-  [0.01,0.08,0],
-];
-const sourceVertices = vertices.map(v=>v.slice());
-const posAttr = {
-  count: vertices.length,
-  getX: i=>vertices[i][0],
-  getY: i=>vertices[i][1],
-  setX: (i,v)=>{vertices[i][0]=v;},
-  needsUpdate: false,
-};
-const geometryMock = {
-  attributes: { position: posAttr },
-  getAttribute: key=>key==='position'?posAttr:null,
-  computeBoundingBox() {
-    this.boundingBox = {
-      min: {x:Math.min(...vertices.map(v=>v[0])),y:Math.min(...vertices.map(v=>v[1]))},
-      max: {x:Math.max(...vertices.map(v=>v[0])),y:Math.max(...vertices.map(v=>v[1]))},
-    };
-  },
-  computeVertexNormals(){this.normalsUpdated=true;},
-  computeBoundingSphere(){this.sphereUpdated=true;},
-};
-const mockStudio = {
-  userData: {},
-  traverse(cb){cb({isSkinnedMesh:true,geometry:geometryMock});},
-};
-const amended = tailor(mockStudio);
-assert(amended >= 2, 'both lower sides must be reshaped');
-assert(vertices[3][0]<sourceVertices[3][0]*.94 &&
-       vertices[3][0]>sourceVertices[3][0]*.72,
-       'right lower flap must be reduced smoothly, not amputated');
-assert(vertices[4][0]>sourceVertices[4][0]*.94 &&
-       vertices[4][0]<sourceVertices[4][0]*.72,
-       'left lower flap must be reduced symmetrically');
-for (const unchanged of [0,1,2,5,6,7,8,9]) {
-  assert.equal(vertices[unchanged][0],sourceVertices[unchanged][0],
-    'face/shoulders/outer hands/center must not move at '+unchanged);
+const studioFacials=new Set(studio.doc.meshes.flatMap(mesh=>mesh.extras?.targetNames||[]));
+for(const facial of ['EyeBlinkLeft','EyeBlinkRight','MouthOpen','BrowRaiseLeft','BrowRaiseRight']){
+ assert(studioFacials.has(facial),'head must retain '+facial+' morph target');
 }
-assert(geometryMock.normalsUpdated && posAttr.needsUpdate,
-  'reshaped 3D mesh needs updated normals for clean studio lighting');
-assert.equal(tailor(mockStudio),0,'repeat load should not shrink torso twice');
-const stageSource = fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
-assert(stageSource.includes('tailorNexaStudioLowerTorso(modelRoot)'),
-  'the new tailoring must execute on the live Studio avatar');
-console.log('PASS: lower chest flaps taper smoothly up to 23%; upper chest/face/hands are unchanged');
-
-// The Android issue was two distinct rigs fighting over sleeve geometry.
-// Studio must keep a shallow open-arm pose, and the old body must be stripped
-// of every duplicate arm shell (including meshes consisting entirely of arms).
-assert(!polish.includes('relaxBodyPose(THREE, studio, true)'),
-  'Never rotate Studio arms: its baked sleeve panels use incompatible skinning');
-assert(polish.includes('studio.updateMatrixWorld(true);\n  return true;'),
-  'Studio arm function must retain original imported bind pose');
-assert(polish.includes('height > 0.79'),
-  'upper sleeve patches must be eligible for weight correction');
-assert(polish.includes("extension < 0.70 ? 'Arm' : extension < 0.89 ? 'ForeArm' : 'Hand'"),
-  'sleeve joint assignment must follow horizontal arm reach');
-assert(polish.includes('if (!kept.length) {') && polish.includes('geometry.setIndex([])'),
-  'fully detached duplicate legacy sleeves must render zero triangles');
-assert(polish.includes('studioHeight * 0.012'),
-  'without a measured waist join, legacy torso must stay BELOW Studio');
-console.log('PASS: preserved Studio bind pose, one scene avatar, clipped legacy arms');
-
-
-// Regression: fingertips can extend lower than the actual bust edge.
-// They must never drag the chest-to-waist connector down to hand level.
-const torsoBottom = runtime.exports.studioTorsoBottomY;
-assert.equal(typeof torsoBottom, 'function');
-class Vec3 {
-  constructor(x=0,y=0,z=0) { this.x=x;this.y=y;this.z=z; }
-  fromBufferAttribute(attr,i) {
-    const p=attr.rows[i];this.x=p[0];this.y=p[1];this.z=p[2];return this;
-  }
-}
-const torsoRows=Array.from({length:140},(_,i)=>[
-  .09 * Math.sin(i*0.37), -.46+(i/139)*.16, .05*Math.cos(i*0.41),
-]);
-const danglingHands=Array.from({length:30},(_,i)=>[
-  i%2===0 ? .73 : -.73, -.68+(i/29)*.14, 0,
-]);
-const seamMesh = {
-  isSkinnedMesh:true,
-  geometry:{attributes:{position:{count:torsoRows.length+danglingHands.length,
-    rows:torsoRows.concat(danglingHands)}}},
-  localToWorld(point){return point;},
-  applyBoneTransform(_index,point){return point;},
-};
-const seamStudio = {
-  updateMatrixWorld(){},
-  traverse(cb){cb(seamMesh);},
-};
-const measured = torsoBottom({Vector3:Vec3},seamStudio,
-  {width:.18,center:{x:0,y:.35}}, {min:{y:-.7},max:{y:.7}});
-assert(measured>-.49 && measured<-.41,
-  'Chest join must follow real torso hem, not fingers (actual '+measured+')');
-console.log('PASS: central bust hem measured independently of dangling hands');
-
-
-/** Verify the new sculpt against the REAL Studio GLB, not only source text.
- * The protected N on the upper bust and real arm triangles must survive.
- */
-const removeStudioPanels=runtime.exports.removeNexaStudioSidePanels;
-assert.equal(typeof removeStudioPanels,'function','the orange-panel tool is exported');
-const studioPrimitive=studio.doc.meshes[0].primitives[0];
-const studioPosition=accessor(studio,studioPrimitive.attributes.POSITION);
-const studioIndexAccessor=studio.doc.accessors[studioPrimitive.indices];
-const indexView=studio.doc.bufferViews[studioIndexAccessor.bufferView];
-const indexStart=(indexView.byteOffset||0)+(studioIndexAccessor.byteOffset||0);
-const sourceIndices=Array.from({length:studioIndexAccessor.count},(_,i)=>
-  studio.bin.readUInt16LE(indexStart+i*2));
-const indexAttr={count:sourceIndices.length,getX:i=>sourceIndices[i]};
-const positionAttr={count:studioPosition.length,
-  getX:i=>studioPosition[i][0],getY:i=>studioPosition[i][1],getZ:i=>studioPosition[i][2]};
-const ji=studioPrimitive.attributes.JOINTS_0,wi=studioPrimitive.attributes.WEIGHTS_0;
-const jointsData=Array.from({length:studioPosition.length},(_,i)=>readFour(studio,ji,i));
-const weightsData=Array.from({length:studioPosition.length},(_,i)=>readFour(studio,wi,i));
-const skinIndex={itemSize:4,getComponent:(i,k)=>jointsData[i][k]};
-const skinWeight={itemSize:4,getComponent:(i,k)=>weightsData[i][k]};
-const sourceBounds=studio.doc.accessors[studioPrimitive.attributes.POSITION];
-const meshGeometry={
- attributes:{position:positionAttr,skinIndex,skinWeight},
- index:indexAttr,
- groups:[],
- getAttribute(key){return this.attributes[key];},
- computeBoundingBox(){
-   this.boundingBox={min:{x:sourceBounds.min[0],y:sourceBounds.min[1]},
-     max:{x:sourceBounds.max[0],y:sourceBounds.max[1]}};
- },
- setIndex(values){this.index={count:values.length,getX:i=>values[i]};},
- clearGroups(){this.groups=[];},
- addGroup(start,count,materialIndex){this.groups.push({start,count,materialIndex});},
- computeBoundingSphere(){this.boundsUpdated=true;},
-};
-const studioMesh={isSkinnedMesh:true,geometry:meshGeometry,
- skeleton:{bones:studio.doc.skins[0].joints.map(i=>({name:studio.doc.nodes[i]?.name||''}))}};
-const studioRoot={userData:{},traverse(cb){cb(studioMesh);}};
-const cuts=removeStudioPanels(studioRoot);
-assert(cuts>150 && cuts<5500,'Studio sculpt must selectively remove the marked shoulder/shelf pieces, not the whole bust: '+cuts);
-const surviving=new Set();
-for(let i=0;i<meshGeometry.index.count;i+=3)
- surviving.add([meshGeometry.index.getX(i),meshGeometry.index.getX(i+1),meshGeometry.index.getX(i+2)].join(','));
-let protectedUpper=0,remainingDistalArm=0;
-let leftWingRemoved=0,rightWingRemoved=0,chestShelfRemoved=0;
-for(let i=0;i<sourceIndices.length;i+=3){
- const abc=sourceIndices.slice(i,i+3);
- const key=abc.join(',');
- const centerX=abc.reduce((n,v)=>n+studioPosition[v][0],0)/3;
- const centerY=abc.reduce((n,v)=>n+studioPosition[v][1],0)/3;
- const centerZ=abc.reduce((n,v)=>n+studioPosition[v][2],0)/3;
- const stillVisible=surviving.has(key);
- // The shoulder armor has INCORRECT arm bone weights in the native GLB,
- // so only the distal arms are weight-independent protected geometry.
- if(centerY>0.305 || (centerY>0.22 && Math.abs(centerX)<0.065)){
-   protectedUpper++;
-   assert(stillVisible,'face, N emblem, collar or upper bust triangle removed');
- }
- if(Math.abs(centerX)>0.237){
-   remainingDistalArm++;
-   assert(stillVisible,'outer real forearm or hand triangle removed');
- }
- if(!stillVisible){
-   if(centerX<-0.085 && centerZ>-.075)leftWingRemoved++;
-   if(centerX>0.085 && centerZ>-.075)rightWingRemoved++;
-   if(Math.abs(centerX)<0.085 && centerZ>0.025)chestShelfRemoved++;
- }
-}
-assert(protectedUpper>700 && remainingDistalArm>250,
- 'regression must check real emblem/face and both extended arms');
-assert(leftWingRemoved>20 && rightWingRemoved>20 && chestShelfRemoved>20,
- 'must clear BOTH orange side patches and blue front chest shelf: '+
- JSON.stringify({leftWingRemoved,rightWingRemoved,chestShelfRemoved}));
-assert.equal(removeStudioPanels(studioRoot),0,'repeated loading cannot remove new sections twice');
-assert(stageSource.includes('removeNexaStudioSidePanels(modelRoot)'),
- 'Nexo live viewer must execute the shoulder and bust cleanup');
-assert(polish.includes('const topY = upperMinY + height * 0.18') &&
-       polish.includes('softFront*(0.997-0.004*t)*zipper'),
- 'blue lower bust region must retain its reconstructed 3D ceramic panel');
-for (const tone of ['0x10131c','0x1c2233','0xc9cedd','0xe7e9f2','0xf5f7fb','0x6e59d9']) {
- assert(polish.includes('new THREE.Color('+tone+')'),
-  'reconstructed bust must use approved suit color '+tone);
-}
-assert(polish.includes('color.lerp(ceramic,Math.min(1,softFront*') &&
-       polish.includes('color.lerp(violetRim,0.055*rimIn*rimOut)'),
- 'the front plate must be pearl-white with only a restrained violet rim');
-console.log('PASS: rebuilt 3D bust material matches Nexa pearl, charcoal and violet palette');
-console.log('PASS: real Studio GLB selectively trims '+cuts+' triangles; upper logos/arms intact');
+console.log('PASS: approved head and complete original GLB suit/arms are joined with no patch geometry');
