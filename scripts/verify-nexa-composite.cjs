@@ -415,6 +415,39 @@ assert.equal(removeOldHair(obsoleteBody),2,
 assert.deepEqual(Array.from(oldGeometry.lastIndices),[3,4,5],
   'the unweighted shoulder and suit triangles must be retained unchanged');
 assert.equal(removeOldHair(obsoleteBody),0,'hair repair must be idempotent');
+const rearPositions=[
+  [0,.10,.12],[.02,.10,.12],[-.02,.10,.12],
+  [0,-.10,.0],[.02,-.10,.0],[-.02,-.10,.0],
+  [0,-.10,-.8],[.02,-.10,-.8],[-.02,-.10,-.8],
+];
+rearPositions.count=9;
+const rearGeometry={
+  index:{count:9,getX:i=>triIndices[i]},
+  groups:[],
+  getAttribute(name){
+    if(name==='position')return rearPositions;
+    if(name==='skinIndex')return attribute(boneIds);
+    if(name==='skinWeight')return attribute(new Array(9).fill(1));
+    return undefined;
+  },
+  setIndex(next){this.lastIndices=next;this.index={count:next.length,getX:i=>next[i]};},
+  clearGroups(){this.groups=[];},
+  addGroup(start,count,materialIndex){this.groups.push({start,count,materialIndex});},
+  computeBoundingSphere(){},
+};
+const rearBody={
+  userData:{},
+  traverse(fn){fn({
+    isSkinnedMesh:true,skeleton:{bones:jointNames.map(name=>({name}))},
+    geometry:rearGeometry,localToWorld(v){return v;},
+  });},
+};
+assert.equal(removeOldHair(rearBody,{
+  THREE:MockThree,eyeCenter:new V3(0,0,0),eyeWidth:.2,seamY:0,
+}),1,'face triangles must be deleted without also removing the rear ponytail root');
+assert.deepEqual(Array.from(rearGeometry.lastIndices),[3,4,5,6,7,8],
+  'the old head must disappear but the actual rear hair triangles must survive');
+
 console.log('PASS: old scalp/neck debris removed with original clothing and arms preserved');
 
 assert.equal(typeof sandbox.exports.joinNexaBackHair,'function',
@@ -475,6 +508,23 @@ assert(connected.userData.nexaHairAnchors.bottomY <
 assert(connected.userData.nexaHairAnchors.topY>
        connected.userData.nexaHairAnchors.bottomY,
   'new hair spans seamlessly from underneath helmet down into ponytail');
+const restHair=new Float32Array(connected.geometry.attributes.position.array);
+assert.equal(typeof sandbox.exports.updateNexaBackHair,'function',
+  'hair bridge must support damped spring/gravity updates');
+liveHead.rotation.y=.06;
+for(let i=0;i<8;i++)sandbox.exports.updateNexaBackHair(hairRoot,.025,i*.025,false);
+const nowHair=connected.geometry.attributes.position.array;
+const mid=Math.floor(connected.userData.nexaHairRows/2)*
+  (connected.userData.nexaHairColumns+1)*3;
+const tip=connected.userData.nexaHairRows*
+  (connected.userData.nexaHairColumns+1)*3;
+assert(Math.abs(nowHair[mid]-restHair[mid])>1e-5 ||
+       Math.abs(nowHair[mid+1]-restHair[mid+1])>1e-5,
+  'gravity must visibly deform the middle of the connected hair');
+assert(Math.abs(nowHair[1]-restHair[1])<1e-7 &&
+       Math.abs(nowHair[tip+1]-restHair[tip+1])<1e-7,
+  'physics must anchor BOTH tips so no gap opens at helmet or ponytail');
+liveHead.rotation.y=0;
 assert.equal(sandbox.exports.joinNexaBackHair(
   realThree,hairRoot,headGroup,mockBody,.07),connected,
   'reloading must not spawn a second ponytail shell');
