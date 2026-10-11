@@ -619,7 +619,13 @@ const preMouth=peakOf(faceMorph('MouthOpen'));
 const eyeBaseline=Array.from(faceMorph('EyeBlinkLeft').array);
 const facialTuned=facialExports.calibrateNexaFacialMorphs({traverse:fn=>fn(facialMesh)});
 assert(facialTuned>=5,'Studio must tune blink, gaze and mouth of its shipped geometry');
-assert(peakOf(faceMorph('EyeBlinkLeft'))>preBlink*1.12,
+const tunedBlinkL=peakOf(faceMorph('EyeBlinkLeft'));
+const tunedBlinkR=peakOf(faceMorph('EyeBlinkRight'));
+console.log('NEXA_BILATERAL_BLINK_AMPLITUDES',JSON.stringify({
+  beforeLeft:preBlink, afterLeft:tunedBlinkL, afterRight:tunedBlinkR,
+  leftRatio:tunedBlinkL/preBlink, tunedFacialChannels:facialTuned,
+}));
+assert(tunedBlinkL>preBlink*1.12,
   'real Studio eye must close more, not only report a target channel');
 assert(peakOf(faceMorph('MouthOpen'))>preMouth*1.45,
   'real Studio lips must articulate visibly while speaking');
