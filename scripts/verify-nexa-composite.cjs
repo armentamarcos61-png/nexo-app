@@ -188,7 +188,7 @@ assert(index>=0,'new definitive head+body compositor must exist');
 const newCompose=polish.slice(index);
 const headMaskStart=polish.indexOf('export function maskNexaStudioHead(');
 const maskCode=polish.slice(headMaskStart,index);
-assert(headMaskStart>=0 && maskCode.includes('eye.center.y-eye.width*1.60'),
+assert(headMaskStart>=0 && maskCode.includes('eye.center.y-eye.width*1.17'),
   'Studio head mask must be placed beneath the jaw from real eyelid landmarks');
 assert(maskCode.includes('new THREE.Plane(new THREE.Vector3(0,1,0),-seamY)'),
   'Studio must keep the y >= neck half-space');
@@ -221,6 +221,8 @@ assert(newCompose.includes('const gestureBones:') &&
        newCompose.includes('gestureBlend+=') &&
        newCompose.includes('if (speaking) gestureTime+=frame'),
   'full-body forearms must gesture smoothly only during audible speech');
+assert(newCompose.includes('removeNexaLegacyHeadFragments(body)'),
+  'the discarded full-body scalp and neck must not dangle below the clipping plane');
 assert(stage.includes('faceRig=installNexaFaceRig(THREE,modelRoot)'),
   'original expressive Studio facial rig must remain active');
 const fullBones=new Set((full.doc.skins||[]).flatMap(skin=>
@@ -339,20 +341,18 @@ const root=new G();
 const neckSeam=.09;
 const collar=collarFactory(MockThree,root,studioMock,neckSeam);
 assert.equal(root.children.length,1,'exactly one collar group must be visible');
-assert.equal(collar.children.length,3,'one recessed collar and two thin garment seams');
-assert(Math.abs(collar.position.y-(neckSeam-.14*.018))<1e-8,
+assert.equal(collar.children.length,1,'only one recessed dark neck insert is permitted');
+assert(Math.abs(collar.position.y-(neckSeam-.14*.015))<1e-8,
   'collar must bridge the world-space seam at neck height');
-assert(Math.abs(collar.position.z-(.15-.14*.72))<1e-8,
+assert(Math.abs(collar.position.z-(.15-.14*.68))<1e-8,
   'collar must sit at the neck, behind the eyes');
-assert(Math.abs(collar.scale.z-.91)<1e-8,
+assert(Math.abs(collar.scale.z-.87)<1e-8,
   'collar must have an anatomical oval cross-section');
-assert(collar.children[0].geometry.args[2]<=.14*.21,
-  'the visible collar must remain short, without a rigid throat tube');
-assert(collar.children[1].geometry.args[2]<=.14*.015 &&
-       collar.children[2].geometry.args[2]<=.14*.015,
-  'shirt detail must use fine seam piping, not large white armor plates');
-assert(!polish.slice(polish.indexOf('export function addNexaCollar(')).includes('lapelAngle='),
-  'do not restore the old rigid white cylinder lapels');
+assert(collar.children[0].geometry.args[2]<=.14*.13,
+  'neckline inset must be ultra-short and stay below the chin');
+assert(collar.userData.nexaCollarResources.charcoal &&
+       !collar.userData.nexaCollarResources.pearl,
+  'old floating white armor lapels cannot reappear');
 assert.equal(collarFactory(MockThree,root,studioMock,neckSeam),collar,
   're-loading must not create a second collar');
 const geometries=collar.children.map(x=>x.geometry);
@@ -362,7 +362,46 @@ assert.equal(root.children.length,0,'collar cleanup should detach it');
 assert(!root.userData.nexaUniformCollar,'collar cleanup should clear cached handle');
 assert(geometries.every(g=>g.disposed),'collar geometries must all be disposed');
 assert(materials.every(m=>m.disposed),'collar materials must all be disposed');
-console.log('PASS: low-profile neck insert and fitted piping replace protruding collar without changing GLBs');
+console.log('PASS: one low-profile recessed neckline replaces the detached white neck ring');
+
+/** Regression: discard outdated hair/neck surfaces but KEEP every torso,
+ * shoulder and arm triangle from the original complete-body GLB.
+ */
+const removeOldHair=sandbox.exports.removeNexaLegacyHeadFragments;
+assert.equal(typeof removeOldHair,'function');
+const triIndices=[0,1,2,3,4,5,6,7,8];
+const jointNames=['mixamorig:Head','mixamorig:Spine2','mixamorig:Neck'];
+const boneIds=[0,0,0,1,1,1,2,2,2];
+const attribute=(list)=>({
+  count:list.length,itemSize:4,getComponent(i,c){return c===0?list[i]:0;},
+});
+const oldGeometry={
+  index:{count:triIndices.length,getX:i=>triIndices[i]},
+  groups:[{start:0,count:9,materialIndex:0}],
+  getAttribute(name){
+    if(name==='position')return {count:9};
+    if(name==='skinIndex')return attribute(boneIds);
+    if(name==='skinWeight')return attribute(new Array(9).fill(1));
+    return undefined;
+  },
+  setIndex(next){this.index={count:next.length,getX:i=>next[i]};this.lastIndices=next;},
+  clearGroups(){this.groups=[];},
+  addGroup(start,count,materialIndex){this.groups.push({start,count,materialIndex});},
+  computeBoundingSphere(){},
+};
+const obsoleteBody={
+  userData:{},
+  traverse(fn){fn({
+    isSkinnedMesh:true,skeleton:{bones:jointNames.map(name=>({name}))},geometry:oldGeometry,
+  });},
+};
+assert.equal(removeOldHair(obsoleteBody),2,
+  'obsolete hair and neck triangles must be removed independently from the torso');
+assert.deepEqual(oldGeometry.lastIndices,[3,4,5],
+  'the unweighted shoulder and suit triangles must be retained unchanged');
+assert.equal(removeOldHair(obsoleteBody),0,'hair repair must be idempotent');
+console.log('PASS: old scalp/neck debris removed with original clothing and arms preserved');
+
 assert(stage.includes('visibleHeight*1.25/screenHeight') &&
        stage.includes('minTargetY,maxTargetY') &&
        stage.includes('Math.sin(yaw)*Math.cos(pitch)*distance') &&
