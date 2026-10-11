@@ -397,7 +397,7 @@ const obsoleteBody={
 };
 assert.equal(removeOldHair(obsoleteBody),2,
   'obsolete hair and neck triangles must be removed independently from the torso');
-assert.deepEqual(oldGeometry.lastIndices,[3,4,5],
+assert.deepEqual(Array.from(oldGeometry.lastIndices),[3,4,5],
   'the unweighted shoulder and suit triangles must be retained unchanged');
 assert.equal(removeOldHair(obsoleteBody),0,'hair repair must be idempotent');
 console.log('PASS: old scalp/neck debris removed with original clothing and arms preserved');
