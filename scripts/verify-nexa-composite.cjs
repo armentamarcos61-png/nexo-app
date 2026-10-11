@@ -89,6 +89,35 @@ function eyeWidth(gltf){
 }
 const studio=parseGLB('public/models/Nexa_Studio_Busto_v1.glb');
 const full=parseGLB('public/models/Nexa_FacialRig_V2.glb');
+// Inspect actual facial changes in Studio, not only the list of target names.
+// A control with an imperceptible morph peak can pass wiring tests while
+// looking completely motionless on a real phone.
+for(const name of ['EyeBlinkLeft','EyeBlinkRight','MouthOpen','MouthO','MouthWide','BrowRaiseLeft','BrowRaiseRight','EyeLookLeft']){
+ const scans=[];
+ for(const mesh of studio.doc.meshes){
+  const channel=(mesh.extras?.targetNames||[]).indexOf(name);
+  if(channel<0)continue;
+  for(let pi=0;pi<(mesh.primitives||[]).length;pi++){
+   const primitive=mesh.primitives[pi];
+   const deltaRef=primitive.targets?.[channel]?.POSITION;
+   if(deltaRef===undefined)continue;
+   const dd=accessor(studio,deltaRef);
+   const pp=accessor(studio,primitive.attributes.POSITION);
+   const magnitude=dd.map(d=>Math.hypot(...d));
+   const peak=Math.max(0,...magnitude);
+   const threshold=peak*.22;
+   let moved=0;let sum=[0,0,0];let weights=0,span=[Infinity,-Infinity,Infinity,-Infinity,Infinity,-Infinity];
+   for(let i=0;i<magnitude.length;i++){
+    if(magnitude[i]<threshold||magnitude[i]<1e-7)continue;
+    moved++;weights+=magnitude[i];for(let a=0;a<3;a++){sum[a]+=pp[i][a]*magnitude[i];span[a*2]=Math.min(span[a*2],pp[i][a]);span[a*2+1]=Math.max(span[a*2+1],pp[i][a]);}
+   }
+   scans.push({primitive:pi,peak:Number(peak.toFixed(6)),moved,
+     center:sum.map(v=>Number((v/(weights||1)).toFixed(4))),
+     bounds:span.map(v=>Number(v.toFixed(4)))});
+  }
+ }
+ console.log('NEXA_FACE_ACTUAL',name,JSON.stringify(scans));
+}
 const sw=eyeWidth(studio),fw=eyeWidth(full);
 const ratio=sw/fw;
 const studioHeight=height(studio);
