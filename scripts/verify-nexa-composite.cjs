@@ -448,14 +448,24 @@ assert(connected.geometry.getAttribute('position').count>350,
   'actual 3D back-hair surface must be smooth, not one static texture');
 assert.equal(connected.children.length,0,
   'no attached rectangular strips or floating black hair plates');
-assert.equal(connected.userData.nexaHairAnchors.sidePanels,2,
-  'the connector has only two short tapered sections');
+assert.equal(connected.userData.nexaHairAnchors.sidePanels,0,
+  'rear hair must be one seamless volume, not two disconnected side patches');
+assert.equal(connected.userData.nexaHairAnchors.continuousVolume,true,
+  'helmet-to-ponytail join must form a continuous enclosed 3D silhouette');
+assert(connected.geometry.index.count > 2000,
+  'complete rounded hair surface must span all sides with no planar black cards');
 const hairBounds=new realThree.Box3().setFromBufferAttribute(
   connected.geometry.getAttribute('position'));
-assert(hairBounds.max.y-hairBounds.min.y < .16*2.1,
-  'hair bridge must remain a small cap-to-ponytail wedge, not a long curtain');
-assert(hairBounds.max.y-hairBounds.min.y > .16*.35,
-  'hair bridge must be a real connected 3D surface rather than a flat line');
+assert(hairBounds.max.y-hairBounds.min.y < .16*2.7,
+  'hair join must remain a compact rear hair transition, not a second long curtain');
+assert(hairBounds.max.y-hairBounds.min.y > .16*.7,
+  'hair transition must physically span the gap from rear helmet to ponytail');
+assert(hairBounds.max.x-hairBounds.min.x > .16*.55 &&
+       hairBounds.max.z-hairBounds.min.z > .16*.12,
+  'rounded join must have real width and depth, not thin invisible side strips');
+assert(connected.userData.nexaHairAnchors.bottomY <
+       connected.userData.nexaHairAnchors.tailTopY,
+  'new hair must physically overlap the native ponytail top, with no loose gap');
 assert(connected.userData.nexaHairAnchors.topY>
        connected.userData.nexaHairAnchors.bottomY,
   'new hair spans seamlessly from underneath helmet down into ponytail');
