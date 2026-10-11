@@ -229,3 +229,100 @@ for(const facial of ['EyeBlinkLeft','EyeBlinkRight','MouthOpen','BrowRaiseLeft',
  assert(studioFacials.has(facial),'head must retain '+facial+' morph target');
 }
 console.log('PASS: approved head and complete original GLB suit/arms are joined with no patch geometry');
+
+
+/** Regression for the live three-dimensional collar, not a screenshot:
+ * Build its geometry with minimal Three mocks, validate scale, placement,
+ * open lapels, idempotency and disposal without editing source GLB assets.
+ */
+assert(stage.includes('addNexaCollar(THREE,avatarRoot,modelRoot,composite.seamY)'),
+  'live viewer must attach the collar after composing the unified body');
+assert(stage.includes('disposeNexaCollar(avatarRoot)'),
+  'live viewer must release collar geometry on unmount');
+const ts = require('typescript');
+const vm = require('node:vm');
+const sandbox={exports:{},console};
+vm.runInNewContext(ts.transpileModule(polish,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020},
+}).outputText,sandbox,{timeout:6000});
+const collarFactory=sandbox.exports.addNexaCollar;
+const collarCleanup=sandbox.exports.disposeNexaCollar;
+assert.equal(typeof collarFactory,'function');
+assert.equal(typeof collarCleanup,'function');
+class V3 {
+  constructor(x=0,y=0,z=0){this.x=x;this.y=y;this.z=z;}
+  clone(){return new V3(this.x,this.y,this.z);}
+  add(v){this.x+=v.x;this.y+=v.y;this.z+=v.z;return this;}
+  addScaledVector(v,w){this.x+=v.x*w;this.y+=v.y*w;this.z+=v.z*w;return this;}
+  multiplyScalar(v){this.x*=v;this.y*=v;this.z*=v;return this;}
+  distanceTo(v){return Math.hypot(this.x-v.x,this.y-v.y,this.z-v.z);}
+  copy(v){this.x=v.x;this.y=v.y;this.z=v.z;return this;}
+  fromBufferAttribute(a,i){this.x=a[i][0];this.y=a[i][1];this.z=a[i][2];return this;}
+}
+class G {
+  constructor(){this.children=[];this.userData={};this.position=new V3();this.scale={z:1};}
+  add(child){child.parent=this;this.children.push(child);}
+  traverse(cb){cb(this);for(const c of this.children)c.traverse(cb);}
+  removeFromParent(){
+    if(this.parent){this.parent.children=this.parent.children.filter(c=>c!==this);this.parent=null;}
+  }
+  updateMatrixWorld(){}
+  worldToLocal(point){return point;}
+}
+class Geo {
+  constructor(...args){this.args=args;this.disposed=false;}
+  dispose(){this.disposed=true;}
+}
+class Mat {
+  constructor(props){this.props=props;this.disposed=false;}
+  dispose(){this.disposed=true;}
+}
+class M {
+  constructor(geometry,material){
+    this.geometry=geometry;this.material=material;this.isMesh=true;
+    this.rotation={x:0,z:0};this.position=new V3();this.userData={};
+  }
+  traverse(cb){cb(this);}
+}
+const MockThree={
+  Group:G,Mesh:M,Vector3:V3,DoubleSide:2,
+  MeshStandardMaterial:Mat,CylinderGeometry:Geo,TorusGeometry:Geo,
+};
+const headPositions=[[-.07,.30,.15],[.07,.30,.15]];
+const morph=(chosen)=>({
+  count:2,getX:i=>i===chosen?1:0,getY:()=>0,getZ:()=>0,
+});
+const headMesh={
+  morphTargetDictionary:{EyeBlinkLeft:0,EyeBlinkRight:1},
+  geometry:{attributes:{position:headPositions},morphAttributes:{position:[morph(0),morph(1)]}},
+  localToWorld(v){return v;},
+  isSkinnedMesh:false,
+};
+const studioMock={
+  updateMatrixWorld(){},
+  traverse(cb){cb(headMesh);},
+};
+const root=new G();
+const neckSeam=.09;
+const collar=collarFactory(MockThree,root,studioMock,neckSeam);
+assert.equal(root.children.length,1,'exactly one collar group must be visible');
+assert.equal(collar.children.length,5,'one undershirt, two lapels and two accent edges');
+assert(Math.abs(collar.position.y-(neckSeam+.14*.025))<1e-8,
+  'collar must bridge the world-space seam at neck height');
+assert(Math.abs(collar.position.z-(.15-.14*.82))<1e-8,
+  'collar must sit at the neck, behind the eyes');
+assert(Math.abs(collar.scale.z-.88)<1e-8,
+  'collar must have an anatomical oval cross-section');
+assert(collar.children[1].geometry.args[6]>0 &&
+       collar.children[2].geometry.args[6]>0,
+  'the two pearl lapels must have real angular front openings');
+assert.equal(collarFactory(MockThree,root,studioMock,neckSeam),collar,
+  're-loading must not create a second collar');
+const geometries=collar.children.map(x=>x.geometry);
+const materials=Object.values(collar.userData.nexaCollarResources);
+collarCleanup(root);
+assert.equal(root.children.length,0,'collar cleanup should detach it');
+assert(!root.userData.nexaUniformCollar,'collar cleanup should clear cached handle');
+assert(geometries.every(g=>g.disposed),'collar geometries must all be disposed');
+assert(materials.every(m=>m.disposed),'collar materials must all be disposed');
+console.log('PASS: collar bridges the neck, has natural front lapels, and cleans up without touching GLBs');

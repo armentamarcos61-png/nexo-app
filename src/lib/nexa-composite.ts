@@ -1070,3 +1070,116 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
     },
   };
 }
+
+
+/**
+ * Nexa's final neck detail: a short sculpted 3D uniform collar hides the
+ * junction between Studio's approved face and the complete source suit.
+ *
+ * Dimensions are derived from the real eye landmarks, NOT fixed scene units:
+ * the shape remains proportionate on different mobiles and source GLBs.
+ * It is attached to the single avatar root, outside BOTH clipping planes,
+ * so the shell can bridge their shared neck seam without being cut in half.
+ *
+ * The full dark undershirt keeps the seam hidden while the two curved pearl
+ * lapels deliberately leave an open, natural-looking V at the front.
+ */
+export function addNexaCollar(THREE:any, parent:any, studio:any, seamY:number):any {
+  const existing=parent.userData?.nexaUniformCollar;
+  if (existing) return existing;
+  const eye=landmarks(THREE,studio);
+  if (!eye || !Number.isFinite(seamY)) {
+    throw new Error('No se pudo medir la unión 3D para el cuello de Nexa');
+  }
+  const unit=eye.width;
+  const height=unit*0.76;
+  const topRadius=unit*0.62;
+  const bottomRadius=unit*0.93;
+  const segments=48;
+
+  parent.updateMatrixWorld(true);
+  const neckWorld=eye.center.clone();
+  neckWorld.y=seamY+unit*0.025;
+  // Eye morph centres are near the face's frontal plane; the anatomical neck
+  // sits behind the eyes. Centre the uniform on the neck, not on the nose.
+  neckWorld.z-=unit*0.82;
+
+  const group=new THREE.Group();
+  group.name='Nexa futuristic uniform collar';
+  group.position.copy(parent.worldToLocal(neckWorld));
+  group.scale.z=0.88;
+
+  const charcoal=new THREE.MeshStandardMaterial({
+    color:0x10131c,roughness:0.37,metalness:0.22,
+    side:THREE.DoubleSide,
+  });
+  const pearl=new THREE.MeshStandardMaterial({
+    color:0xe7e9f2,roughness:0.34,metalness:0.13,
+    side:THREE.DoubleSide,
+  });
+  const trim=new THREE.MeshStandardMaterial({
+    color:0x6e59d9,roughness:0.40,metalness:0.28,
+    transparent:true,opacity:0.54,side:THREE.DoubleSide,
+    depthWrite:false,
+  });
+
+  const place=(name:string,geometry:any,material:any)=>{
+    const mesh=new THREE.Mesh(geometry,material);
+    mesh.name=name;
+    mesh.frustumCulled=false;
+    group.add(mesh);
+    return mesh;
+  };
+  // Inner black layer covers the complete seam even from the rear.
+  place('Nexa black collar undershirt',
+    new THREE.CylinderGeometry(topRadius,bottomRadius,height,segments,1,true),
+    charcoal);
+
+  // The top centre is OPEN: two separate curved shirt lapels, not a bulky
+  // cylindrical rim or a fake invisible cutter. Their taper blends into the
+  // pearl white chest and the black shoulders of the original source suit.
+  const lapelTop=topRadius*1.05;
+  const lapelBottom=bottomRadius*1.06;
+  const lapelAngle=0.77;
+  const frontGap=0.17;
+  place('Nexa right pearl shirt lapel',
+    new THREE.CylinderGeometry(lapelTop,lapelBottom,height*0.90,
+      segments,1,true,frontGap,lapelAngle),pearl);
+  place('Nexa left pearl shirt lapel',
+    new THREE.CylinderGeometry(lapelTop,lapelBottom,height*0.90,
+      segments,1,true,Math.PI*2-frontGap-lapelAngle,lapelAngle),pearl);
+
+  // Micro-accent along the outer upper edge. The translucent strip follows
+  // the actual collar height, avoiding an oversized glowing ring.
+  const edgeRadius=topRadius*1.055;
+  const edgeY=height*0.455;
+  for(const [angle,label] of [
+    [frontGap,'right'],[Math.PI*2-frontGap-lapelAngle,'left'],
+  ] as [number,string][]) {
+    const arc=new THREE.TorusGeometry(edgeRadius,unit*0.012,4,20,lapelAngle);
+    const mesh=place('Nexa '+label+' subtle violet edge',arc,trim);
+    mesh.rotation.x=Math.PI/2;
+    mesh.rotation.z=-angle;
+    mesh.position.y=edgeY;
+  }
+
+  group.userData.nexaCollarResources={charcoal,pearl,trim};
+  parent.add(group);
+  parent.userData.nexaUniformCollar=group;
+  return group;
+}
+
+/** Only clean up the procedural collar; never dispose either imported GLB. */
+export function disposeNexaCollar(parent:any):void {
+  const collar=parent?.userData?.nexaUniformCollar;
+  if (!collar) return;
+  collar.traverse((child:any)=>{
+    if (child.isMesh) child.geometry?.dispose?.();
+  });
+  const resources=collar.userData.nexaCollarResources;
+  for(const material of [resources?.charcoal,resources?.pearl,resources?.trim]) {
+    material?.dispose?.();
+  }
+  collar.removeFromParent();
+  delete parent.userData.nexaUniformCollar;
+}
