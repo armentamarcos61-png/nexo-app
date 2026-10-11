@@ -1256,68 +1256,69 @@ export function joinNexaBackHair(
   body.updateMatrixWorld(true);
   head.updateMatrixWorld(true);
 
-  // Find the existing ponytail's back silhouette from live body vertices,
-  // not a fixed world z value. Nearby skinned shoulder surfaces are rejected
-  // by the rear-depth constraint. The conservative fallback stays hidden
-  // directly behind the helmet when a low-poly export lacks such vertices.
-  const samples:number[]=[];
-  const probe=new THREE.Vector3();
-  const readMeshes=new Set<any>();
+  // Measure the actual back of the remaining ponytail rather than guessing
+  // from a fixed model export: the head and body are separate scaled GLBs.
+  const depths:number[]=[];
+  const point=new THREE.Vector3();
+  const visited=new Set<any>();
   body.traverse((mesh:any)=>{
     if(!mesh.isSkinnedMesh || !mesh.geometry?.attributes?.position ||
-       readMeshes.has(mesh.geometry))return;
-    readMeshes.add(mesh.geometry);
+       visited.has(mesh.geometry))return;
+    visited.add(mesh.geometry);
     const pos=mesh.geometry.attributes.position;
     for(let i=0;i<pos.count;i+=3){
-      probe.fromBufferAttribute(pos,i);
-      if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,probe);
-      mesh.localToWorld(probe);
-      if(probe.y<seamY-unit*1.25 || probe.y>seamY+unit*0.12 ||
-         Math.abs(probe.x-eye.center.x)>unit*0.88 ||
-         probe.z>eye.center.z-unit*1.06)continue;
-      samples.push(probe.z);
+      point.fromBufferAttribute(pos,i);
+      if(typeof mesh.applyBoneTransform==='function')mesh.applyBoneTransform(i,point);
+      mesh.localToWorld(point);
+      if(point.y<seamY-unit*0.58 || point.y>seamY+unit*0.05 ||
+         Math.abs(point.x-eye.center.x)>unit*0.90 ||
+         point.z>eye.center.z-unit*1.05)continue;
+      depths.push(point.z);
     }
   });
-  samples.sort((a,b)=>a-b);
-  const silhouetteZ=samples.length>=5
-    ? samples[Math.floor(samples.length*0.22)]
-    : eye.center.z-unit*1.60;
+  depths.sort((a,b)=>a-b);
   const tailZ=THREE.MathUtils.clamp(
-    silhouetteZ,eye.center.z-unit*2.35,eye.center.z-unit*1.17,
+    depths.length>=5 ? depths[Math.floor(depths.length*0.35)] : eye.center.z-unit*1.55,
+    eye.center.z-unit*2.05,eye.center.z-unit*1.18,
   );
 
-  // One continuous, curved 3D hair sheet. Its diagonal side edges start
-  // beneath the rear lip of the real helmet and flow into the surviving hair.
-  // The high sides tuck under the cap instead of forming a loose, square wig.
-  const rows=28, columns=32;
+  // Replace the three broad overlapping sheets with only TWO short tapered
+  // connections, one on each side. Both are tucked underneath the original
+  // headset/helmet above and the surviving ponytail below. There are no
+  // rectangular caps, flat dangling planes or artificial long hair curtains.
+  const topY=eye.center.y-unit*0.56;
+  const bottomY=seamY-unit*0.23;
+  if(bottomY>=topY-unit*0.2)return null;
+  const rows=18,columns=10;
   const vertices:number[]=[];
   const indices:number[]=[];
-  const helmetZ=eye.center.z-unit*1.17;
-  const topY=eye.center.y+unit*0.36;
-  const bottomY=seamY-unit*1.12;
-  for(let row=0;row<=rows;row++){
-    const t=row/rows;
-    const ease=t*t*(3-2*t);
-    const y=topY+(bottomY-topY)*t;
-    const z=helmetZ+(tailZ-helmetZ)*ease
-      -unit*0.12*Math.sin(Math.PI*t);
-    const width=unit*(0.83-0.25*ease);
-    for(let col=0;col<=columns;col++){
-      const lateral=col/columns*2-1;
-      // Rounded section, with the side tips brought forward toward the
-      // headset and a slanted cap-to-tail outline from profile views.
-      const arch=Math.sqrt(Math.max(0,1-lateral*lateral));
-      const world=new THREE.Vector3(
-        eye.center.x+lateral*width,
-        y-unit*(0.19*(1-t)+0.035*t)*lateral*lateral,
-        z-unit*0.20*arch+unit*0.11*(1-t)*lateral*lateral,
-      );
-      head.worldToLocal(world);
-      vertices.push(world.x,world.y,world.z);
-      if(row<rows && col<columns){
-        const a=row*(columns+1)+col;
-        const b=a+columns+1;
-        indices.push(a,b,a+1,b,b+1,a+1);
+  for(const side of [-1,1]){
+    const offset=vertices.length/3;
+    for(let row=0;row<=rows;row++){
+      const t=row/rows;
+      const ease=t*t*(3-2*t);
+      const radius=unit*(0.055+0.20*Math.sin(Math.PI*t)+0.11*ease);
+      // At the top the narrow tip disappears beneath the helmet; below it
+      // widens and sinks a little inside the original straight hair.
+      const centerX=eye.center.x+side*unit*(0.68-0.06*ease);
+      const centerY=topY+(bottomY-topY)*t;
+      const centerZ=eye.center.z-unit*1.10+
+        (tailZ-eye.center.z+unit*1.10)*ease;
+      for(let col=0;col<=columns;col++){
+        const across=col/columns*2-1;
+        const world=new THREE.Vector3(
+          centerX+side*radius*across,
+          centerY-unit*0.06*(1-t)*across*across,
+          centerZ-unit*0.13*(1-across*across)*Math.sin(Math.PI*t)
+            +unit*0.04*across,
+        );
+        head.worldToLocal(world);
+        vertices.push(world.x,world.y,world.z);
+        if(row<rows && col<columns){
+          const k=offset+row*(columns+1)+col;
+          const n=k+columns+1;
+          indices.push(k,n,k+1,n,n+1,k+1);
+        }
       }
     }
   }
@@ -1331,92 +1332,11 @@ export function joinNexaBackHair(
     side:THREE.DoubleSide,
   });
   const bridge=new THREE.Mesh(geometry,material);
-  bridge.name='Nexa connected rear hair and ponytail';
+  bridge.name='Nexa subtle tapered headset-to-ponytail join';
   bridge.frustumCulled=false;
-
-  // Flexible-looking diagonal side transitions are 3D surfaces, not images.
-  // Each one overlaps both the rounded rear shell and the original helmet.
-  // This closes the visible triangular gap behind the headset in side views.
-  for(const side of [-1,1]){
-    const edgeRows=24, edgeColumns=6;
-    const edgeVertices:number[]=[];
-    const edgeIndices:number[]=[];
-    for(let row=0;row<=edgeRows;row++){
-      const t=row/edgeRows;
-      const ease=t*t*(3-2*t);
-      for(let col=0;col<=edgeColumns;col++){
-        const across=col/edgeColumns;
-        const outer=0.87-0.24*ease;
-        const x=eye.center.x+side*unit*(outer-0.30*across);
-        const y=topY+(bottomY-topY)*t
-          -unit*0.17*(1-t)*(1-across);
-        const z=(helmetZ+unit*0.22)
-          +(tailZ-helmetZ-unit*0.22)*ease
-          +unit*(0.22*across-0.035)*Math.sin(Math.PI*t);
-        const point=new THREE.Vector3(x,y,z);
-        head.worldToLocal(point);
-        edgeVertices.push(point.x,point.y,point.z);
-        if(row<edgeRows && col<edgeColumns){
-          const a=row*(edgeColumns+1)+col;
-          const b=a+edgeColumns+1;
-          edgeIndices.push(a,b,a+1,b,b+1,a+1);
-        }
-      }
-    }
-    const edgeGeometry=new THREE.BufferGeometry();
-    edgeGeometry.setAttribute('position',new THREE.Float32BufferAttribute(edgeVertices,3));
-    edgeGeometry.setIndex(edgeIndices);
-    edgeGeometry.computeVertexNormals();
-    edgeGeometry.computeBoundingSphere();
-    const edge=new THREE.Mesh(edgeGeometry,material);
-    edge.name=side<0?'Nexa left diagonal helmet hair join':'Nexa right diagonal helmet hair join';
-    edge.frustumCulled=false;
-    bridge.add(edge);
-  }
-
-  // Compact cap-to-ponytail insert. The cap hides its upper edge behind the
-  // headset and the lower edge enters the original straight rear curtain.
-  // Only the two small side gaps are filled; the face and hair length stay as-is.
-  for (const side of [-1,1]) {
-    const rowCount=18, colCount=10;
-    const positions:number[]=[];
-    const triangles:number[]=[];
-    for(let row=0;row<=rowCount;row++){
-      const t=row/rowCount;
-      const soft=t*t*(3-2*t);
-      for(let col=0;col<=colCount;col++){
-        const across=col/colCount;
-        const width=0.66+0.22*across-0.14*soft;
-        const world=new THREE.Vector3(
-          eye.center.x+side*unit*width,
-          eye.center.y-unit*(0.22+1.18*t-0.12*across*(1-t)),
-          eye.center.z-unit*(1.05+0.43*soft+0.20*across
-            +0.13*Math.sin(Math.PI*t)),
-        );
-        head.worldToLocal(world);
-        positions.push(world.x,world.y,world.z);
-        if(row<rowCount && col<colCount){
-          const a=row*(colCount+1)+col,b=a+colCount+1;
-          triangles.push(a,b,a+1,b,b+1,a+1);
-        }
-      }
-    }
-    const insertGeometry=new THREE.BufferGeometry();
-    insertGeometry.setAttribute('position',
-      new THREE.Float32BufferAttribute(positions,3));
-    insertGeometry.setIndex(triangles);
-    insertGeometry.computeVertexNormals();
-    insertGeometry.computeBoundingSphere();
-    const insert=new THREE.Mesh(insertGeometry,material);
-    insert.name=side<0
-      ? 'Nexa left small diagonal hair connection'
-      : 'Nexa right small diagonal hair connection';
-    insert.frustumCulled=false;
-    bridge.add(insert);
-  }
   head.add(bridge);
   avatarRoot.userData.nexaJoinedBackHair=bridge;
-  bridge.userData.nexaHairAnchors={topY,bottomY,helmetZ,tailZ};
+  bridge.userData.nexaHairAnchors={topY,bottomY,tailZ,sidePanels:2};
   return bridge;
 }
 
@@ -1480,46 +1400,17 @@ export function addNexaCollar(
     new THREE.Vector2(unit*0.39,unit*0.30),
     new THREE.Vector2(unit*0.45,unit*0.14),
     new THREE.Vector2(unit*0.54,-unit*0.04),
-    new THREE.Vector2(bottomRadius*0.86,-unit*0.26),
-    new THREE.Vector2(bottomRadius,-unit*0.46),
+    new THREE.Vector2(bottomRadius*0.84,-unit*0.30),
+    new THREE.Vector2(bottomRadius*0.98,-unit*0.58),
   ];
   const piece=new THREE.Mesh(new THREE.LatheGeometry(points,48),charcoal);
   piece.name='Nexa smooth tapered shirt neckline';
   piece.frustumCulled=false;
   group.add(piece);
 
-  // Narrow nape gussets hide the two triangular voids between the fitted
-  // collar and the shoulders. A curved dark surface follows the suit seam
-  // instead of adding a second rigid collar or covering the approved face.
-  for (const side of [-1,1]) {
-    const positions:number[]=[];
-    const triangles:number[]=[];
-    const rows=8,cols=5;
-    for (let row=0;row<=rows;row++) {
-      const t=row/rows;
-      for(let col=0;col<=cols;col++) {
-        const across=col/cols;
-        positions.push(
-          side*unit*(0.35+0.23*t+0.14*across),
-          unit*(0.13-0.67*t+0.05*across*(1-t)),
-          -unit*(0.24+0.37*across+0.17*t),
-        );
-        if(row<rows && col<cols){
-          const a=row*(cols+1)+col,b=a+cols+1;
-          triangles.push(a,b,a+1,b,b+1,a+1);
-        }
-      }
-    }
-    const patch=new THREE.BufferGeometry();
-    patch.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-    patch.setIndex(triangles);
-    patch.computeVertexNormals();
-    patch.computeBoundingSphere();
-    const gusset=new THREE.Mesh(patch,charcoal);
-    gusset.name=side<0?'Nexa left nape triangle cover':'Nexa right nape triangle cover';
-    gusset.frustumCulled=false;
-    group.add(gusset);
-  }
+  // Keep the nape as ONE continuous cloth neckline. Separate planar
+  // triangle patches previously stuck out as black rectangles in profile.
+  // Its lower flare now tucks under the unmodified shoulder suit.
 
   // Two FINE stitched side hems, conforming to the shoulder taper.
   // No rigid white collar plates, floating circles, or duplicated throat.
