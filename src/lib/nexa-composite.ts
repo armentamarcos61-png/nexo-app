@@ -1278,16 +1278,20 @@ export function joinNexaBackHair(
   });
   depths.sort((a,b)=>a-b);
   const tailZ=THREE.MathUtils.clamp(
-    depths.length>=5 ? depths[Math.floor(depths.length*0.35)] : eye.center.z-unit*1.55,
-    eye.center.z-unit*2.05,eye.center.z-unit*1.18,
+    depths.length>=5 ? depths[Math.floor(depths.length*0.67)] : eye.center.z-unit*1.55,
+    eye.center.z-unit*1.95,eye.center.z-unit*1.09,
   );
 
   // Replace the three broad overlapping sheets with only TWO short tapered
   // connections, one on each side. Both are tucked underneath the original
   // headset/helmet above and the surviving ponytail below. There are no
   // rectangular caps, flat dangling planes or artificial long hair curtains.
-  const topY=eye.center.y-unit*0.56;
-  const bottomY=seamY-unit*0.23;
+  // The old strip began far below the rear helmet, leaving the hair
+  // apparently detached in profile. Shift the SAME small tapered surface
+  // upward to the back of the helmet and slightly downward into the actual
+  // ponytail. It still follows the real animated Head joint.
+  const topY=eye.center.y-unit*0.12;
+  const bottomY=seamY-unit*0.58;
   if(bottomY>=topY-unit*0.2)return null;
   const rows=18,columns=10;
   const vertices:number[]=[];
@@ -1297,20 +1301,21 @@ export function joinNexaBackHair(
     for(let row=0;row<=rows;row++){
       const t=row/rows;
       const ease=t*t*(3-2*t);
-      const radius=unit*(0.055+0.20*Math.sin(Math.PI*t)+0.11*ease);
+      // Pointed at both ends: no rectangular top or visible lower cut.
+      const radius=unit*(0.022+0.23*Math.pow(Math.sin(Math.PI*t),0.8));
       // At the top the narrow tip disappears beneath the helmet; below it
       // widens and sinks a little inside the original straight hair.
-      const centerX=eye.center.x+side*unit*(0.68-0.06*ease);
+      const centerX=eye.center.x+side*unit*(0.63-0.04*ease);
       const centerY=topY+(bottomY-topY)*t;
-      const centerZ=eye.center.z-unit*1.10+
-        (tailZ-eye.center.z+unit*1.10)*ease;
+      const centerZ=eye.center.z-unit*1.13+
+        (tailZ-eye.center.z+unit*1.13)*ease;
       for(let col=0;col<=columns;col++){
         const across=col/columns*2-1;
         const world=new THREE.Vector3(
           centerX+side*radius*across,
-          centerY-unit*0.06*(1-t)*across*across,
-          centerZ-unit*0.13*(1-across*across)*Math.sin(Math.PI*t)
-            +unit*0.04*across,
+          centerY-unit*0.035*(1-t)*across*across,
+          centerZ+unit*0.085*(1-across*across)*Math.sin(Math.PI*t)
+            +unit*0.025*across,
         );
         head.worldToLocal(world);
         vertices.push(world.x,world.y,world.z);
