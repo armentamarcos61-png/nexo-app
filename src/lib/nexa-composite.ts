@@ -1122,15 +1122,24 @@ export function removeNexaLegacyHeadFragments(
           // Ease to zero below the root so the long hair stays unchanged.
           const u=rearHair.eyeWidth;
           const topT=Math.max(0,Math.min(1,
-            (p.y-(rearHair.seamY-u*1.13))/(u*1.03)));
+            (p.y-(rearHair.seamY-u*1.52))/(u*1.32)));
           const nearTop=topT*topT*(3-2*topT);
           const depth=Math.max(0,Math.min(1,
             (rearHair.eyeCenter.z-u*2.0-p.z)/(u*1.45)));
-          const diagonalLift=u*0.31*nearTop*(1-depth)*Math.min(1,skinHead[i]);
-          if(diagonalLift>u*0.008 &&
+          const weight=Math.min(1,skinHead[i]);
+          const horizontalFeather=Math.max(0,1-
+            Math.abs(p.x-rearHair.eyeCenter.x)/(u*0.93));
+          const diagonalLift=u*.17*nearTop*(1-depth)*weight;
+          const forwardShift=u*.41*nearTop*
+            horizontalFeather*(0.50+0.50*(1-depth))*weight;
+          if((diagonalLift>u*.006||forwardShift>u*.006) &&
              typeof position.getY==='function' &&
              typeof position.setY==='function') {
             position.setY(i,position.getY(i)+diagonalLift/Math.abs(modelScale));
+            if(typeof position.setZ==='function' &&
+               typeof position.getZ==='function'){
+              position.setZ(i,position.getZ(i)+forwardShift/Math.abs(modelScale));
+            }
             sculpted++;
           }
         }
@@ -1529,30 +1538,36 @@ export function addNexaCollar(
   parent.updateMatrixWorld(true);
   const world=eye.center.clone();
   world.x=profile ? eye.center.x*0.7+profile.x*0.3 : eye.center.x;
-  world.y=seamY-unit*0.11;
+  // Center the soft fabric over the two GLB cutting surfaces; leaving
+  // it below the seam made the hard throat ring look disconnected.
+  world.y=seamY-unit*0.025;
   world.z=centerZ;
   const group=new THREE.Group();
   group.name='Nexa fitted neckline blended into suit';
   group.position.copy(parent.worldToLocal(world));
-  group.scale.z=0.87;
+  group.scale.z=0.93;
 
   const charcoal=new THREE.MeshStandardMaterial({
-    color:0x11121b,roughness:0.75,metalness:0.035,
+    color:0x171620,roughness:0.79,metalness:0.025,
     side:THREE.DoubleSide,
   });
   const seamMaterial=new THREE.MeshStandardMaterial({
-    color:0x49435c,roughness:0.82,metalness:0.02,
+    color:0x322e41,roughness:0.86,metalness:0.015,
     side:THREE.DoubleSide,
   });
   // Extend the dark fabric beyond the body's exposed white cut line,
   // then tuck the lower edge into the original chest rather than leaving
   // a bright, hovering neck ring. The throat remains comfortably narrow.
+  // More gradual radial changes remove the abrupt collar step at the neck.
   const points=[
-    new THREE.Vector2(unit*0.38,unit*0.24),
-    new THREE.Vector2(unit*0.43,unit*0.12),
-    new THREE.Vector2(unit*0.49,-unit*0.07),
-    new THREE.Vector2(bottomRadius*0.79,-unit*0.29),
-    new THREE.Vector2(bottomRadius*0.91,-unit*0.51),
+    new THREE.Vector2(unit*.38,unit*.24),
+    new THREE.Vector2(unit*.40,unit*.17),
+    new THREE.Vector2(unit*.44,unit*.07),
+    new THREE.Vector2(unit*.49,-unit*.06),
+    new THREE.Vector2(unit*.55,-unit*.17),
+    new THREE.Vector2(bottomRadius*.71,-unit*.29),
+    new THREE.Vector2(bottomRadius*.83,-unit*.41),
+    new THREE.Vector2(bottomRadius*.91,-unit*.51),
   ];
   const piece=new THREE.Mesh(new THREE.LatheGeometry(points,48),charcoal);
   piece.name='Nexa smooth tapered shirt neckline';
@@ -1572,7 +1587,7 @@ export function addNexaCollar(
       new THREE.Vector3(side*bottomRadius*0.76,-unit*0.29,unit*0.26),
     ]);
     const stitch=new THREE.Mesh(
-      new THREE.TubeGeometry(curve,18,unit*0.006,5,false),
+      new THREE.TubeGeometry(curve,18,unit*0.004,5,false),
       seamMaterial,
     );
     stitch.name=side<0?'Nexa left soft shirt seam':'Nexa right soft shirt seam';
