@@ -158,19 +158,23 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       let x=0,y=0,z=0,total=0,largest=0;
       for(let i=0;i<d.count;i++)
         largest=Math.max(largest,Math.hypot(d.getX(i),d.getY(i),d.getZ(i)));
+      source.updateMatrixWorld?.(true);
+      head.updateMatrixWorld?.(true);
+      const sample=new Three.Vector3();
       for(let i=0;i<d.count;i++){
         const strength=Math.hypot(d.getX(i),d.getY(i),d.getZ(i));
         if(strength<largest*.27)continue;
-        x+=pos.getX(i)*strength;
-        y+=pos.getY(i)*strength;
-        z+=pos.getZ(i)*strength;
+        sample.fromBufferAttribute(pos,i);
+        if(typeof source.applyBoneTransform==='function')
+          source.applyBoneTransform(i,sample);
+        source.localToWorld(sample);
+        x+=sample.x*strength;
+        y+=sample.y*strength;
+        z+=sample.z*strength;
         total+=strength;
       }
       if(total>0){
         const center=new Three.Vector3(x/total,y/total,z/total);
-        source.updateMatrixWorld?.(true);
-        head.updateMatrixWorld?.(true);
-        source.localToWorld(center);
         // The pink surface sits beneath the upper lip. Its own size follows
         // the actual Studio eye separation and MouthOpen value.
         center.z+=0.002;
