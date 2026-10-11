@@ -11,7 +11,7 @@ import {
 import { speakAsAssistant, stopAssistantSpeech } from '@/lib/assistant-speech';
 import { useAssistant } from '@/state/assistant';
 import { useAuth } from '@/state/auth';
-import { clearNexaHistory, generalSearchUrl, readNexaHistory, recallNexaAnswer, rememberNexaConversation, searchNexaReferences, type NexaReply, type NexaSource } from '@/lib/nexa-knowledge';
+import { clearNexaHistory, generalSearchUrl, readNexaHistory, recallNexaAnswer, recallNexaNote, rememberNexaConversation, searchNexaReferences, type NexaReply, type NexaSource } from '@/lib/nexa-knowledge';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 type BrowserSpeechRecognition = {
@@ -170,7 +170,7 @@ export default function AsistenteScreen() {
         !/nexo|filtr|categor[ií]a/i.test(questionText))) {
         reply = { text: localAnswer(metric, assistant.name), sources: [], online: false };
       } else {
-        const recalled = changingFact ? null : recallNexaAnswer(questionText, user?.id);
+        const recalled = changingFact ? null : (recallNexaAnswer(questionText, user?.id) || recallNexaNote(questionText, user?.id));
         reply = recalled || await searchNexaReferences(questionText);
       }
     } catch {
