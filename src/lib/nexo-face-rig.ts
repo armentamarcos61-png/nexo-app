@@ -40,7 +40,7 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
   // Meshy source rest-pose mouth center, in model coordinates. Transform once
   // into actual head-bone space so it follows the face, not the shoulders.
   root.updateMatrixWorld(true);
-  const world=root.localToWorld(new THREE.Vector3(0,1.564,0.115));
+  const world=root.localToWorld(new THREE.Vector3(0,1.564,0.107));
   const anchor=head.worldToLocal(world);
   innerMaterial=new THREE.MeshStandardMaterial({
    color:0xAA6579,roughness:0.95,metalness:0,
