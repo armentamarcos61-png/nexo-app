@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {NEXO_IMAGE_DATA} from '@/components/assistant-media/nexo-image';
+import {getStoredNexoGLB,saveNexoGLB} from '@/lib/nexo-model-cache';
 import {installNexoFaceRig,type NexoFaceController} from '@/lib/nexo-face-rig';
 import type {AssistantProfile} from '@/state/assistant';
 
@@ -24,6 +25,18 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
  const [loaded,setLoaded]=useState(false);
  const [status,setStatus]=useState('Preparando el modelo masculino 3D…');
  const [retry,setRetry]=useState(0);
+ const [importing,setImporting]=useState(false);
+ const uploaderRef=useRef<any>(null);
+ const importModel=async(file:File|null)=>{
+  if(!file)return;
+  setImporting(true);
+  try{
+   await saveNexoGLB(file);
+   setStatus('Nexo 3D guardado en este navegador. Abriendo modelo…');
+   setRetry(x=>x+1);
+  }catch(error){setStatus(error instanceof Error?error.message:'Modelo de Nexo inválido');}
+  finally{setImporting(false);}
+ };
  useEffect(()=>{spoken.current=speaking;},[speaking]);
  useEffect(()=>{spokenText.current=speechText;},[speechText]);
 
@@ -85,9 +98,12 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
      import('three'),import('three/examples/jsm/loaders/GLTFLoader.js'),
     ]);
     if(destroyed)return;
-    const response=await fetch(sourceUrl(),{signal:controller.signal,cache:'force-cache'});
-    if(!response.ok)throw Error('El archivo 3D masculino aún no está publicado (HTTP '+response.status+').');
-    const array=await response.arrayBuffer();
+    let array=await getStoredNexoGLB().catch(()=>null);
+    if(!array){
+     const response=await fetch(sourceUrl(),{signal:controller.signal,cache:'force-cache'});
+     if(!response.ok)throw Error('El 3D de Nexo está preparado. Importa Nexo_FacialReady_v1.glb para visualizarlo.');
+     array=await response.arrayBuffer();
+    }
     if(array.byteLength<50000||new DataView(array).getUint32(0,true)!==0x46546c67)
      throw Error('El modelo de Nexo está incompleto.');
     const gltf=await new GLTFLoader().parseAsync(array,
@@ -216,9 +232,21 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
    <Pressable style={styles.btn} onPress={()=>pose('confused_scratch')}><Text style={styles.btnText}>Expresiones</Text></Pressable>
    <Pressable style={styles.btn} onPress={()=>pose('walking_2_inplace')}><Text style={styles.btnText}>Caminar</Text></Pressable>
   </View></>:
-   <Pressable style={styles.btn} onPress={()=>setRetry(x=>x+1)}>
-    <Text style={styles.btnText}>Reintentar 3D</Text>
-   </Pressable>}
+   <View style={styles.controls}>
+    {React.createElement('input',{
+      ref:uploaderRef,type:'file',accept:'.glb,model/gltf-binary',
+      'aria-label':'Importar archivo tridimensional de Nexo',
+      onChange:(e:any)=>{
+       const file=e?.target?.files?.[0]||null;
+       void importModel(file);
+       if(e?.target)e.target.value='';
+      },
+      style:{maxWidth:190,color:'#DAEEFF',fontSize:11},
+    })}
+    <Pressable style={styles.btn} onPress={()=>setRetry(x=>x+1)}>
+     <Text style={styles.btnText}>{importing?'Importando…':'Reintentar 3D'}</Text>
+    </Pressable>
+   </View>}
  </View>;
 }
 const styles=StyleSheet.create({
