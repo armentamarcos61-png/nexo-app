@@ -4,25 +4,23 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, NexoScreen } from '@/components/nexo-screen';
 import { AssistantStage } from '@/components/assistant-stage';
 import { assistantProfiles, useAssistant } from '@/state/assistant';
+import type { AssistantId } from '@/state/assistant';
 import { speakAsAssistant, stopAssistantSpeech } from '@/lib/assistant-speech';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
-
-// Nexa is the only selectable assistant for now.
-// Her 2D image is a loading fallback INSIDE the same 3D stage, never
-// a second card or a second assistant. Nexo can be developed later.
-const nexa = assistantProfiles.nexa;
 
 export default function ElegirAsistenteScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { selectAssistant } = useAssistant();
   const [speaking, setSpeaking] = useState(false);
+  const [selected,setSelected] = useState<AssistantId>('nexa');
+  const profile = assistantProfiles[selected];
 
   useEffect(() => () => { void stopAssistantSpeech(); }, []);
 
   function previewVoice() {
     setSpeaking(false); // Wait for the real playback callback, not the speech queue.
-    void speakAsAssistant(nexa.greeting, nexa.id, {
+    void speakAsAssistant(profile.greeting, profile.id, {
       onStart: () => setSpeaking(true),
       onDone: () => setSpeaking(false),
       onStopped: () => setSpeaking(false),
@@ -32,33 +30,44 @@ export default function ElegirAsistenteScreen() {
 
   function confirm() {
     void stopAssistantSpeech();
-    selectAssistant('nexa');
+    selectAssistant(selected);
     router.replace('/asistente');
   }
 
   return (
-    <NexoScreen title="Conoce a Nexa">
+    <NexoScreen title="Elige tu asistente">
       <View style={[styles.intro, { borderColor: palette.cardBorder }]}>
         <Text style={[styles.heading, { color: palette.title }]}>
           Tu asistente personal de Nexo
         </Text>
         <Text style={[styles.description, { color: palette.text }]}>
-          Una sola Nexa, con voz, movimientos y una presencia 3D.
+          Nexo y Nexa con voz, movimientos y presencia 3D.
           Te ayuda a conocer las funciones de la aplicación, encontrar
           servicios, buscar empleo y publicar productos.
         </Text>
       </View>
 
-      <AssistantStage profile={nexa} speaking={speaking} />
+      <View style={{flexDirection:'row',gap:10,justifyContent:'center'}}>
+        {(['nexa','nexo'] as const).map(id=>(
+          <Pressable key={id} accessibilityRole="button"
+            accessibilityState={{selected:selected===id}}
+            onPress={()=>{void stopAssistantSpeech();setSpeaking(false);setSelected(id);}}
+            style={[styles.voice,{flex:1},
+              selected===id&&{borderColor:'#80E6FF',backgroundColor:'rgba(26,92,163,0.6)'}]}>
+            <Text style={styles.voiceText}>{assistantProfiles[id].name}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <AssistantStage profile={profile} speaking={speaking} speechText={speaking?profile.greeting:''} />
 
       <View style={[styles.details, { borderColor: palette.cardBorder }]}>
         <View style={styles.identityRow}>
           <View style={styles.onlineDot} />
-          <Text style={[styles.identity, { color: palette.title }]}>Nexa · Asistente virtual</Text>
+          <Text style={[styles.identity, { color: palette.title }]}>{profile.name} · Asistente virtual</Text>
         </View>
         <Text style={[styles.description, { color: palette.text }]}>
-          Cálida, clara y profesional. Su imagen de respaldo y el modelo
-          tridimensional representan al mismo personaje, nunca dos asistentes distintos.
+          Elige su identidad y conserva tus preferencias. Ambas opciones
+          utilizan sus propios modelos y controles, sin mezclar rostros.
         </Text>
       </View>
 
@@ -68,10 +77,10 @@ export default function ElegirAsistenteScreen() {
         onPress={previewVoice}
         style={({ pressed }) => [styles.voice, pressed && styles.pressed]}
       >
-        <Text style={styles.voiceText}>{speaking ? '🔊 Nexa está hablando…' : '🔊 Escuchar a Nexa'}</Text>
+        <Text style={styles.voiceText}>{speaking ? '🔊 Tu asistente está hablando…' : '🔊 Escuchar a '+profile.name}</Text>
       </Pressable>
 
-      <Action label="Continuar con Nexa" onPress={confirm} />
+      <Action label={`Continuar con ${profile.name}`} onPress={confirm} />
     </NexoScreen>
   );
 }
