@@ -8,6 +8,7 @@ import { NexaAnimationController } from '@/lib/nexa-animation-controller';
 import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
 import { addNexaCollar, composeNexaHeadBody, disposeNexaBackHair, disposeNexaCollar, joinNexaBackHair, maskNexaStudioHead, updateNexaBackHair } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
+import { NexoModelStage } from '@/components/assistant-stage-nexo.web';
 
 type Props = { profile: AssistantProfile; speaking?: boolean; speechText?: string };
 // Bundled with the app: loading Nexa must not depend on a third-party CDN.
@@ -41,7 +42,11 @@ function getModelUrl(variant: ModelVariant) {
 }
 
 /** One circular, close-up 3D Nexa. No duplicate photo/model or zoom buttons. */
-export function AssistantStage({ profile, speaking = false, speechText = '' }: Props) {
+export function AssistantStage(props: Props) {
+  return props.profile.id === 'nexo' ? <NexoModelStage {...props} /> : <NexaStage {...props} />;
+}
+
+function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
   const isNexa = profile.id === 'nexa';
   const placeholder = isNexa ? NEXA_IMAGE_DATA : NEXO_IMAGE_DATA;
   const hostRef = useRef<any>(null);
