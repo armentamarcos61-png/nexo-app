@@ -241,10 +241,14 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
        void importModel(file);
        if(e?.target)e.target.value='';
       },
-      style:{maxWidth:190,color:'#DAEEFF',fontSize:11},
+      style:{position:'absolute',width:1,height:1,opacity:0,pointerEvents:'none'},
     })}
+    <Pressable style={[styles.btn,styles.active]} disabled={importing}
+      onPress={()=>uploaderRef.current?.click?.()}>
+      <Text style={styles.btnText}>{importing?'Cargando archivo…':'Importar modelo 3D de Nexo'}</Text>
+    </Pressable>
     <Pressable style={styles.btn} onPress={()=>setRetry(x=>x+1)}>
-     <Text style={styles.btnText}>{importing?'Importando…':'Reintentar 3D'}</Text>
+     <Text style={styles.btnText}>Reintentar 3D</Text>
     </Pressable>
    </View>}
  </View>;
