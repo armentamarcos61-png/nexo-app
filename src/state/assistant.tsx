@@ -72,7 +72,7 @@ function readStoredChoice(userId: string | null): AssistantId | null {
   try {
     const stored = window.localStorage.getItem(storageKey(userId));
     // During the Nexa-only rollout, legacy Nexo choices resolve to Nexa.
-    return stored === 'nexo' ? 'nexa' : isAssistantId(stored) ? stored : null;
+    return isAssistantId(stored) ? stored : null;
   } catch {
     return null;
   }
