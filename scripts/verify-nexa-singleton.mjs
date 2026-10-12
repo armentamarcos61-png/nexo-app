@@ -1,4 +1,4 @@
-// Verify Nexa is one assistant, never a duplicate 2D/3D selection.
+// Verify Nexo and Nexa have separate stages and no duplicate portraits.
 import { readFileSync, existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -9,8 +9,14 @@ const shell = readFileSync('src/components/nexo-screen.tsx','utf8');
 
 assert.equal((choose.match(/<AssistantStage\b/g) || []).length, 1, 'Only one Nexa stage must exist on the chooser');
 assert.ok(!choose.includes('<AssistantAvatar'), 'No second static avatar on the chooser');
-assert.ok(!choose.includes('Object.keys(assistantProfiles)'), 'No second assistant option');
-assert.ok(choose.includes("selectAssistant('nexa')"), 'Nexa must be the sole offered choice');
+assert.ok(choose.includes("selectAssistant(selected)"), 'Both assistants must be selectable');
+assert.ok(choose.includes("(['nexa','nexo'] as const)"), 'Nexo and Nexa must each have one selection');
+assert.ok(stage.includes('NexoModelStage'), 'Nexo needs its own independent rigged model stage');
+assert.ok(stage.includes('function NexaStage'), 'Nexa approved stage must be preserved');
+const rig = readFileSync('src/lib/nexo-face-rig.ts','utf8');
+for (const name of ['EyeBlinkLeft','EyeBlinkRight','MouthOpen','BrowRaiseLeft','BrowRaiseRight']) {
+  assert.ok(rig.includes(name), 'Male Nexo face rig missing '+name);
+}
 assert.equal((screen.match(/<AssistantStage\b/g) || []).length, 1, 'Only one Nexa stage on the assistant screen');
 assert.ok(shell.includes("pathname === '/asistente' || pathname === '/elegir-asistente'"), 'No duplicate header avatar on stage screens');
 assert.ok(stage.includes("'Nexa_FacialRig_V2.glb'"), 'The full Nexa facially-rigged GLB must remain available');
@@ -44,7 +50,7 @@ if (existsSync(file)) {
   }
   assert.equal(gltf.meshes[0].primitives.length,3,'Debe incluir piel y cavidad oral independientes');
   assert.ok(animationNames.includes('Nexa_FacialDemo'),'Falta la demostración facial');
-  console.log('PASS: Nexa única, cinco movimientos y trece controles faciales reales');
+  console.log('PASS: Nexa rig protected, Nexo selected separately, facial animation paths preserved');
 } else {
-  console.log('PASS: Nexa único y visor preparado; GLB aún pendiente de publicarse');
+  console.log('PASS: Nexo and Nexa have independent 3D stages; Nexa GLB pending publication');
 }
