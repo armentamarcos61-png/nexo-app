@@ -54,6 +54,9 @@ jobs:
       - name: Restaurar modelo Nexa Studio y validar integridad
         run: node scripts/restore-nexa-studio.cjs
 
+      - name: Verificar Nexa Android (13 gestos, 5 animaciones y respaldo)
+        run: node scripts/verify-nexa-android.cjs
+
       - name: Comprobar geometría de unión Nexa Studio + cuerpo completo
         run: node scripts/verify-nexa-composite.cjs
 
