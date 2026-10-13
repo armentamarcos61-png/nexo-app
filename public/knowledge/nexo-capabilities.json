@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "revision": "bootstrap-sourcereview-20261013",
-  "generatedAt": "2026-10-13T20:56:29.387Z",
+  "revision": "f41bd1d39713b21c8d6f590a",
+  "generatedAt": "2026-10-13T21:03:15.127Z",
   "capabilities": {
     "home": {
       "status": "available",
@@ -83,33 +83,18 @@
   "screens": [
     {
       "route": "/",
-      "title": "Inicio",
+      "title": "index",
       "evidence": "src/app/index.tsx"
     },
     {
+      "route": "/asistente",
+      "title": "Asistente Nexo",
+      "evidence": "src/app/asistente.tsx"
+    },
+    {
       "route": "/borradores",
-      "title": "Borradores",
+      "title": "Mis borradores",
       "evidence": "src/app/borradores.tsx"
-    },
-    {
-      "route": "/explorar",
-      "title": "Explorar",
-      "evidence": "src/app/explorar.tsx"
-    },
-    {
-      "route": "/productos",
-      "title": "Productos",
-      "evidence": "src/app/productos.tsx"
-    },
-    {
-      "route": "/perfil",
-      "title": "Perfil",
-      "evidence": "src/app/perfil.tsx"
-    },
-    {
-      "route": "/portafolios",
-      "title": "Portafolios",
-      "evidence": "src/app/portafolios.tsx"
     },
     {
       "route": "/elegir-asistente",
@@ -117,9 +102,34 @@
       "evidence": "src/app/elegir-asistente.tsx"
     },
     {
-      "route": "/asistente",
-      "title": "Asistente",
-      "evidence": "src/app/asistente.tsx"
+      "route": "/explorar",
+      "title": "Buscar en Nexo",
+      "evidence": "src/app/explorar.tsx"
+    },
+    {
+      "route": "/explore",
+      "title": "explore",
+      "evidence": "src/app/explore.tsx"
+    },
+    {
+      "route": "/perfil",
+      "title": "Mi espacio",
+      "evidence": "src/app/perfil.tsx"
+    },
+    {
+      "route": "/portafolios",
+      "title": "Portafolios de trabajo",
+      "evidence": "src/app/portafolios.tsx"
+    },
+    {
+      "route": "/productos",
+      "title": "Productos",
+      "evidence": "src/app/productos.tsx"
+    },
+    {
+      "route": "/resolver",
+      "title": "Nexo resuelve",
+      "evidence": "src/app/resolver.tsx"
     }
   ]
 }
