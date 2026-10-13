@@ -11,6 +11,7 @@ export type NexoCapabilityStatus='available'|'unavailable';
 export type NexoKnowledgeManifest={
  schema:1;revision:string;generatedAt:string;
  capabilities:Record<NexoCapability,{status:NexoCapabilityStatus;evidence:string[]}>;
+ screens?:{route:string;title:string;evidence:string}[];
 };
 export type NexoKnowledgeReply={
  text:string;topic:string;verified:boolean;confidence:number;
@@ -49,6 +50,10 @@ function validated(payload:unknown):payload is NexoKnowledgeManifest{
  if(!payload||typeof payload!=='object')return false;
  const item=payload as Partial<NexoKnowledgeManifest>;
  if(item.schema!==1||typeof item.revision!=='string'||!item.capabilities)return false;
+ if(item.screens!==undefined&&(!Array.isArray(item.screens)||
+  !item.screens.every(v=>typeof v?.route==='string'&&
+   /^\\/[a-z0-9-]*$/.test(v.route)&&typeof v.title==='string'&&
+   typeof v.evidence==='string'&&v.evidence.startsWith('src/app/'))))return false;
  return (Object.keys(DEFAULT_CAPABILITIES) as NexoCapability[]).every(id=>{
   const cap=item.capabilities?.[id];
   return (cap?.status==='available'||cap?.status==='unavailable')&&
@@ -265,6 +270,19 @@ export function answerVerifiedNexoQuestion(question:string,intentKey?:string):Ne
   const safe=fact.stage==='available'||fact.stage==='planned';
   return {text:fact.answer,topic:fact.topic,verified:safe,
    confidence:fact.stage==='available'?.98:.92,status:fact.stage};
+ }
+ const screen=(manifest.screens||[]).find(item=>{
+  if(item.route==='/')return false;
+  const names=[normalize(item.title),normalize(item.route.replace(/^\\//,''))]
+    .filter(word=>word.length>=5);
+  return names.some(word=>text.includes(word))&&
+    has(text,['donde','encuentro','abrir','accedo','ver la pantalla','como entro']);
+ });
+ if(screen){
+  return {text:'Encontré la pantalla "'+screen.title+
+    '" entre las rutas verificadas de la aplicación. Su ruta es '+
+    screen.route+'. Como solo he confirmado que existe en el código, no te prometo que todas sus operaciones ya funcionen.',
+   topic:'navigation.discovered_screen',verified:true,confidence:.83,status:'available'};
  }
  if(isAboutApp(text)){
   return {text:'Todavía no tengo información confirmada sobre esa función de Nexo. No voy a inventarla ni traer una definición ajena desde Internet. Puedes preguntarme por empleo, trabajadores, servicios, productos, perfiles, pagos o asistentes.',
