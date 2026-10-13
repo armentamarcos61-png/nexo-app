@@ -40,3 +40,14 @@ jobs:
             git commit -m "chore(knowledge): sync verified app capabilities [skip ci]"
             git push origin HEAD:main
           fi
+
+      - name: Actualizar conocimiento web sin modificar la interfaz ni los modelos
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public/knowledge
+          destination_dir: knowledge
+          publish_branch: gh-pages
+          keep_files: true
+          force_orphan: false
+          enable_jekyll: false
