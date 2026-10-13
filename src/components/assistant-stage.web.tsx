@@ -355,7 +355,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
         const modelBase = new URL('.', new URL(modelUrl, window.location.href)).href;
         const gltf = await loader.parseAsync(bytes, modelBase);
         if (disposed || download.signal.aborted) return;
-          const names=['Idle','Walking','Running','Greeting','Talking'];
+          const names=['Idle','Walking','Running','Greeting','Talking','Confused','Skipping'];
           modelRoot=gltf.scene;
           const bounds=new THREE.Box3().setFromObject(modelRoot);
           const center=bounds.getCenter(new THREE.Vector3());
@@ -557,8 +557,12 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             return new THREE.AnimationClip(name,2.40,tracks);
           };
           for(const name of names){
-            const sourceName=variant==='android' && name==='Greeting'
-              ? 'Wave_One_Hand' : name;
+            const sourceName=variant==='android'
+              ? name==='Greeting' ? 'Wave_One_Hand'
+                : name==='Confused' ? 'Confused_Scratch'
+                : name==='Skipping' ? 'Skip_Forward'
+                : name
+              : name;
             const sourceClip=gltf.animations.find((a:any)=>a.name===sourceName);
             // Use controlled arm-bone animation for Studio instead of inert
             // clips. The imported whole-body animations remain fallbacks.
@@ -587,7 +591,8 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
               actions[name].clampWhenFinished=true;
             } else actions[name].setLoop(THREE.LoopRepeat);
           }
-          controllerRef.current=new NexaAnimationController(mixer,actions,modelRoot);
+          controllerRef.current=new NexaAnimationController(mixer,actions,modelRoot,
+            variant==='android'?0.88:undefined);
           if(speakingRef.current) controllerRef.current.startSpeaking();
           if (!speakingRef.current) controllerRef.current.greet();
           // Start with a gentle, cross-faded hello; never force walking/running.
@@ -743,6 +748,18 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             style={[styles.cameraMode,styles.cameraModeActive]}>
             <Text style={styles.cameraModeTextActive}>Probar gestos faciales</Text>
           </Pressable>
+        </View>
+      )}
+      {loaded && variant==='android' && (
+        <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:6,marginTop:9,paddingHorizontal:12}}>
+          <Pressable accessibilityRole="button" onPress={()=>controllerRef.current?.moveTo(0,0,false)}
+            style={styles.cameraMode}><Text style={styles.cameraModeText}>Caminar</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={()=>controllerRef.current?.moveTo(0,0,true)}
+            style={styles.cameraMode}><Text style={styles.cameraModeText}>Correr</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={()=>controllerRef.current?.expressConfused()}
+            style={styles.cameraMode}><Text style={styles.cameraModeText}>Pensando</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={()=>controllerRef.current?.skipForward()}
+            style={styles.cameraMode}><Text style={styles.cameraModeText}>Saltar</Text></Pressable>
         </View>
       )}
       {loaded && (hasBody || variant !== 'studio') && (
