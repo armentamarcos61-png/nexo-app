@@ -42,6 +42,9 @@ jobs:
           python -m pip install numpy==2.2.6
           python scripts/build_nexa_face.py
 
+      - name: Reconstruir nuevo Nexa Android 3D con animaciones y rostro
+        run: node scripts/restore-nexa-android.cjs
+
       - name: Comprobar movimientos y rig facial del asistente masculino Nexo
         run: node scripts/verify-nexo-biped.cjs
 
@@ -112,6 +115,11 @@ jobs:
             test -s "$folder/$filename"
           done
 
+      - name: Comprobar nuevo modelo Nexa en paquete web
+        run: |
+          test -s dist/models/Nexa_Android_FacialReady_v1.glb
+          test -s dist/models/Nexo_FacialReady_v1.glb
+
       - name: Verificar archivos para navegadores nuevos y antiguos
         run: |
           set -euo pipefail
@@ -129,7 +137,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           node scripts/report-code-lines.cjs docs/LINEAS-CODIGO.json
-          git add public/models/Nexa_FacialRig_V2.glb docs/LINEAS-CODIGO.json public/models/Nexo_FacialReady_v1.glb
+          git add public/models/Nexa_FacialRig_V2.glb docs/LINEAS-CODIGO.json public/models/Nexo_FacialReady_v1.glb public/models/Nexa_Android_FacialReady_v1.glb
           if ! git diff --cached --quiet; then
             git commit -m "Build Nexa and Nexo facially rigged models [skip ci]"
             git push origin HEAD:main
