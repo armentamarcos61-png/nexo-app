@@ -243,7 +243,9 @@ function inferredTopic(text:string,rawIntent?:string):Fact|undefined{
   });
   return matches[0];
  }
- return facts.find(item=>!!rawIntent&&item.intents.includes(rawIntent));
+ // A classifier hit by itself is NOT evidence. For example "impuestos de
+ // productos" must not trigger the generic "cómo comprar productos" answer.
+ return undefined;
 }
 function isAboutApp(text:string):boolean{
  return has(text,['nexo','nexa','aplicacion','app','plataforma','vacante',
