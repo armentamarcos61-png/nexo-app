@@ -281,6 +281,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
    <Pressable style={styles.btn} onPress={()=>pose('wave_one_hand')}><Text style={styles.btnText}>Saludar</Text></Pressable>
    <Pressable style={styles.btn} onPress={()=>pose('confused_scratch')}><Text style={styles.btnText}>Expresiones</Text></Pressable>
    <Pressable style={styles.btn} onPress={()=>pose('walking_2_inplace')}><Text style={styles.btnText}>Caminar</Text></Pressable>
+   <Pressable style={styles.btn} onPress={()=>pose('running')}><Text style={styles.btnText}>Correr</Text></Pressable>
    <Pressable style={[styles.btn,styles.active]} onPress={showFaceDemo}><Text style={styles.btnText}>Probar gestos faciales</Text></Pressable>
   </View></>:
    <View style={styles.controls}>
