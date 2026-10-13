@@ -71,6 +71,9 @@ jobs:
           EXPO_NO_BUNDLE_SPLITTING: '1'
         run: npm run build:web
 
+      - name: Medir lineas reales de codigo y publicar estadisticas
+        run: node scripts/report-code-lines.cjs dist/code-metrics.json
+
       - name: Preparar panel privado fuera del enrutador Expo
         # The old Expo static route can hydrate into '/' on Android webviews.
         # The standalone page deliberately loads no Expo bundle.
