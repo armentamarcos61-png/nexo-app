@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "revision": "bootstrap-sourcereview-20261013",
+  "generatedAt": "2026-10-13T20:56:29.387Z",
+  "capabilities": {
+    "home": {
+      "status": "available",
+      "evidence": [
+        "src/app/index.tsx"
+      ]
+    },
+    "explore": {
+      "status": "available",
+      "evidence": [
+        "src/app/explorar.tsx"
+      ]
+    },
+    "products": {
+      "status": "available",
+      "evidence": [
+        "src/app/productos.tsx"
+      ]
+    },
+    "publishProducts": {
+      "status": "available",
+      "evidence": [
+        "src/app/publicar/[tipo].tsx",
+        "src/state/marketplace.tsx"
+      ]
+    },
+    "drafts": {
+      "status": "available",
+      "evidence": [
+        "src/app/borradores.tsx",
+        "src/state/drafts.tsx"
+      ]
+    },
+    "profile": {
+      "status": "available",
+      "evidence": [
+        "src/app/perfil.tsx"
+      ]
+    },
+    "portfolio": {
+      "status": "available",
+      "evidence": [
+        "src/app/portafolios.tsx"
+      ]
+    },
+    "assistants": {
+      "status": "available",
+      "evidence": [
+        "src/app/elegir-asistente.tsx",
+        "src/app/asistente.tsx"
+      ]
+    },
+    "authentication": {
+      "status": "available",
+      "evidence": [
+        "src/app/iniciar-sesion.tsx",
+        "src/app/registrarse.tsx"
+      ]
+    },
+    "passwordRecovery": {
+      "status": "available",
+      "evidence": [
+        "src/app/recuperar-contrasena.tsx"
+      ]
+    },
+    "publishWork": {
+      "status": "available",
+      "evidence": [
+        "src/app/publicar/[tipo].tsx"
+      ]
+    },
+    "categories": {
+      "status": "available",
+      "evidence": [
+        "src/constants/categories.ts"
+      ]
+    }
+  },
+  "screens": [
+    {
+      "route": "/",
+      "title": "Inicio",
+      "evidence": "src/app/index.tsx"
+    },
+    {
+      "route": "/borradores",
+      "title": "Borradores",
+      "evidence": "src/app/borradores.tsx"
+    },
+    {
+      "route": "/explorar",
+      "title": "Explorar",
+      "evidence": "src/app/explorar.tsx"
+    },
+    {
+      "route": "/productos",
+      "title": "Productos",
+      "evidence": "src/app/productos.tsx"
+    },
+    {
+      "route": "/perfil",
+      "title": "Perfil",
+      "evidence": "src/app/perfil.tsx"
+    },
+    {
+      "route": "/portafolios",
+      "title": "Portafolios",
+      "evidence": "src/app/portafolios.tsx"
+    },
+    {
+      "route": "/elegir-asistente",
+      "title": "Elige tu asistente",
+      "evidence": "src/app/elegir-asistente.tsx"
+    },
+    {
+      "route": "/asistente",
+      "title": "Asistente",
+      "evidence": "src/app/asistente.tsx"
+    }
+  ]
+}
