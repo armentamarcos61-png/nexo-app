@@ -16,6 +16,9 @@ type Props = { profile: AssistantProfile; speaking?: boolean; speechText?: strin
 const STALL_TIMEOUT_MS = 75_000;
 const MAX_LOAD_TIME_MS = 360_000;
 const MODEL_VARIANTS = {
+  android: { file: 'Nexa_Android_FacialReady_v1.glb', size: 12_287_436 },
+  // Backups remain in the bundle and repository. They are never selected
+  // automatically while the new Android Nexa is enabled.
   studio: { file: 'Nexa_Studio_Busto_v1.glb', size: 5_322_192 },
   full: { file: 'Nexa_FacialRig_V2.glb', size: 16_739_064 },
   light: { file: 'Nexa_Unica_Interactiva.glb', size: 9_336_320 },
@@ -62,7 +65,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
   const [unavailable, setUnavailable] = useState(false);
   const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
   const [attempt, setAttempt] = useState(0);
-  const [variant, setVariant] = useState<ModelVariant>('studio');
+  const [variant, setVariant] = useState<ModelVariant>('android');
   const [hasBody, setHasBody] = useState(false);
   const [viewMode, setViewMode] = useState<'body' | 'face'>('body');
   const cameraPresetsRef = useRef<{
@@ -352,7 +355,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
         const modelBase = new URL('.', new URL(modelUrl, window.location.href)).href;
         const gltf = await loader.parseAsync(bytes, modelBase);
         if (disposed || download.signal.aborted) return;
-          const names=['Idle','Walking','Running','Greeting','Talking'];
+          const names=['Idle','Walking','Running','Greeting','Talking','Confused','Skipping'];
           modelRoot=gltf.scene;
           const bounds=new THREE.Box3().setFromObject(modelRoot);
           const center=bounds.getCenter(new THREE.Vector3());
@@ -428,7 +431,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           // existing animated head bone; original five motion clips remain.
           // The Studio model already has accurate baked cap/hair/N logos.
           // Adding procedural legacy hair over it would visibly duplicate them.
-          premiumLook=variant==='studio'
+          premiumLook=(variant==='studio'||variant==='android')
             ? null
             : installNexaPremiumLook(THREE,modelRoot,scene,
                 modelUrl.replace(MODEL_VARIANTS[variant].file,'nexa-reference-face.webp'));
@@ -554,7 +557,13 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             return new THREE.AnimationClip(name,2.40,tracks);
           };
           for(const name of names){
-            const sourceClip=gltf.animations.find((a:any)=>a.name===name);
+            const sourceName=variant==='android'
+              ? name==='Greeting' ? 'Wave_One_Hand'
+                : name==='Confused' ? 'Confused_Scratch'
+                : name==='Skipping' ? 'Skip_Forward'
+                : name
+              : name;
+            const sourceClip=gltf.animations.find((a:any)=>a.name===sourceName);
             // Use controlled arm-bone animation for Studio instead of inert
             // clips. The imported whole-body animations remain fallbacks.
             const safeClip=studio
@@ -582,7 +591,8 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
               actions[name].clampWhenFinished=true;
             } else actions[name].setLoop(THREE.LoopRepeat);
           }
-          controllerRef.current=new NexaAnimationController(mixer,actions,modelRoot);
+          controllerRef.current=new NexaAnimationController(mixer,actions,modelRoot,
+            variant==='android'?0.88:undefined);
           if(speakingRef.current) controllerRef.current.startSpeaking();
           if (!speakingRef.current) controllerRef.current.greet();
           // Start with a gentle, cross-faded hello; never force walking/running.
@@ -696,7 +706,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           src:placeholder,alt:'Nexa, asistente virtual',draggable:false,
           style:{
             position:'absolute',inset:0,width:'100%',height:'100%',
-            objectFit:'cover',objectPosition:'50% 27%',opacity:loaded?0:1,
+            objectFit:'cover',objectPosition:'50% 27%',opacity:variant==='android'?0:(loaded?0:1),
             transition:'opacity 330ms ease',pointerEvents:'none',
           },
         })}
@@ -712,7 +722,10 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
       <View style={styles.identity}>
         <View style={[styles.dot, {backgroundColor:unavailable?'#E6BB85':'#73EBC4'}]}/>
         <Text style={styles.name}>NEXA</Text>
-        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'studio' ? (hasBody ? 'Nexa Studio 3D · cuerpo completo' : 'Nexa Studio 3D · busto') : variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
+        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'android'
+            ? 'Nexa 3D nueva · rostro y cuerpo articulados'
+            : variant === 'studio' ? (hasBody ? 'Nexa Studio 3D · cuerpo completo' : 'Nexa Studio 3D · busto')
+            : variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
       </View>
       <Text style={styles.hint}>
         {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza arriba/abajo para ver cara o pies · a los lados para girar 360° · pellizca para zoom') : 'Imagen de referencia mientras se prepara el modelo 3D'}
@@ -735,6 +748,18 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             style={[styles.cameraMode,styles.cameraModeActive]}>
             <Text style={styles.cameraModeTextActive}>Probar gestos faciales</Text>
           </Pressable>
+        </View>
+      )}
+      {loaded && variant==='android' && (
+        <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:6,marginTop:9,paddingHorizontal:12}}>
+          <Pressable accessibilityRole="button" onPress={()=>controllerRef.current?.moveTo(0,0,false)}
+            style={styles.cameraMode}><Text style={styles.cameraModeText}>Caminar</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={()=>controllerRef.current?.moveTo(0,0,true)}
+            style={styles.cameraMode}><Text style={styles.cameraModeText}>Correr</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={()=>controllerRef.current?.expressConfused()}
+            style={styles.cameraMode}><Text style={styles.cameraModeText}>Pensando</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={()=>controllerRef.current?.skipForward()}
+            style={styles.cameraMode}><Text style={styles.cameraModeText}>Saltar</Text></Pressable>
         </View>
       )}
       {loaded && (hasBody || variant !== 'studio') && (
@@ -762,7 +787,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           <Pressable accessibilityRole="button" onPress={() => setAttempt(value => value + 1)} style={{padding: 10}}>
             <Text style={{color:'#D5C4FF',fontWeight:'700'}}>Reintentar 3D</Text>
           </Pressable>
-          {variant !== 'light' && (
+          {variant !== 'light' && variant !== 'android' && (
             <Pressable accessibilityRole="button" onPress={() => setVariant('light')} style={{padding: 10}}>
               <Text style={{color:'#A9E9FF',fontWeight:'700'}}>Probar 3D ligero</Text>
             </Pressable>
