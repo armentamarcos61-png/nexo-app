@@ -1,0 +1,42 @@
+name: Revisión autónoma de conocimiento Nexo
+
+on:
+  schedule:
+    # 07:17 Ciudad de México (aprox.; GitHub cron utiliza UTC).
+    - cron: '17 13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nexo-knowledge-refresh
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Leer código vigente de Nexo
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Revisar rutas y funciones reales, sin datos de usuarios
+        run: node scripts/build-nexo-knowledge.cjs
+
+      - name: Guardar nuevos hechos verificados solamente cuando cambie el código
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/knowledge/nexo-capabilities.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(knowledge): sync verified app capabilities [skip ci]"
+            git push origin HEAD:main
+          fi
