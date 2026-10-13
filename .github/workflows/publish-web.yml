@@ -125,7 +125,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/models/Nexa_FacialRig_V2.glb public/models/Nexo_FacialReady_v1.glb
+          node scripts/report-code-lines.cjs docs/LINEAS-CODIGO.json
+          git add public/models/Nexa_FacialRig_V2.glb docs/LINEAS-CODIGO.json public/models/Nexo_FacialReady_v1.glb
           if ! git diff --cached --quiet; then
             git commit -m "Build Nexa and Nexo facially rigged models [skip ci]"
             git push origin HEAD:main
