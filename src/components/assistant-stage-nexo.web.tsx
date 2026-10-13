@@ -9,6 +9,8 @@ import type {AssistantProfile} from '@/state/assistant';
 type Props={profile:AssistantProfile;speaking?:boolean;speechText?:string};
 const clamp=(x:number,min:number,max:number)=>Math.max(min,Math.min(max,x));
 function sourceUrl(){
+ const envBase=process.env.EXPO_BASE_URL;
+ if(envBase)return (envBase.endsWith('/')?envBase:envBase+'/')+'models/Nexo_FacialReady_v1.glb';
  const base=globalThis.location?.pathname?.startsWith('/nexo-app')?'/nexo-app':'';
  return base+'/models/Nexo_FacialReady_v1.glb';
 }
@@ -18,6 +20,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
  const spokenText=useRef(speechText);
  const mixerRef=useRef<any>(null);
  const gestureRef=useRef<Record<string,any>>({});
+ const activeGesture=useRef<any>(null);
  const controlRef=useRef<NexoFaceController|null>(null);
  const orbit=useRef({yaw:0,pitch:0,zoom:4.4,targetY:.9});
  const presets=useRef({body:{zoom:4.4,targetY:.9},face:{zoom:1.2,targetY:1.60}});
@@ -156,13 +159,18 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
     const clips:Record<string,any>={};
     for(const animation of gltf.animations){
      const name=animation.name.toLowerCase();
-     clips[name]=mixer.clipAction(animation);
+     // Facial micro-motions own the head joint. Body clips only drive the
+     // limbs/torso, avoiding competing head rotations or cumulative drift.
+     const bodyClip=animation.clone();
+     bodyClip.tracks=bodyClip.tracks.filter((track:any)=>
+      !/^mixamorig:Head\.(quaternion|rotation|position)$/.test(track.name));
+     clips[name]=mixer.clipAction(bodyClip);
      clips[name].setLoop(THREE.LoopOnce,1);
      clips[name].clampWhenFinished=true;
     }
     gestureRef.current=clips;
     const initial=clips['wave_one_hand'];
-    if(initial){initial.reset().setEffectiveWeight(.8).play();}
+    if(initial){initial.reset().setEffectiveWeight(.8).play();activeGesture.current=initial;}
     setLoaded(true);
     setStatus('Nexo 3D · rostro y cuerpo articulados');
     const animate=(now:number)=>{
@@ -195,7 +203,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
    element.removeEventListener('pointerup',up);element.removeEventListener('pointercancel',up);
    element.removeEventListener('lostpointercapture',up);element.removeEventListener('wheel',wheel);
    cancelResize();facial?.dispose();controlRef.current=null;
-   mixerRef.current?.stopAllAction?.();mixerRef.current=null;gestureRef.current={};
+   mixerRef.current?.stopAllAction?.();mixerRef.current=null;gestureRef.current={};activeGesture.current=null;
    root?.traverse?.((obj:any)=>{
     obj.geometry?.dispose?.();
     const materials=Array.isArray(obj.material)?obj.material:[obj.material];
@@ -206,8 +214,10 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
  },[retry]);
  const pose=(name:string)=>{
   const action=gestureRef.current[name];if(!action||!mixerRef.current)return;
-  mixerRef.current.stopAllAction();
-  action.reset().setEffectiveWeight(1).play();
+  if(activeGesture.current&&activeGesture.current!==action)
+   activeGesture.current.fadeOut(.28);
+  action.reset().setEffectiveWeight(1).fadeIn(.28).play();
+  activeGesture.current=action;
  };
  function show(mode:'body'|'face'){
   setView(mode);
