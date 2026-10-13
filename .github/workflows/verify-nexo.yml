@@ -40,6 +40,9 @@ jobs:
       - name: Comprobar movimientos y rig facial del asistente masculino Nexo
         run: node scripts/verify-nexo-biped.cjs
 
+      - name: Probar parpadeo, cejas, mirada y boca de Nexo a 20-120 FPS
+        run: node scripts/verify-nexo-face.cjs
+
       - name: Restaurar y validar Nexa Studio 3D
         run: node scripts/restore-nexa-studio.cjs
 
