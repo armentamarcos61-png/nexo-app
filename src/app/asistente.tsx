@@ -71,7 +71,7 @@ function localAnswer(metric: AssistantMetric, assistantName: string) {
       return 'La parte de pagos está pensada para que Nexo pueda coordinar cobros y pagos entre las partes. Conforme se active esa función te explicaré desde aquí cada paso y comisión antes de confirmar.';
 
     case 'assistant.change_assistant':
-      return 'Por ahora Nexa es la asistente virtual de Nexo. Puedes abrirla desde la pantalla principal o Mi espacio y configurar su experiencia.';
+      return 'Puedes elegir a Nexa o a Nexo desde la pantalla Elige tu asistente. Ambos comparten las funciones de ayuda y voz; cada uno conserva su propio modelo y personalidad.';
 
     case 'other.chat':
       return 'El chat de Nexo está pensado para mantener la comunicación dentro de la plataforma entre las partes relacionadas con una oportunidad, servicio o producto.';
@@ -262,9 +262,9 @@ export default function AsistenteScreen() {
     return (
       <NexoScreen title="Asistente Nexo">
         <Text style={[styles.empty, { color: palette.text }]}>
-          Todavía no has activado a Nexa.
+          Todavía no has elegido entre Nexa y Nexo.
         </Text>
-        <Action label="Activar a Nexa" onPress={() => router.push('/elegir-asistente')} />
+        <Action label="Elegir Nexa o Nexo" onPress={() => router.push('/elegir-asistente')} />
       </NexoScreen>
     );
   }
@@ -352,7 +352,7 @@ export default function AsistenteScreen() {
       {Platform.OS === 'web' && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={listening ? 'Detener dictado' : 'Preguntarle por voz a Nexa'}
+          accessibilityLabel={listening ? 'Detener dictado' : 'Preguntarle por voz a '+assistant.name}
           onPress={toggleDictation}
           style={({ pressed }) => [
             styles.micAction,
@@ -362,7 +362,7 @@ export default function AsistenteScreen() {
         >
           <Text style={styles.micIcon}>{listening ? '⏹' : '🎙️'}</Text>
           <Text style={[styles.micLabel, { color: palette.title }]}>
-            {listening ? 'Escuchando… toca para detener' : 'Hablar con Nexa'}
+            {listening ? 'Escuchando… toca para detener' : 'Hablar con '+assistant.name}
           </Text>
         </Pressable>
       )}
@@ -383,12 +383,12 @@ export default function AsistenteScreen() {
       <View style={[styles.privacy, { borderColor: palette.cardBorder }]}>
         <Text style={styles.privacyIcon}>◉</Text>
         <Text style={[styles.privacyText, { color: palette.muted }]}>
-          Nexa consulta Wikipedia cuando la pregunta sale de las funciones de Nexo. Las palabras de búsqueda se envían a Wikimedia. El historial y las notas se guardan sólo en este navegador, no se sincronizan entre teléfonos y puedes borrarlos arriba. Las métricas externas son anónimas y por categoría. Si usas dictado, el navegador puede procesar tu voz con su proveedor. No compartas contraseñas ni información sensible en preguntas web.
+          Tu asistente consulta Wikipedia cuando la pregunta sale de las funciones de Nexo. Las palabras de búsqueda se envían a Wikimedia. El historial y las notas se guardan sólo en este navegador, no se sincronizan entre teléfonos y puedes borrarlos arriba. Las métricas externas son anónimas y por categoría. Si usas dictado, el navegador puede procesar tu voz con su proveedor. No compartas contraseñas ni información sensible en preguntas web.
         </Text>
       </View>
 
       <Action
-        label="Ver presentación de Nexa"
+        label="Cambiar entre Nexa y Nexo"
         secondary
         onPress={() => router.push('/elegir-asistente')}
       />
