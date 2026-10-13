@@ -46,12 +46,30 @@ for(const [id,steps] of Object.entries(checks)){
  }
  capabilities[id]={status:valid?'available':'unavailable',evidence};
 }
+// Discover additional public screens without chat traffic. A new screen in
+// the actual code becomes visible to the assistant at the next nightly scan.
+// Administrative, secret and reset-token routes are never advertised.
+const privateRoute=/^(?:_|\+|nexo-control|restablecer-contrasena|recuperar-contrasena|iniciar-sesion|registrarse)/;
+const screens=[];
+const apps=path.join(root,'src/app');
+for(const entry of fs.readdirSync(apps,{withFileTypes:true})){
+ if(!entry.isFile()||!entry.name.endsWith('.tsx'))continue;
+ const route=entry.name.slice(0,-4);
+ if(privateRoute.test(route))continue;
+ const file='src/app/'+entry.name;
+ const code=fs.readFileSync(path.join(root,file),'utf8');
+ const hit=code.match(/<NexoScreen\s+title\s*=\s*["']([^"']+)["']/);
+ const title=(hit?.[1]||route.replace(/-/g,' ')).slice(0,75);
+ screens.push({route:route==='index'?'/':'/'+route,title,evidence:file});
+ hash.update(file+'\0'+crypto.createHash('sha256').update(code).digest('hex')+'\0');
+}
+screens.sort((a,b)=>a.route.localeCompare(b.route));
 const revision=hash.digest('hex').slice(0,24);
 let previous=null;
 try{previous=JSON.parse(fs.readFileSync(target,'utf8'));}catch{}
 const generatedAt=previous?.revision===revision&&typeof previous.generatedAt==='string'
  ?previous.generatedAt:new Date().toISOString();
-const manifest={schema:1,revision,generatedAt,capabilities};
+const manifest={schema:1,revision,generatedAt,capabilities,screens};
 fs.mkdirSync(path.dirname(target),{recursive:true});
 fs.writeFileSync(target,JSON.stringify(manifest,null,2)+'\n');
 const available=Object.values(capabilities).filter(x=>x.status==='available').length;
