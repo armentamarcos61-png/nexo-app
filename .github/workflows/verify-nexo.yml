@@ -24,6 +24,11 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Actualizar conocimiento de Nexo desde funciones verificadas
+        run: |
+          node scripts/build-nexo-knowledge.cjs
+          node scripts/verify-nexo-knowledge.cjs
+
       - name: Reconstruir modelo oficial 3D de Nexo
         run: node scripts/restore-nexo-male.cjs
 
