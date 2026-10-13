@@ -48,6 +48,7 @@ export default function AsistenteScreen() {
   const [sources, setSources] = useState<NexaSource[]>([]);
   const [pending, setPending] = useState(false);
   const [historyCount, setHistoryCount] = useState(() => readNexaHistory(user?.id).length);
+  const [knowledgeReviewed, setKnowledgeReviewed] = useState('');
   const requestId = useRef(0);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [listening, setListening] = useState(false);
@@ -58,13 +59,17 @@ export default function AsistenteScreen() {
   // screen opens, once an hour while in use, and whenever the tab is restored.
   // No user message is needed, and no private chat is uploaded.
   useEffect(() => {
-    void refreshNexoKnowledge();
-    const handle=setInterval(()=>{void refreshNexoKnowledge();},60*60*1000);
-    const onVisible=()=>{if(typeof document!=='undefined'&&!document.hidden)
-      void refreshNexoKnowledge();};
+    let mounted=true;
+    const review=()=>{void refreshNexoKnowledge().then(next=>{
+      if(mounted)setKnowledgeReviewed(next.generatedAt);
+    }).catch(()=>{});};
+    review();
+    const handle=setInterval(review,60*60*1000);
+    const onVisible=()=>{if(typeof document!=='undefined'&&!document.hidden)review();};
     if(typeof document!=='undefined')
       document.addEventListener('visibilitychange',onVisible);
     return ()=>{
+      mounted=false;
       clearInterval(handle);
       if(typeof document!=='undefined')
         document.removeEventListener('visibilitychange',onVisible);
@@ -241,6 +246,11 @@ export default function AsistenteScreen() {
           </Pressable>
         ))}
       </View>
+      <Text style={{fontSize:11,lineHeight:17,color:palette.muted,textAlign:'center'}}>
+        Conocimiento de Nexo: {knowledgeReviewed
+          ? 'verificado con el código · actualizado '+new Date(knowledgeReviewed).toLocaleDateString('es-MX')
+          : 'consultando la versión verificada…'}.
+      </Text>
       <View style={styles.historyRow}>
         <Text style={[styles.historyLabel, { color: palette.muted }]}>
           Historial local · {historyCount} conversaciones
