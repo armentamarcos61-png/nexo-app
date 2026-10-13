@@ -144,7 +144,7 @@ const facts:Fact[]=[
  capability:'publishProducts',stage:'available',
  answer:'Abre Productos y toca Publicar producto. Escribe nombre, descripción, precio, categoría y ubicación, agrega al menos una foto o video y confirma la publicación. Se guarda en el Marketplace de este navegador; no prometo sincronización global entre dispositivos.'},
  {topic:'products.find_product',intents:['products.find_product'],
- terms:['comprar producto','buscar producto','marketplace','ver productos'],
+ terms:['comprar producto','comprar un producto','buscar producto','buscar un producto','marketplace','ver productos'],
  capability:'products',stage:'available',
  answer:'En Productos verás las publicaciones disponibles y una barra para buscar por nombre, descripción, categoría o ubicación. Pulsa Publicar producto si quieres agregar uno.'},
  {topic:'account.password_recovery',intents:['account.password_recovery'],
