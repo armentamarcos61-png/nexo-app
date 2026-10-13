@@ -52,7 +52,7 @@ function validated(payload:unknown):payload is NexoKnowledgeManifest{
  if(item.schema!==1||typeof item.revision!=='string'||!item.capabilities)return false;
  if(item.screens!==undefined&&(!Array.isArray(item.screens)||
   !item.screens.every(v=>typeof v?.route==='string'&&
-   /^\\/[a-z0-9-]*$/.test(v.route)&&typeof v.title==='string'&&
+   v.route.startsWith('/')&&/^[a-z0-9-]*$/.test(v.route.slice(1))&&typeof v.title==='string'&&
    typeof v.evidence==='string'&&v.evidence.startsWith('src/app/'))))return false;
  return (Object.keys(DEFAULT_CAPABILITIES) as NexoCapability[]).every(id=>{
   const cap=item.capabilities?.[id];
@@ -273,7 +273,7 @@ export function answerVerifiedNexoQuestion(question:string,intentKey?:string):Ne
  }
  const screen=(manifest.screens||[]).find(item=>{
   if(item.route==='/')return false;
-  const names=[normalize(item.title),normalize(item.route.replace(/^\\//,''))]
+  const names=[normalize(item.title),normalize(item.route.slice(1))]
     .filter(word=>word.length>=5);
   return names.some(word=>text.includes(word))&&
     has(text,['donde','encuentro','abrir','accedo','ver la pantalla','como entro']);
