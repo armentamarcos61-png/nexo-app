@@ -24,7 +24,6 @@ for(const file of filenames){
  fileStats.push({path:file,lines,kind:sourceExt.has(ext)?'codigo':'configuracion'});
 }
 const sum=files=>files.reduce((a,f)=>a+f.lines,0);
-const kinds=['codigo','configuracion'];
 const report={
  generatedAt:new Date().toISOString(),
  definition:'Lineas fisicas incluidas en Git: TS/TSX/JS/JSX/MJS/CJS/PY/CSS/SCSS/HTML/SQL/SH; excluye dependencias, medios, modelos y archivos de compilacion.',
