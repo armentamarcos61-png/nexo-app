@@ -6,12 +6,12 @@ import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import {
   classifyAssistantQuestion,
   recordAssistantQuestionMetric,
-  type AssistantMetric,
 } from '@/lib/assistant-analytics';
 import { speakAsAssistant, stopAssistantSpeech } from '@/lib/assistant-speech';
 import { useAssistant } from '@/state/assistant';
 import { useAuth } from '@/state/auth';
-import { clearNexaHistory, generalSearchUrl, readNexaHistory, recallNexaAnswer, recallNexaNote, rememberNexaConversation, searchNexaReferences, type NexaReply, type NexaSource } from '@/lib/nexa-knowledge';
+import { clearNexaHistory, readNexaHistory, recallNexaNote, rememberNexaConversation, type NexaReply, type NexaSource } from '@/lib/nexa-knowledge';
+import { answerVerifiedNexoQuestion, auditNexoKnowledge, refreshNexoKnowledge } from '@/lib/nexo-product-knowledge';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 type BrowserSpeechRecognition = {
@@ -33,72 +33,6 @@ const quickQuestions = [
   '¿Cómo cambio de asistente?',
 ] as const;
 
-function localAnswer(metric: AssistantMetric, assistantName: string) {
-  switch (metric.intentKey) {
-    case 'navigation.how_nexo_works':
-      return 'Nexo conecta empleo, trabajadores, servicios y productos en un mismo lugar. Puedes buscar oportunidades, publicar lo que ofreces o necesitas y usar tu perfil para mostrar tu experiencia.';
-    case 'navigation.where_is_feature':
-      return 'Dime qué función buscas dentro de Nexo y te indico en qué sección está. También puedo orientarte desde la pantalla en la que abriste el asistente.';
-
-    case 'employment.publish_vacancy':
-      return 'Para publicar una vacante entra a Publicar y elige la opción de empleo. Después agrega puesto, descripción, horario, rango de pago y los datos necesarios para que las personas adecuadas puedan postularse.';
-    case 'employment.find_job':
-      return 'Para buscar empleo entra a Buscar empleo. Puedes usar la búsqueda y los filtros para acercarte a puestos compatibles con tu experiencia, horario y tipo de trabajo.';
-    case 'employment.hire_worker':
-      return 'Para buscar trabajadores entra a la parte de empleo y elige buscar personal. Ahí podrás definir qué necesitas, experiencia, horario y rango de pago.';
-
-    case 'services.offer_service':
-      return 'Para ofrecer un servicio entra a Publicar y elige servicio. Agrega qué haces, categoría, descripción, zona de trabajo y la información que ayude al cliente a entender tu oferta.';
-    case 'services.hire_service':
-      return 'Para contratar un servicio entra a Servicios o usa la búsqueda. Puedes describir lo que necesitas y Nexo te mostrará opciones relacionadas.';
-
-    case 'products.publish_product':
-      return 'Para vender un producto entra a Productos y toca Publicar producto. Ahí podrás agregar nombre, descripción, fotos, precio y categoría.';
-    case 'products.find_product':
-      return 'En Productos puedes explorar el marketplace completo o buscar por nombre y categoría para encontrar lo que necesitas.';
-
-    case 'account.password_recovery':
-      return 'En Iniciar sesión toca Olvidé mi contraseña. Nexo puede enviar el flujo de recuperación al correo registrado sin mostrar tu contraseña actual.';
-    case 'account.email':
-      return 'Si Nexo indica un problema con el correo, revisa que esté escrito completo y con el formato correcto. Si el correo no está registrado, la app te lo indicará.';
-    case 'account.sign_in':
-      return 'Para iniciar sesión usa tu correo o nombre de usuario y tu contraseña. Si alguno no coincide, Nexo te mostrará un mensaje específico para ayudarte a corregirlo.';
-
-    case 'profile.edit_profile':
-      return 'En Mi espacio puedes editar tu nombre visible, foto, profesión, experiencia, habilidades, disponibilidad y otras preferencias del perfil.';
-
-    case 'payments.how_payments_work':
-      return 'La parte de pagos está pensada para que Nexo pueda coordinar cobros y pagos entre las partes. Conforme se active esa función te explicaré desde aquí cada paso y comisión antes de confirmar.';
-
-    case 'assistant.change_assistant':
-      return 'Puedes elegir a Nexa o a Nexo desde la pantalla Elige tu asistente. Ambos comparten las funciones de ayuda y voz; cada uno conserva su propio modelo y personalidad.';
-
-    case 'other.chat':
-      return 'El chat de Nexo está pensado para mantener la comunicación dentro de la plataforma entre las partes relacionadas con una oportunidad, servicio o producto.';
-    case 'other.verification':
-      return 'La verificación sirve para dar más confianza dentro de Nexo. La idea es reconocer a usuarios que ya hayan completado operaciones o servicios correctamente.';
-    case 'other.notifications':
-      return 'Las notificaciones te ayudarán a enterarte de respuestas, solicitudes y cambios importantes dentro de Nexo sin tener que revisar cada sección manualmente.';
-    case 'other.location':
-      return 'La ubicación se usa para ayudarte a encontrar oportunidades, servicios o productos relevantes por zona. Evitaremos mostrar datos personales innecesarios.';
-    case 'other.commissions':
-      return 'Nexo busca manejar comisiones bajas y claras. Cuando una operación tenga comisión, debe mostrarse antes de aceptar para que sepas cuánto se cobra y por qué.';
-    case 'other.shipping':
-      return 'La logística puede incluir transporte, flete y coordinación entre participantes. Nexo está pensado para ir integrando esas opciones sin obligarte a salir de la plataforma.';
-    case 'other.cv':
-      return 'Nexo contempla ayudarte a crear y mejorar tu currículum usando los datos profesionales de tu perfil para que puedas postularte más rápido.';
-    case 'other.portfolio':
-      return 'En el portafolio podrás organizar trabajos por temas o categorías para que clientes y empresas vean mejor lo que sabes hacer.';
-    case 'other.affiliates':
-      return 'El directorio de afiliados está pensado para reunir empresas, profesionales, trabajadores, prestadores y vendedores que formen parte del ecosistema de Nexo.';
-    case 'other.filters':
-      return 'Los filtros sirven para reducir resultados por categoría, tipo de oportunidad y otros criterios para encontrar algo útil sin recorrer cientos de opciones.';
-
-    default:
-      return 'No tengo todavía una respuesta específica sobre esa función de Nexo.';
-  }
-}
-
 export default function AsistenteScreen() {
   const params = useLocalSearchParams<{ from?: string }>();
   const { mode } = useAppearance();
@@ -113,13 +47,29 @@ export default function AsistenteScreen() {
   const [spokenText, setSpokenText] = useState('');
   const [sources, setSources] = useState<NexaSource[]>([]);
   const [pending, setPending] = useState(false);
-  const [lastQuery, setLastQuery] = useState('');
   const [historyCount, setHistoryCount] = useState(() => readNexaHistory(user?.id).length);
   const requestId = useRef(0);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [listening, setListening] = useState(false);
   const [micError, setMicError] = useState('');
   const recognizerRef = useRef<BrowserSpeechRecognition | null>(null);
+
+  // Autonomous refresh: check the approved Nexo capability manifest when the
+  // screen opens, once an hour while in use, and whenever the tab is restored.
+  // No user message is needed, and no private chat is uploaded.
+  useEffect(() => {
+    void refreshNexoKnowledge();
+    const handle=setInterval(()=>{void refreshNexoKnowledge();},60*60*1000);
+    const onVisible=()=>{if(typeof document!=='undefined'&&!document.hidden)
+      void refreshNexoKnowledge();};
+    if(typeof document!=='undefined')
+      document.addEventListener('visibilitychange',onVisible);
+    return ()=>{
+      clearInterval(handle);
+      if(typeof document!=='undefined')
+        document.removeEventListener('visibilitychange',onVisible);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -144,7 +94,6 @@ export default function AsistenteScreen() {
       return;
     }
     const current = ++requestId.current;
-    setLastQuery(questionText);
     setPending(true);
     setSources([]);
     setQuestion('');
@@ -157,23 +106,29 @@ export default function AsistenteScreen() {
     const remembering = /^recuerda que\b/i.test(questionText);
     const askingHistory = /(?:que recuerdas|qué recuerdas|que te pregunte|qué te pregunté|de que hablamos|de qué hablamos|historial de (?:nexa|nuestra conversación))/i.test(questionText);
     const historic = readNexaHistory(user?.id);
-    const changingFact = /(?:hoy|ahora|actual|ultimo|último|reciente|noticias|clima|precio|cotizaci[oó]n)/i.test(questionText);
+
+    let evaluated = null as ReturnType<typeof answerVerifiedNexoQuestion>|null;
 
     try {
       if (remembering) {
-        reply = { text: 'Guardaré esa nota en el historial de este navegador para nuestras próximas conversaciones. Puedes borrarlo cuando quieras.', sources: [], online: false };
+        reply = {text:'Guardaré esa nota únicamente en el historial de este navegador. Esto no cambia las funciones oficiales de Nexo, y puedes borrar el historial cuando quieras.',sources:[],online:false};
       } else if (askingHistory) {
-        const recent = historic.slice(-5).map(item => item.question).reverse();
-        reply = { text: recent.length
-          ? 'Estas son nuestras preguntas más recientes: ' + recent.join(' · ')
-          : 'Aún no tenemos preguntas guardadas en este navegador.',
-          sources: [], online: false };
-      } else if (metric.resolved && !(metric.intentKey === 'other.filters' &&
-        !/nexo|filtr|categor[ií]a/i.test(questionText))) {
-        reply = { text: localAnswer(metric, assistant.name), sources: [], online: false };
+        const recent=historic.slice(-5).map(item=>item.question).reverse();
+        reply={text:recent.length
+          ? 'Tus últimas preguntas guardadas en este navegador: '+recent.join(' · ')
+          : 'Aún no hay preguntas guardadas en este navegador.',
+          sources:[],online:false};
+      } else if (/(?:que recuerdas sobre|recuerdas lo que te dije|que te pedi recordar)/i.test(questionText)) {
+        reply=recallNexaNote(questionText,user?.id)||{
+          text:'No encontré una nota tuya sobre ese tema en el historial local.',
+          sources:[],online:false};
       } else {
-        const recalled = changingFact ? null : (recallNexaAnswer(questionText, user?.id) || recallNexaNote(questionText, user?.id));
-        reply = recalled || await searchNexaReferences(questionText);
+        // The self-check runs BEFORE composing the answer. Unknown features
+        // never fall through to Wikipedia or to old, unverified chat snippets.
+        await refreshNexoKnowledge();
+        evaluated=answerVerifiedNexoQuestion(questionText,metric.intentKey);
+        auditNexoKnowledge(evaluated);
+        reply={text:evaluated.text,sources:[],online:false};
       }
     } catch {
       reply = { text: 'Ocurrió un problema al consultar la información. Prueba nuevamente.', sources: [], online: false };
@@ -190,7 +145,7 @@ export default function AsistenteScreen() {
       ? params.from : '/asistente';
     void recordAssistantQuestionMetric({
       intentKey: metric.intentKey,
-      resolved: metric.resolved || reply.sources.length > 0 || remembering || askingHistory,
+      resolved: (evaluated?.verified ?? false) || remembering || askingHistory,
       assistantId: assistant.id,
       section,
     });
@@ -277,7 +232,7 @@ export default function AsistenteScreen() {
         <Text style={[styles.messageTitle, { color: palette.title }]}>
           {speaking ? assistant.name + ' está hablando…' : assistant.name}
         </Text>
-        <Text style={[styles.messageText, { color: palette.text }]}>{pending ? 'Consultando fuentes y preparando la respuesta…' : answer}</Text>
+        <Text style={[styles.messageText, { color: palette.text }]}>{pending ? 'Comprobando funciones y preparando la respuesta…' : answer}</Text>
         {sources.map((source, i) => (
           <Pressable key={source.url + i} accessibilityRole="link"
             onPress={() => { void Linking.openURL(source.url); }}
@@ -376,14 +331,11 @@ export default function AsistenteScreen() {
         onSubmitEditing={() => respond(question)}
       />
       <Action label={pending ? 'Buscando fuentes…' : 'Preguntar'} onPress={() => { void respond(question); }} disabled={!question.trim() || pending} />
-      <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(generalSearchUrl(question || lastQuery || 'Nexo')); }}>
-        <Text style={{ color: '#9EDFFF', fontWeight: '700', textAlign: 'center' }}>Abrir búsqueda general en Internet ↗</Text>
-      </Pressable>
 
       <View style={[styles.privacy, { borderColor: palette.cardBorder }]}>
         <Text style={styles.privacyIcon}>◉</Text>
         <Text style={[styles.privacyText, { color: palette.muted }]}>
-          Tu asistente consulta Wikipedia cuando la pregunta sale de las funciones de Nexo. Las palabras de búsqueda se envían a Wikimedia. El historial y las notas se guardan sólo en este navegador, no se sincronizan entre teléfonos y puedes borrarlos arriba. Las métricas externas son anónimas y por categoría. Si usas dictado, el navegador puede procesar tu voz con su proveedor. No compartas contraseñas ni información sensible en preguntas web.
+          Nexo y Nexa responden sobre la aplicación usando su catálogo verificado, que se actualiza desde los cambios del código incluso sin recibir preguntas. Distinguen funciones disponibles de funciones planeadas; nunca convierten respuestas anteriores en hechos ni buscan definiciones genéricas de Internet para explicar Nexo. El historial y las notas permanecen en este navegador, no se sincronizan entre dispositivos y puedes borrarlos arriba. La comprobación local registra solo categorías, no tus preguntas. Las métricas externas se agrupan por categoría. El dictado puede procesarse mediante el proveedor del navegador. Nunca compartas contraseñas ni información sensible.
         </Text>
       </View>
 
