@@ -931,6 +931,10 @@ export function composeNexaBody(THREE: any, studio: any, body: any, renderer: an
     body,
     seamY,
     bounds: visibleBounds,
+    greet() {
+      // Legacy composer is retained only for compatibility; the active
+      // head-and-body composer below implements the full arm greeting.
+    },
     update(dt: number, _speaking: boolean) {
       const head = studio.getObjectByName('mixamorig:Head');
       const yaw = head?.rotation?.y ?? 0;
