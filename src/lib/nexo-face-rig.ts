@@ -10,7 +10,37 @@ export type NexoFaceController={
 };
 const clamp=(n:number,a:number,b:number)=>Math.min(b,Math.max(a,n));
 const ease=(n:number)=>{const t=clamp(n,0,1);return t*t*(3-2*t);};
+
+// Meshy bakes the facial detail into a full-body texture. Source blendshapes
+// move only 0.0005–0.0086 model units: calibrate the existing face *geometry*
+// once so a real eyelid closure and vowel are visible on mobile.
+// Scaling only the 13 localized original deltas preserves skinning and texture.
+const prepared=new WeakSet<object>();
+export function calibrateNexoFaceMorphs(root:any):number {
+ let changed=0;
+ const factors:Record<string,number>={
+  EyeBlinkLeft:1.94,EyeBlinkRight:1.94,
+  EyeLookLeft:2.45,EyeLookRight:2.45,EyeLookUp:2.2,EyeLookDown:2.2,
+  BrowRaiseLeft:2.05,BrowRaiseRight:2.05,BrowFrown:1.7,
+  MouthOpen:2.25,MouthO:3.3,MouthWide:4.0,MouthSmile:2.5,
+ };
+ root.traverse?.((node:any)=>{
+  const geom=node.geometry, targets=geom?.morphAttributes?.position;
+  if(!geom||!targets||prepared.has(geom)||!node.morphTargetDictionary)return;
+  prepared.add(geom);
+  for(const [name,multiplier] of Object.entries(factors)){
+   const idx=node.morphTargetDictionary[name], attr=targets[idx];
+   if(!Number.isInteger(idx)||!attr)continue;
+   for(let i=0;i<attr.count;i++)attr.setXYZ(i,
+    attr.getX(i)*multiplier,attr.getY(i)*multiplier,attr.getZ(i)*multiplier);
+   attr.needsUpdate=true;
+   changed++;
+  }
+ });
+ return changed;
+}
 export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
+ calibrateNexoFaceMorphs(root);
  const channels=new Map<string,{mesh:any,index:number}[]>();
  root.traverse?.((node:any)=>{
   if(!node.isMesh||!node.morphTargetDictionary||!node.morphTargetInfluences)return;
@@ -40,8 +70,33 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
   // Meshy source rest-pose mouth center, in model coordinates. Transform once
   // into actual head-bone space so it follows the face, not the shoulders.
   root.updateMatrixWorld(true);
-  const world=root.localToWorld(new THREE.Vector3(0,1.564,0.107));
-  const anchor=head.worldToLocal(world);
+  // Find lips from the actual skinned MouthOpen vertices, not the old hardcoded
+  // height that placed the interior below this Meshy's mouth.
+  let anchor:any=null;
+  root.traverse?.((node:any)=>{
+   if(anchor||!node.isSkinnedMesh||!node.geometry?.attributes?.position)return;
+   const idx=node.morphTargetDictionary?.MouthOpen;
+   const morph=node.geometry.morphAttributes?.position?.[idx];
+   if(!Number.isInteger(idx)||!morph)return;
+   const positions=node.geometry.attributes.position;
+   const point=new THREE.Vector3(),sum=new THREE.Vector3();
+   let total=0,peak=0;
+   for(let i=0;i<morph.count;i++)
+    peak=Math.max(peak,Math.hypot(morph.getX(i),morph.getY(i),morph.getZ(i)));
+   for(let i=0;i<morph.count;i++){
+    const weight=Math.hypot(morph.getX(i),morph.getY(i),morph.getZ(i));
+    if(weight<peak*.42)continue;
+    point.fromBufferAttribute(positions,i);
+    node.applyBoneTransform?.(i,point);
+    node.localToWorld(point);
+    sum.addScaledVector(point,weight);total+=weight;
+   }
+   if(total>1e-8)anchor=head.worldToLocal(sum.multiplyScalar(1/total));
+  });
+  if(!anchor)anchor=head.worldToLocal(root.localToWorld(
+   new THREE.Vector3(0,1.587,0.096)));
+  // Recessed behind the actual lip surface; never float over the face.
+  anchor.z-=.003;
   innerMaterial=new THREE.MeshStandardMaterial({
    color:0xAA6579,roughness:0.95,metalness:0,
    transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,
@@ -71,8 +126,8 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
    // Importer-side morph geometry has matched displacement amplitudes.
    set('EyeBlinkLeft',blink,safeDt,32);
    set('EyeBlinkRight',blink,safeDt,32);
-   const lookX=.36*Math.sin(time*.43)*(.65+.35*Math.sin(time*.27));
-   const lookY=.18*Math.sin(time*.29);
+   const lookX=.52*Math.sin(time*.43)*(.65+.35*Math.sin(time*.27));
+   const lookY=.26*Math.sin(time*.29);
    set('EyeLookLeft',Math.max(0,-lookX),safeDt,4);
    set('EyeLookRight',Math.max(0,lookX),safeDt,4);
    set('EyeLookUp',Math.max(0,lookY),safeDt,4);
@@ -86,13 +141,13 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
    set('MouthO',speaking&&/[oóuú]/.test(phoneme)?.45:0,safeDt,15);
    set('MouthWide',speaking&&/[ieíé]/.test(phoneme)?.34:0,safeDt,14);
    set('MouthSmile',speaking?.10:.17,safeDt,4);
-   const eyebrow=speaking?.14+.07*Math.sin(time*4.8):.05+.025*Math.sin(time*.8);
+   const eyebrow=speaking?.29+.10*Math.sin(time*4.8):.14+.06*Math.sin(time*.8);
    set('BrowRaiseLeft',eyebrow,safeDt,4);
    set('BrowRaiseRight',eyebrow*.93,safeDt,4);
    if(inner&&innerMaterial){
     const v=delta.MouthOpen||0;
     inner.visible=speaking&&v>.18;
-    inner.scale.set(.027+v*.004,.0004+v*.008,.0018);
+    inner.scale.set(.023+v*.007,.0004+v*.010,.0013);
     innerMaterial.opacity=clamp((v-.18)*1.7,0,.78);
    }
    if(head){
