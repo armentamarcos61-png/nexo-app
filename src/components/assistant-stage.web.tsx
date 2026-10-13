@@ -56,6 +56,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
   const speechTextRef = useRef(speechText);
   const facialDemoUntilRef=useRef(0);
   const elapsedRef=useRef(0);
+  const greetRef=useRef<()=>void>(()=>{});
   const orbitRef = useRef<{ yaw: number; pitch: number; distance: number; panY: number }>({ yaw: 0, pitch: 0, distance: STUDIO_FRAMING.distance, panY: 0 });
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
@@ -457,6 +458,13 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
               if (disposed || download.signal.aborted) return;
               composite = composeNexaHeadBody(THREE,modelRoot,bodyGltf.scene,renderer);
               avatarRoot.add(composite.body);
+              greetRef.current=()=>{
+                controllerRef.current?.greet();
+                composite?.greet();
+              };
+              // Greeting starts only after the visible articulated shoulders
+              // are attached, never while the invisible Studio arms are loaded.
+              if(!speakingRef.current)composite.greet();
               // Fit an actual 3D Nexo uniform collar over the shared neck cut.
               // The collar belongs to the single avatar, not to either
               // clipped mesh. Thus it bridges the join from every camera angle
@@ -656,6 +664,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
       pointers.clear();
       controllerRef.current?.dispose();
       controllerRef.current=null;
+      greetRef.current=()=>{};
       faceRigRef.current=null;
       premiumLook?.dispose();
       premiumLook=null;
@@ -712,7 +721,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
         <View style={styles.cameraModes}>
           <Pressable accessibilityRole="button"
             accessibilityLabel="Nexa saluda moviendo brazos y manos"
-            onPress={() => controllerRef.current?.greet()}
+            onPress={() => greetRef.current()}
             style={styles.cameraMode}>
             <Text style={styles.cameraModeText}>Saludar</Text>
           </Pressable>
