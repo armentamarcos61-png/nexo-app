@@ -54,7 +54,7 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
   inner.renderOrder=6;
   head.add(inner);
  }
- let lastTime=0;
+ const restHeadRotation=head?.quaternion?.clone?.()||null;
  return {
   available,
   update(dt,time,speaking,text){
@@ -100,10 +100,12 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
     // animation tracks before each call; no accumulating neck rotation.
     const nod=.011*Math.sin(time*.73)+(speaking?.018*Math.sin(time*2.1):0);
     const tilt=.011*Math.sin(time*.51);
+    // Reset to the imported neutral head before adding this frame's subtle pose.
+    // A stopped body clip must never accumulate rotations on every frame.
+    if(restHeadRotation)head.quaternion.copy(restHeadRotation);
     head.quaternion.multiply(new THREE.Quaternion().setFromEuler(
      new THREE.Euler(nod,tilt,0,'YXZ')));
    }
-   lastTime=time;
   },
   dispose(){
    if(inner){inner.parent?.remove(inner);inner.geometry?.dispose?.();}
