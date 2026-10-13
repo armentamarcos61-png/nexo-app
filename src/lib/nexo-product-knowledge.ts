@@ -200,6 +200,10 @@ const facts:Fact[]=[
  terms:['comisiones','comision de nexo','cuanto cobra nexo','cuanto cuesta nexo'],
  stage:'planned',
  answer:'La intención de Nexo es tener comisiones bajas y transparentes. No existe aquí una tarifa definitiva confirmada; cuando se habiliten cobros, la comisión deberá aparecer antes de aceptar.'},
+ {topic:'other.memberships',intents:[],
+ terms:['nexo go','nexo pro','nexo max','suscripciones de nexo','planes de nexo'],
+ stage:'planned',
+ answer:'Nexo contempla tres niveles: Nexo Go para funciones básicas, Nexo Pro con herramientas y analítica adicionales, y Nexo Max orientado a empresas. Estos nombres describen el plan del proyecto; no voy a inventar precios ni asegurar que las suscripciones ya estén activas.'},
  {topic:'payments.how_payments_work',intents:['payments.how_payments_work'],
  terms:['pagos en nexo','como pagar en nexo','como cobra nexo','pago al proveedor'],
  stage:'planned',
@@ -233,15 +237,16 @@ function inferredTopic(text:string,rawIntent?:string):Fact|undefined{
   'que hace nexo','funciones de nexo','que funciones tiene nexo','que ofrece nexo',
   'que puedo hacer en nexo','como funciona la aplicacion','explica nexo',
   'objetivo de nexo','de que trata nexo']);
- if(overview)return facts[0];
  const matches=facts.filter(item=>has(text,item.terms));
- if(matches.length){
-  matches.sort((a,b)=>{
+ const specific=matches.filter(item=>item.topic!=='navigation.how_nexo_works');
+ if(overview&&!specific.length)return facts[0];
+ if(specific.length){
+  specific.sort((a,b)=>{
    const score=(f:Fact)=>Math.max(...f.terms.filter(t=>text.includes(t)).map(t=>t.length),0)+
     (rawIntent&&f.intents.includes(rawIntent)?30:0);
    return score(b)-score(a);
   });
-  return matches[0];
+  return specific[0];
  }
  // A classifier hit by itself is NOT evidence. For example "impuestos de
  // productos" must not trigger the generic "cómo comprar productos" answer.
