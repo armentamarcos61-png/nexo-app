@@ -24,6 +24,9 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Reconstruir modelo oficial 3D de Nexo
+        run: node scripts/restore-nexo-male.cjs
+
       - name: Configurar Python para Nexa 3D
         uses: actions/setup-python@v5
         with:
