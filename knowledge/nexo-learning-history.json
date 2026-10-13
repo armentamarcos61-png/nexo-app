@@ -1,0 +1,30 @@
+[
+  {
+    "revision": "bootstrap-sourcereview-20261013",
+    "reviewedAt": "2026-10-13T20:46:00.000Z",
+    "statusChanges": [],
+    "newScreens": [
+      "/",
+      "/borradores",
+      "/explorar",
+      "/productos",
+      "/perfil",
+      "/portafolios",
+      "/elegir-asistente",
+      "/asistente"
+    ],
+    "missingScreens": [],
+    "note": "Revisión inicial de los módulos públicos de Nexo. No se guardan preguntas ni datos privados."
+  },
+  {
+    "revision": "f41bd1d39713b21c8d6f590a",
+    "reviewedAt": "2026-10-13T21:03:15.127Z",
+    "statusChanges": [],
+    "newScreens": [
+      "/explore",
+      "/resolver"
+    ],
+    "missingScreens": [],
+    "note": "Revisión automática de código y pantallas. No incorpora respuestas de usuarios sin verificación."
+  }
+]
