@@ -2,7 +2,7 @@
  * Animaciones de Nexa. Un solo GLB y transiciones fluidas:
  * gestos de 4-7 s, aceleración y frenado gradual. Sin archivos extra.
  */
-export type NexaMotion = 'Idle' | 'Walking' | 'Running' | 'Greeting' | 'Talking';
+export type NexaMotion = 'Idle' | 'Walking' | 'Running' | 'Greeting' | 'Talking' | 'Confused' | 'Skipping';
 
 export interface NexaAnimationAction {
   timeScale: number;
@@ -20,7 +20,7 @@ export interface NexaTransform {
 }
 
 type Actions = Record<NexaMotion, NexaAnimationAction>;
-const MOTIONS: NexaMotion[] = ['Idle', 'Walking', 'Running', 'Greeting', 'Talking'];
+const MOTIONS: NexaMotion[] = ['Idle', 'Walking', 'Running', 'Greeting', 'Talking', 'Confused', 'Skipping'];
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 const ease = (t: number) => { const a = clamp(t, 0, 1); return a * a * (3 - 2 * a); };
 
@@ -40,13 +40,19 @@ export class NexaAnimationController {
     Running: 0.77,
     Greeting: 0.43, // 1.9-second greeting stretched to ~4.4 seconds.
     Talking: 0.60,
+    Confused: 1.55, // Original thoughtful gesture lasts 11.5 s.
+    Skipping: 0.78,
   };
 
   constructor(
     private readonly mixer: NexaAnimationMixer,
     private readonly actions: Actions,
     private readonly model: NexaTransform,
+    greetingTimeScale?: number,
   ) {
+    // Original Android Wave_One_Hand is ~4.1 seconds, unlike old 1.9s clip.
+    // Use the entire wave instead of cutting it in half before waving.
+    if(greetingTimeScale!==undefined)this.baselines.Greeting=clamp(greetingTimeScale,0.2,2.5);
     for (const name of MOTIONS) {
       if (!actions[name]) throw new Error('Falta la animación de Nexa: ' + name);
     }
@@ -78,6 +84,16 @@ export class NexaAnimationController {
   greet() {
     if (this.speaking) return;
     this.setMotion('Greeting', 5.5);
+  }
+
+  expressConfused() {
+    if (this.speaking) return;
+    this.setMotion('Confused', 7.2);
+  }
+
+  skipForward() {
+    if (this.speaking) return;
+    this.setMotion('Skipping', 4.7);
   }
 
   /** Speech blends in arm/hand gesture tracks; head and face stay independent. */
