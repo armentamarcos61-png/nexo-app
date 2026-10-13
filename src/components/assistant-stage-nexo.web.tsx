@@ -21,6 +21,8 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
  const mixerRef=useRef<any>(null);
  const gestureRef=useRef<Record<string,any>>({});
  const activeGesture=useRef<any>(null);
+ const demoUntil=useRef(0);
+ const timeRef=useRef(0);
  const controlRef=useRef<NexoFaceController|null>(null);
  const orbit=useRef({yaw:0,pitch:0,zoom:4.4,targetY:.9});
  const presets=useRef({body:{zoom:4.4,targetY:.9},face:{zoom:1.2,targetY:1.60}});
@@ -157,29 +159,64 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
     if(!facial.available)throw Error('Los controles faciales del archivo no coinciden.');
     const mixer=new THREE.AnimationMixer(root);mixerRef.current=mixer;
     const clips:Record<string,any>={};
+    // A neutral, named rest action restores a natural posture after every
+    // single-shot salute. Stopped Mixamo clips previously froze their final pose.
+    const restTracks:any[]=[];
+    root.traverse((bone:any)=>{
+     if(!bone.isBone||/(?:Head|Neck|headfront)/i.test(bone.name))return;
+     restTracks.push(new THREE.QuaternionKeyframeTrack(bone.name+'.quaternion',
+      [0,2],[bone.quaternion.x,bone.quaternion.y,bone.quaternion.z,bone.quaternion.w,
+       bone.quaternion.x,bone.quaternion.y,bone.quaternion.z,bone.quaternion.w]));
+     restTracks.push(new THREE.VectorKeyframeTrack(bone.name+'.position',
+      [0,2],[bone.position.x,bone.position.y,bone.position.z,
+       bone.position.x,bone.position.y,bone.position.z]));
+    });
+    clips.idle=mixer.clipAction(new THREE.AnimationClip('Nexo_Idle',2,restTracks));
+    clips.idle.setLoop(THREE.LoopRepeat).play();
     for(const animation of gltf.animations){
      const name=animation.name.toLowerCase();
      // Facial micro-motions own the head joint. Body clips only drive the
      // limbs/torso, avoiding competing head rotations or cumulative drift.
      const bodyClip=animation.clone();
-     bodyClip.tracks=bodyClip.tracks.filter((track:any)=>
-      !/^mixamorig:Head\.(quaternion|rotation|position)$/.test(track.name));
+     bodyClip.tracks=bodyClip.tracks.filter((track:any)=>{
+      if(/(?:Head|Neck|headfront)/i.test(track.name))return false;
+      // Walking-in-place and waving must not translate the pelvis/root away
+      // from the stage or tilt the full character upside down.
+      if(/(?:Hips|Root|Armature)\.(position|quaternion|rotation)/i.test(track.name))
+       return false;
+      return true;
+     });
      clips[name]=mixer.clipAction(bodyClip);
      clips[name].setLoop(THREE.LoopOnce,1);
-     clips[name].clampWhenFinished=true;
+     clips[name].clampWhenFinished=false;
     }
     gestureRef.current=clips;
+    const returnIdle=()=> {
+     const idle=clips.idle;
+     if(activeGesture.current&&activeGesture.current!==idle){
+      activeGesture.current.fadeOut(.48);
+      idle.reset().fadeIn(.48).play();
+      activeGesture.current=idle;
+     }
+    };
+    mixer.addEventListener('finished',returnIdle);
     const initial=clips['wave_one_hand'];
-    if(initial){initial.reset().setEffectiveWeight(.8).play();activeGesture.current=initial;}
+    if(initial){
+     clips.idle.fadeOut(.50);
+     initial.reset().setEffectiveWeight(1).fadeIn(.50).play();
+     activeGesture.current=initial;
+    } else activeGesture.current=clips.idle;
     setLoaded(true);
     setStatus('Nexo 3D · rostro y cuerpo articulados');
     const animate=(now:number)=>{
      if(destroyed)return;
      const dt=last?clamp((now-last)*.001,.001,.06):.016;last=now;
      if(document.visibilityState!=='hidden'){
-      clock+=dt;
+      clock+=dt;timeRef.current=clock;
       mixer.update(dt);
-      facial?.update(dt,clock,spoken.current,spokenText.current);
+      const isDemo=clock<demoUntil.current;
+      facial?.update(dt,clock,spoken.current||isDemo,
+       spoken.current?spokenText.current:isDemo?'Hola, soy Nexo. Estoy para ayudarte.':spokenText.current);
       const target=orbit.current;
       const yaw=target.yaw,pitch=target.pitch,dist=target.zoom;
       const h=target.targetY;
@@ -214,10 +251,13 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
  },[retry]);
  const pose=(name:string)=>{
   const action=gestureRef.current[name];if(!action||!mixerRef.current)return;
-  if(activeGesture.current&&activeGesture.current!==action)
-   activeGesture.current.fadeOut(.28);
-  action.reset().setEffectiveWeight(1).fadeIn(.28).play();
+  activeGesture.current?.fadeOut(.48);
+  action.reset().setEffectiveWeight(1).fadeIn(.48).play();
   activeGesture.current=action;
+ };
+ const showFaceDemo=()=>{
+  demoUntil.current=timeRef.current+5.5;
+  show('face');
  };
  function show(mode:'body'|'face'){
   setView(mode);
@@ -241,6 +281,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
    <Pressable style={styles.btn} onPress={()=>pose('wave_one_hand')}><Text style={styles.btnText}>Saludar</Text></Pressable>
    <Pressable style={styles.btn} onPress={()=>pose('confused_scratch')}><Text style={styles.btnText}>Expresiones</Text></Pressable>
    <Pressable style={styles.btn} onPress={()=>pose('walking_2_inplace')}><Text style={styles.btnText}>Caminar</Text></Pressable>
+   <Pressable style={[styles.btn,styles.active]} onPress={showFaceDemo}><Text style={styles.btnText}>Probar gestos faciales</Text></Pressable>
   </View></>:
    <View style={styles.controls}>
     {React.createElement('input',{
