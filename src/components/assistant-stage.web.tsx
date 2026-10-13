@@ -54,6 +54,8 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
   const faceRigRef = useRef<NexaFaceRig | null>(null);
   const speakingRef = useRef(speaking);
   const speechTextRef = useRef(speechText);
+  const facialDemoUntilRef=useRef(0);
+  const elapsedRef=useRef(0);
   const orbitRef = useRef<{ yaw: number; pitch: number; distance: number; panY: number }>({ yaw: 0, pitch: 0, distance: STUDIO_FRAMING.distance, panY: 0 });
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
@@ -498,37 +500,61 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           const actions: any={};
           // Animations must only touch their own articulated joints. Head,
           // neck and jaw are owned by the stable facial controller.
+          // The Studio viewer previously replaced *every* animation with an
+          // empty clip. This dedicated skeleton gesture uses the approved
+          // actual arm bones with minimal rotations; original facial geometry,
+          // chest logo, textures and head are never animated by it.
           const syntheticGesture=(name:string)=>{
+            const times=[0,.22,.45,.68,.88,1.08,1.28,1.50,1.72,1.94,2.18,2.40];
+            const wave=[0,.38,.75,1,.72,1,.70,1,.66,.44,.17,0];
             const tracks:any[]=[];
             for(const side of ['Left','Right']){
-              const bone=modelRoot.getObjectByName('mixamorig:'+side+'Arm');
-              if(!bone) continue;
-              const times=[0,0.6,1.2,1.8,2.4];
-              const angles=name==='Talking'
-                ? [0,0.07,0.015,-0.055,0] : [0,0.11,0.17,0.05,0];
-              const base=bone.quaternion.clone();
-              const axis=new THREE.Vector3(0,0,side==='Left'?1:-1);
-              const values:number[]=[];
-              for(const angle of angles){
-                const q=base.clone().multiply(
-                  new THREE.Quaternion().setFromAxisAngle(axis,angle));
-                values.push(q.x,q.y,q.z,q.w);
+              for(const joint of ['Arm','ForeArm','Hand']){
+                const bone=modelRoot.getObjectByName('mixamorig:'+side+joint);
+                if(!bone)continue;
+                const baseline=bone.quaternion.clone();
+                // A waving hand, a relaxed supporting arm, and quieter
+                // bilateral speaking gestures. No arm is teleported.
+                const degrees=wave.map((w,i)=>{
+                  if(name==='Idle')return 0;
+                  if(name==='Greeting'){
+                    if(side==='Right'){
+                      if(joint==='Arm')return -.20*w;
+                      if(joint==='ForeArm')return .30*w;
+                      return .19*w*Math.sin(i*2.5);
+                    }
+                    return joint==='Arm' ? .045*w : 0;
+                  }
+                  if(name==='Talking'){
+                    const gentle=Math.sin(i*.8)*.5+.5;
+                    return (joint==='Arm'?.036:joint==='ForeArm'?.05:.025)*
+                      gentle*(side==='Left'?1:-1);
+                  }
+                  return 0;
+                });
+                const axis=new THREE.Vector3(0,0,side==='Left'?1:-1);
+                const values:number[]=[];
+                for(const angle of degrees){
+                  const q=baseline.clone().multiply(
+                    new THREE.Quaternion().setFromAxisAngle(axis,angle));
+                  values.push(q.x,q.y,q.z,q.w);
+                }
+                tracks.push(new THREE.QuaternionKeyframeTrack(
+                  bone.name+'.quaternion',times,values));
               }
-              tracks.push(new THREE.QuaternionKeyframeTrack(bone.name+'.quaternion',times,values));
             }
-            return new THREE.AnimationClip(name,2.4,tracks);
+            return new THREE.AnimationClip(name,2.40,tracks);
           };
           for(const name of names){
             const sourceClip=gltf.animations.find((a:any)=>a.name===name);
-            // Studio's original sleeves contain baked panels that deform
-            // differently from the arm bones. All skeletal arm clips (even
-            // small synthetic talk gestures) make them look doubled.
-            // Leave the approved Studio arm geometry motionless: blinking,
-            // brows, lips and subtle head motion still animate independently.
+            // Use controlled arm-bone animation for Studio instead of inert
+            // clips. The imported whole-body animations remain fallbacks.
             const safeClip=studio
-              ? new THREE.AnimationClip(name,1,[])
+              ? (name==='Idle'||name==='Talking'||name==='Greeting'
+                  ? syntheticGesture(name)
+                  : new THREE.AnimationClip(name,1,[]))
               : (sourceClip?.clone() ??
-                 (name==='Talking'||name==='Greeting'
+                 (name==='Idle'||name==='Talking'||name==='Greeting'
                    ? syntheticGesture(name) : new THREE.AnimationClip(name,1,[])));
             safeClip.tracks=safeClip.tracks.filter((track:any)=>{
               const forbidden=/(?:head|neck|jaw|hips|pelvis)/i.test(track.name);
@@ -550,7 +576,8 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           }
           controllerRef.current=new NexaAnimationController(mixer,actions,modelRoot);
           if(speakingRef.current) controllerRef.current.startSpeaking();
-          // Portrait should remain calm; no forced walk/run or abrupt greetings.
+          if (!speakingRef.current) controllerRef.current.greet();
+          // Start with a gentle, cross-faded hello; never force walking/running.
           // Show 3D only after its first successful rendered frame.
           perspectiveCamera.position.set(0, focus+0.02, distance);
           perspectiveCamera.lookAt(0, focus, 0);
@@ -566,11 +593,12 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           const dt=previousTime?Math.min((now-previousTime)/1000,0.065):0.016;
           previousTime=now;
           if(document.visibilityState==='visible'){
-            totalTime+=dt;
+            totalTime+=dt;elapsedRef.current=totalTime;
             faceRig?.beforeUpdate();
             controllerRef.current?.update(dt);
             lowerBodyMixer?.update(dt);
-            faceRig?.update(dt,totalTime,speakingRef.current);
+            faceRig?.update(dt,totalTime,
+              speakingRef.current||totalTime<facialDemoUntilRef.current);
             composite?.update(dt,speakingRef.current);
             updateNexaBackHair(avatarRoot,dt,totalTime,speakingRef.current);
             premiumLook?.update(dt,totalTime);
@@ -680,6 +708,26 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
       <Text style={styles.hint}>
         {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza arriba/abajo para ver cara o pies · a los lados para girar 360° · pellizca para zoom') : 'Imagen de referencia mientras se prepara el modelo 3D'}
       </Text>
+      {loaded && (
+        <View style={styles.cameraModes}>
+          <Pressable accessibilityRole="button"
+            accessibilityLabel="Nexa saluda moviendo brazos y manos"
+            onPress={() => controllerRef.current?.greet()}
+            style={styles.cameraMode}>
+            <Text style={styles.cameraModeText}>Saludar</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button"
+            accessibilityLabel="Probar parpadeo, mirada, cejas y boca de Nexa"
+            onPress={() => {
+              faceRigRef.current?.setSpeechText('Hola, soy Nexa. Bienvenido a Nexo.');
+              facialDemoUntilRef.current=elapsedRef.current+5.5;
+              if (hasBody || variant!=='studio') changeView('face');
+            }}
+            style={[styles.cameraMode,styles.cameraModeActive]}>
+            <Text style={styles.cameraModeTextActive}>Probar gestos faciales</Text>
+          </Pressable>
+        </View>
+      )}
       {loaded && (hasBody || variant !== 'studio') && (
         <View style={styles.cameraModes}>
           <Pressable
