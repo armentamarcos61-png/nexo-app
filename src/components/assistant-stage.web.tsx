@@ -16,6 +16,9 @@ type Props = { profile: AssistantProfile; speaking?: boolean; speechText?: strin
 const STALL_TIMEOUT_MS = 75_000;
 const MAX_LOAD_TIME_MS = 360_000;
 const MODEL_VARIANTS = {
+  android: { file: 'Nexa_Android_FacialReady_v1.glb', size: 12_287_436 },
+  // Backups remain in the bundle and repository. They are never selected
+  // automatically while the new Android Nexa is enabled.
   studio: { file: 'Nexa_Studio_Busto_v1.glb', size: 5_322_192 },
   full: { file: 'Nexa_FacialRig_V2.glb', size: 16_739_064 },
   light: { file: 'Nexa_Unica_Interactiva.glb', size: 9_336_320 },
@@ -62,7 +65,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
   const [unavailable, setUnavailable] = useState(false);
   const [loadMessage, setLoadMessage] = useState('Preparando visor 3D…');
   const [attempt, setAttempt] = useState(0);
-  const [variant, setVariant] = useState<ModelVariant>('studio');
+  const [variant, setVariant] = useState<ModelVariant>('android');
   const [hasBody, setHasBody] = useState(false);
   const [viewMode, setViewMode] = useState<'body' | 'face'>('body');
   const cameraPresetsRef = useRef<{
@@ -428,7 +431,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           // existing animated head bone; original five motion clips remain.
           // The Studio model already has accurate baked cap/hair/N logos.
           // Adding procedural legacy hair over it would visibly duplicate them.
-          premiumLook=variant==='studio'
+          premiumLook=(variant==='studio'||variant==='android')
             ? null
             : installNexaPremiumLook(THREE,modelRoot,scene,
                 modelUrl.replace(MODEL_VARIANTS[variant].file,'nexa-reference-face.webp'));
@@ -554,7 +557,9 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             return new THREE.AnimationClip(name,2.40,tracks);
           };
           for(const name of names){
-            const sourceClip=gltf.animations.find((a:any)=>a.name===name);
+            const sourceName=variant==='android' && name==='Greeting'
+              ? 'Wave_One_Hand' : name;
+            const sourceClip=gltf.animations.find((a:any)=>a.name===sourceName);
             // Use controlled arm-bone animation for Studio instead of inert
             // clips. The imported whole-body animations remain fallbacks.
             const safeClip=studio
@@ -712,7 +717,10 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
       <View style={styles.identity}>
         <View style={[styles.dot, {backgroundColor:unavailable?'#E6BB85':'#73EBC4'}]}/>
         <Text style={styles.name}>NEXA</Text>
-        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'studio' ? (hasBody ? 'Nexa Studio 3D · cuerpo completo' : 'Nexa Studio 3D · busto') : variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
+        <Text style={styles.status}>{unavailable?'3D no disponible':loaded?(variant === 'android'
+            ? 'Nexa 3D nueva · rostro y cuerpo articulados'
+            : variant === 'studio' ? (hasBody ? 'Nexa Studio 3D · cuerpo completo' : 'Nexa Studio 3D · busto')
+            : variant === 'light' ? 'Asistente 3D ligero' : 'Asistente 3D'):loadMessage}</Text>
       </View>
       <Text style={styles.hint}>
         {unavailable ? loadMessage : loaded ? (speaking?'Nexa está respondiendo':'Desliza arriba/abajo para ver cara o pies · a los lados para girar 360° · pellizca para zoom') : 'Imagen de referencia mientras se prepara el modelo 3D'}
