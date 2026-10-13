@@ -701,7 +701,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           src:placeholder,alt:'Nexa, asistente virtual',draggable:false,
           style:{
             position:'absolute',inset:0,width:'100%',height:'100%',
-            objectFit:'cover',objectPosition:'50% 27%',opacity:loaded?0:1,
+            objectFit:'cover',objectPosition:'50% 27%',opacity:variant==='android'?0:(loaded?0:1),
             transition:'opacity 330ms ease',pointerEvents:'none',
           },
         })}
@@ -770,7 +770,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           <Pressable accessibilityRole="button" onPress={() => setAttempt(value => value + 1)} style={{padding: 10}}>
             <Text style={{color:'#D5C4FF',fontWeight:'700'}}>Reintentar 3D</Text>
           </Pressable>
-          {variant !== 'light' && (
+          {variant !== 'light' && variant !== 'android' && (
             <Pressable accessibilityRole="button" onPress={() => setVariant('light')} style={{padding: 10}}>
               <Text style={{color:'#A9E9FF',fontWeight:'700'}}>Probar 3D ligero</Text>
             </Pressable>
