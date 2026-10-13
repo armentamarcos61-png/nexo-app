@@ -73,7 +73,7 @@ export default function ElegirAsistenteScreen() {
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Escuchar la voz de Nexa"
+        accessibilityLabel={"Escuchar la voz de "+profile.name}
         onPress={previewVoice}
         style={({ pressed }) => [styles.voice, pressed && styles.pressed]}
       >
