@@ -37,6 +37,9 @@ jobs:
           python -m pip install numpy==2.2.6
           python scripts/build_nexa_face.py
 
+      - name: Reconstruir nuevo Nexa Android 3D con animaciones y rostro
+        run: node scripts/restore-nexa-android.cjs
+
       - name: Comprobar movimientos y rig facial del asistente masculino Nexo
         run: node scripts/verify-nexo-biped.cjs
 
