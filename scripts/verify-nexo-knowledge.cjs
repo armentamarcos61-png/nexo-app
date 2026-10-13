@@ -19,6 +19,7 @@ const examples=[
  ['¿Cuáles son las comisiones de Nexo?','other.commissions','planned'],
  ['¿Cómo se realizan los pagos en Nexo?','payments.how_payments_work','planned'],
  ['¿Cómo aprende Nexo por su cuenta?','other.learning','available'],
+ ['¿Cómo funciona Nexo Go?','other.memberships','planned'],
 ];
 for(const [input,topic,status] of examples){
  const result=resolve(input);
@@ -30,6 +31,8 @@ for(const [input,topic,status] of examples){
 }
 const unknown=resolve('¿Cómo se hace una transferencia bancaria en Nexo?');
 assert(!unknown.verified,'unknown features must not be invented');
+const misleading=resolve('¿Qué impuestos se aplican a los productos vendidos en Nexo?','products.find_product');
+assert(!misleading.verified,'broad topic classifier must not invent tax answers');
 const other=resolve('¿Cuántas lunas tiene Júpiter?');
 assert.equal(other.status,'scope','out-of-scope topics must not be searched automatically');
 assert(!other.verified);
@@ -37,10 +40,15 @@ const manifest=JSON.parse(fs.readFileSync('public/knowledge/nexo-capabilities.js
 assert.equal(manifest.schema,1);
 assert.equal(typeof manifest.revision,'string');
 assert(Object.values(manifest.capabilities).length>=12);
+assert(Array.isArray(manifest.screens),'autonomous public screen discovery is required');
 for(const [name,data] of Object.entries(manifest.capabilities)){
  assert(['available','unavailable'].includes(data.status),name);
  assert(data.evidence.every(x=>x.startsWith('src/')),name);
 }
+const history=JSON.parse(fs.readFileSync('public/knowledge/nexo-learning-history.json','utf8'));
+assert(Array.isArray(history)&&history.length>0,'independent learning audit must be retained');
+assert(history.every(x=>typeof x.revision==='string'&&
+ !('question' in x)&&!('answer' in x)),'review history may not leak chat text');
 console.log('PASS NEXO KNOWLEDGE:',examples.length,
  'real FAQs checked; no unsourced guesses or unrelated web summaries; autonomous manifest revision',
  manifest.revision);
