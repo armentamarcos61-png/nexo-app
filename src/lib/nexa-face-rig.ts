@@ -105,15 +105,15 @@ export function calibrateNexaFacialMorphs(root:any):number {
         const lower=Math.max(0,eye.y-y);
         // A controlled upper-lid movement, the same maximum on BOTH eyes.
         // Do not derive its strength from the irregular original GLB targets.
-        const upperDelta=-eyeWidth*.066*feather*
+        const upperDelta=-eyeWidth*.097*feather*
           clamp(upper/(eyeWidth*.029),0,1);
-        const lowerDelta=eyeWidth*.0075*feather*
+        const lowerDelta=eyeWidth*.009*feather*
           clamp(lower/(eyeWidth*.023),0,1);
         const isUpper=upper>eyeWidth*.004;
         const isLower=lower>eyeWidth*.004 && lower<eyeWidth*.053;
         if(!isUpper&&!isLower)continue;
         const next=isUpper?upperDelta:lowerDelta;
-        const bounded=clamp(next,-eyeWidth*.070,eyeWidth*.009);
+        const bounded=clamp(next,-eyeWidth*.100,eyeWidth*.012);
         original.setXYZ(i,original.getX(i),bounded,original.getZ(i));
       }
       original.needsUpdate=true;
@@ -121,15 +121,15 @@ export function calibrateNexaFacialMorphs(root:any):number {
     }
     // Mouth targets already isolate lip vertices. Scale those morphs, not the
     // head bone or whole face; do not synthesize a second, disconnected jaw.
-    clampScale('MouthOpen',0.115,2.4);
-    clampScale('MouthO',0.038,3.0);
-    clampScale('MouthWide',0.044,3.0);
-    clampScale('EyeLookLeft',0.032,2.3);
-    clampScale('EyeLookRight',0.032,2.3);
-    clampScale('EyeLookUp',0.022,2.2);
-    clampScale('EyeLookDown',0.022,2.2);
-    clampScale('BrowRaiseLeft',0.029,1.4);
-    clampScale('BrowRaiseRight',0.029,1.4);
+    clampScale('MouthOpen',0.155,2.9);
+    clampScale('MouthO',0.050,3.4);
+    clampScale('MouthWide',0.056,3.6);
+    clampScale('EyeLookLeft',0.045,2.9);
+    clampScale('EyeLookRight',0.045,2.9);
+    clampScale('EyeLookUp',0.030,2.7);
+    clampScale('EyeLookDown',0.030,2.7);
+    clampScale('BrowRaiseLeft',0.045,2.1);
+    clampScale('BrowRaiseRight',0.045,2.1);
   });
   return tuned;
 }
@@ -315,8 +315,8 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       }
       values.EyeBlinkLeft=values.EyeBlinkRight=blink;
       // Iris look targets are independent of the eyebrow expression.
-      const gazeX=(0.5+0.5*Math.sin(seconds*0.57))*0.44*Math.sin(seconds*0.32);
-      const gazeY=0.29*Math.sin(seconds*0.38+0.9);
+      const gazeX=(0.5+0.5*Math.sin(seconds*0.57))*0.68*Math.sin(seconds*0.32);
+      const gazeY=0.40*Math.sin(seconds*0.38+0.9);
       set('EyeLookLeft',Math.max(0,-gazeX),2.8);
       set('EyeLookRight',Math.max(0,gazeX),2.8);
       set('EyeLookUp',Math.max(0,gazeY),2.7);
@@ -324,8 +324,8 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       // Studio's native eyebrow shapes are restrained: a very small weight
       // was imperceptible on phones. Make expressions visible, still smooth.
       // Brows and eyes stay anatomically independent of mouth and head.
-      const expression=speaking?0.11+0.095*ease(syllable):
-        0.045+0.027*(0.5+0.5*Math.sin(seconds*0.83));
+      const expression=speaking?0.28+0.105*ease(syllable):
+        0.15+0.060*(0.5+0.5*Math.sin(seconds*0.83));
       set('BrowRaiseLeft',expression,3.3);
       set('BrowRaiseRight',expression*0.96,3.3);
       set('BrowFrown',0,3);
