@@ -8,6 +8,7 @@ const crypto=require('node:crypto');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const target=path.join(root,'public/knowledge/nexo-capabilities.json');
+const historyFile=path.join(root,'public/knowledge/nexo-learning-history.json');
 const checks={
  home:[['src/app/index.tsx',['Buscar empleo','Contratar un servicio','Productos']]],
  explore:[['src/app/explorar.tsx',['Buscar empleo','Buscar trabajadores','Contratar un servicio']]],
@@ -72,6 +73,30 @@ const generatedAt=previous?.revision===revision&&typeof previous.generatedAt==='
 const manifest={schema:1,revision,generatedAt,capabilities,screens};
 fs.mkdirSync(path.dirname(target),{recursive:true});
 fs.writeFileSync(target,JSON.stringify(manifest,null,2)+'\n');
+// Maintain a bounded review history. Never capture personal chat, nor claim
+// that source changes have taught new model weights. This is a factual audit
+// trail of newly available/missing routes and detected public screens.
+let history=[];
+try{
+ const parsed=JSON.parse(fs.readFileSync(historyFile,'utf8'));
+ if(Array.isArray(parsed))history=parsed.filter(x=>x&&typeof x.revision==='string').slice(-39);
+}catch{}
+if(!previous||previous.revision!==revision){
+ const statusChanges=Object.keys(capabilities).filter(id=>
+  previous?.capabilities?.[id]?.status!==capabilities[id].status)
+  .map(id=>({id,from:previous?.capabilities?.[id]?.status||'not-reviewed',
+    to:capabilities[id].status}));
+ const oldRoutes=new Set((previous?.screens||[]).map(x=>x.route));
+ const nextRoutes=new Set(screens.map(x=>x.route));
+ const newScreens=screens.filter(x=>!oldRoutes.has(x.route)).map(x=>x.route);
+ const missingScreens=(previous?.screens||[]).filter(x=>!nextRoutes.has(x.route))
+  .map(x=>x.route);
+ history.push({revision,reviewedAt:generatedAt,statusChanges,
+  newScreens,missingScreens,
+  note:'Revisión automática de código y pantallas. No incorpora respuestas de usuarios sin verificación.'});
+}
+history=history.slice(-40);
+fs.writeFileSync(historyFile,JSON.stringify(history,null,2)+'\n');
 const available=Object.values(capabilities).filter(x=>x.status==='available').length;
 console.log('Nexo self-review:',available+'/'+Object.keys(capabilities).length,
  'routes verified, revision',revision);
