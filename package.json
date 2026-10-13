@@ -45,7 +45,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "build:web": "expo export --platform web",
-    "preview:web": "npx serve dist"
+    "preview:web": "npx serve dist",
+    "postinstall": "node scripts/restore-nexo-male.cjs",
+    "prebuild:web": "node scripts/restore-nexo-male.cjs"
   },
   "private": true
 }
