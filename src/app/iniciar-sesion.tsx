@@ -60,6 +60,7 @@ export default function IniciarSesionScreen() {
 
       <Field
         label="Usuario o correo *"
+        hint="Escribe el usuario que registraste o tu correo completo (ejemplo: nombre@correo.com)."
         value={identifier}
         onChangeText={setIdentifier}
         placeholder="Ej. marcos61 o correo@ejemplo.com"
@@ -72,6 +73,7 @@ export default function IniciarSesionScreen() {
 
       <Field
         label="Contraseña *"
+        hint="Escribe tu contraseña tal como la creaste. Puedes tocar el ojo para mostrarla u ocultarla."
         value={password}
         onChangeText={setPassword}
         placeholder="Tu contraseña"
