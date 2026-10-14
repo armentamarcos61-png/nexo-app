@@ -54,8 +54,18 @@ const female=fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
 const composite=fs.readFileSync('src/lib/nexa-composite.ts','utf8');
 assert(male.includes('originalDuration/(originalDuration+3)'),
  'Nexo animations must last exactly three seconds longer than their source');
-assert(male.includes('fadeIn(.75)')&&male.includes('fadeOut(.75)'),
- 'Nexo crossfades must be gradual');
+assert(male.includes('fadeIn(1.65)')&&male.includes('fadeOut(1.65)')&&
+ male.includes('remaining<=1.65'),
+ 'Nexo must begin easing to down-arms idle BEFORE the source clip finishes');
+assert(male.includes('relaxedIdleClip(THREE,root,4)'),
+ 'Nexo must not return to the original rigid T-pose');
+assert(female.includes("name==='Idle'?relaxedIdleClip(THREE,modelRoot,4)"),
+ 'Nexa must have an independently lowered-arms idle pose');
+assert(male.includes('settlingRef.current=false'),
+ 'Nexo must reset the settle state when a new motion begins');
+assert(male.includes('controlRef.current?.blinkNow()')&&
+ female.includes('faceRigRef.current?.blinkNow()'),
+ 'both facial demos must trigger actual new blinks');
 assert(male.includes('timeRef.current+8.5')&&
  female.includes('elapsedRef.current+8.5'),
  'both facial demonstrations must show gestures for three more seconds');
@@ -74,4 +84,4 @@ assert(registration.includes('formatBirthDate(value)')&&
  'registration must explain and format dates, and explain password confirmation');
 assert(login.includes('hint="Escribe tu contraseña'),
  'sign-in must explain its fields');
-console.log('PASS: Nexa 5 motions +3s, male clip duration +3s, two facial demos +3s, functional Nexa salute, hints for every input');
+console.log('PASS: Nexa and Nexo relax arms down, natural early crossfades, 3-second longer motions, immediate visible face demo blinks');
