@@ -7,6 +7,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { completeNexoOnboarding, nexoOnboardingSlides } from '@/lib/nexo-onboarding';
+import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
+import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 
 const palette=[
  ['#0A315A','#291F66','#742C8B','#0A6275'],
@@ -122,14 +124,14 @@ function Visual({page}:{page:number}){
      <Text style={styles.visualLabel}>DOS ASISTENTES · UNA MISMA MISIÓN</Text>
      <View style={styles.assistantsRow}>
       <View style={styles.assistantBox}>
-       <View style={styles.assistantHead}><Text style={styles.assistantGlyph}>✦</Text></View>
+       <Image source={{uri:NEXA_IMAGE_DATA}} style={styles.assistantPortrait}
+        resizeMode="cover" accessibilityLabel="Retrato de Nexa"/>
        <Text style={styles.assistantName}>Nexa</Text>
        <Text style={styles.assistantSub}>Te orienta por Nexo</Text>
       </View>
       <View style={styles.assistantBox}>
-       <View style={[styles.assistantHead,{backgroundColor:'#254B78'}]}>
-        <Text style={styles.assistantGlyph}>N</Text>
-       </View>
+       <Image source={{uri:NEXO_IMAGE_DATA}} style={styles.assistantPortrait}
+        resizeMode="cover" accessibilityLabel="Retrato de Nexo"/>
        <Text style={styles.assistantName}>Nexo</Text>
        <Text style={styles.assistantSub}>Resuelve tus dudas</Text>
       </View>
@@ -366,9 +368,9 @@ const styles=StyleSheet.create({
  assistantBox:{backgroundColor:'rgba(70,76,139,.42)',flex:1,
   alignItems:'center',padding:15,borderRadius:18,gap:6,
   borderWidth:1,borderColor:'rgba(155,202,248,.24)'},
- assistantHead:{height:74,width:74,borderRadius:22,
-  alignItems:'center',justifyContent:'center',backgroundColor:'#4A357B'},
- assistantGlyph:{fontSize:42,color:'#D8F8FF',fontWeight:'900'},
+ assistantPortrait:{height:88,width:88,borderRadius:22,
+  borderWidth:2,borderColor:'rgba(163,227,255,.62)',
+  backgroundColor:'#132553'},
  assistantName:{fontSize:17,fontWeight:'900',color:'#FFF'},
  assistantSub:{color:'#C2D8EC',fontSize:10,textAlign:'center'},
  assistantSpeech:{borderRadius:16,backgroundColor:'rgba(20,38,85,.85)',
