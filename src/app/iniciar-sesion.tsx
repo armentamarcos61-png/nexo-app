@@ -100,6 +100,13 @@ export default function IniciarSesionScreen() {
 
       <Action label={loading ? 'Entrando…' : 'Iniciar sesión'} onPress={submit} disabled={loading} />
       <Action label="Crear una cuenta" secondary onPress={() => router.push('/registrarse')} />
+      <Pressable accessibilityRole="button"
+        onPress={() => router.push('/bienvenida')}
+        style={{minHeight:44,justifyContent:'center',alignItems:'center'}}>
+        <Text style={{color:palette.title,fontSize:12,fontWeight:'800'}}>
+          ✦ Ver cómo funciona Nexo antes de entrar
+        </Text>
+      </Pressable>
     </NexoScreen>
   );
 }
