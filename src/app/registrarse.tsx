@@ -22,7 +22,7 @@ function validBirthDate(value: string) {
 
 /** Format pasted or typed digits without losing a real day/month/year. */
 function formatBirthDate(raw:string):string{
-  const digits=raw.replace(/\\D/g,'').slice(0,8);
+  const digits=raw.replace(/\D/g,'').slice(0,8);
   if(digits.length<=2)return digits;
   if(digits.length<=4)return digits.slice(0,2)+'/'+digits.slice(2);
   return digits.slice(0,2)+'/'+digits.slice(2,4)+'/'+digits.slice(4);
