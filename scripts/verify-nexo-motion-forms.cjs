@@ -54,6 +54,12 @@ const female=fs.readFileSync('src/components/assistant-stage.web.tsx','utf8');
 const composite=fs.readFileSync('src/lib/nexa-composite.ts','utf8');
 assert(male.includes('originalDuration/(originalDuration+3)'),
  'Nexo animations must last exactly three seconds longer than their source');
+assert(!male.includes("const initial=clips['wave_one_hand']"),
+ 'Nexo must enter with arms down, not immediately play an automatic wave');
+assert(!female.includes("if (!speakingRef.current) controllerRef.current.greet();"),
+ 'Nexa must enter with hands down instead of raising both arms automatically');
+assert(male.includes('current.setEffectiveTimeScale(nominalSpeed*(1-.28*eased))'),
+ 'Nexo must decelerate before relaxing its arms');
 assert(male.includes('fadeIn(1.65)')&&male.includes('fadeOut(1.65)')&&
  male.includes('remaining<=1.65'),
  'Nexo must begin easing to down-arms idle BEFORE the source clip finishes');
