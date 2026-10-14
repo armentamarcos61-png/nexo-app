@@ -65,7 +65,14 @@ export class NexaAnimationController {
 
   private setMotion(next: NexaMotion, duration = 0) {
     if (this.started && this.modeValue === next) {
-      if (duration > 0) { this.timeLeft = duration; this.duration = duration; }
+      if (duration > 0) {
+        // Repeatedly tapping "Saludar" must actually start a fresh wave,
+        // rather than only prolonging a completed animation without motion.
+        this.timeLeft = duration;
+        this.duration = duration;
+        this.elapsed = 0;
+        this.actions[next].reset().fadeIn(0.75).play();
+      }
       return;
     }
     if (this.started) this.actions[this.modeValue].fadeOut(1.05);
