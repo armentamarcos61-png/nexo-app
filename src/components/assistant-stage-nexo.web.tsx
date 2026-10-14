@@ -266,6 +266,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
   activeGesture.current=action;
  };
  const showFaceDemo=()=>{
+  controlRef.current?.blinkNow();
   demoUntil.current=timeRef.current+8.5;
   show('face');
  };
