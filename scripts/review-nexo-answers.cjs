@@ -37,6 +37,7 @@ const corpus=[
  ['¿Cómo contrato un servicio?','services.hire_service','available'],
  ['¿Cómo publico un producto?','products.publish_product','available'],
  ['¿Dónde compro productos?','products.find_product','available'],
+ ['¿Cómo vuelvo a ver la presentación de Nexo?','navigation.introduction','available'],
  ['¿Cómo inicio sesión?','account.sign_in','available'],
  ['¿Cómo puedo recuperar mi contraseña?','account.password_recovery','available'],
  ['¿Cómo edito mi perfil?','profile.edit_profile','available'],
