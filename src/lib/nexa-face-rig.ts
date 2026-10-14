@@ -220,7 +220,7 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
   let headX=0,headY=0;
   let speakingWas=false;
   let speechStart=0;
-  let blinkAt=2.35;
+  let blinkAt=1.85;
   let recentSeconds=0;
   // Text-driven pseudo-visemes are synchronized with the voice onStart event.
   // Expo TTS does not expose reliable phoneme timestamps: these are estimated,
@@ -258,7 +258,7 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
     update(dt:number,seconds:number,speaking:boolean){
       if (!Number.isFinite(dt)||dt<=0||!binding.length) return;
       dt=clamp(dt,0,0.08);
-      if(seconds<recentSeconds){blinkAt=seconds+2.35;speechStart=seconds;}
+      if(seconds<recentSeconds){blinkAt=seconds+1.85;speechStart=seconds;}
       recentSeconds=seconds;
       if(speaking&&!speakingWas)speechStart=seconds;
       speakingWas=speaking;
@@ -309,13 +309,13 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       let blink=0;
       if(seconds>=blinkAt){
         const age=seconds-blinkAt;
-        blink=age<0.115?ease(age/0.115):age<0.21?1:age<0.40?
-          1-ease((age-0.21)/0.19):0;
-        if(age>=0.40) blinkAt+=3.1+0.35*Math.sin(blinkAt*0.53);
+        blink=age<0.13?ease(age/0.13):age<0.225?1:age<0.45?
+          1-ease((age-0.225)/0.225):0;
+        if(age>=0.45) blinkAt+=2.75+0.55*Math.sin(blinkAt*0.53);
       }
       values.EyeBlinkLeft=values.EyeBlinkRight=blink;
       // Iris look targets are independent of the eyebrow expression.
-      const gazeX=(0.5+0.5*Math.sin(seconds*0.57))*0.68*Math.sin(seconds*0.32);
+      const gazeX=(0.5+0.5*Math.sin(seconds*0.57))*0.76*Math.sin(seconds*0.32);
       const gazeY=0.40*Math.sin(seconds*0.38+0.9);
       set('EyeLookLeft',Math.max(0,-gazeX),2.8);
       set('EyeLookRight',Math.max(0,gazeX),2.8);
@@ -324,10 +324,10 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       // Studio's native eyebrow shapes are restrained: a very small weight
       // was imperceptible on phones. Make expressions visible, still smooth.
       // Brows and eyes stay anatomically independent of mouth and head.
-      const expression=speaking?0.28+0.105*ease(syllable):
-        0.15+0.060*(0.5+0.5*Math.sin(seconds*0.83));
+      const expression=speaking?0.31+0.115*ease(syllable):
+        0.18+0.095*(0.5+0.5*Math.sin(seconds*0.83));
       set('BrowRaiseLeft',expression,3.3);
-      set('BrowRaiseRight',expression*0.96,3.3);
+      set('BrowRaiseRight',expression*0.97,3.3);
       set('BrowFrown',0,3);
       for(const mesh of binding){
         for(const [name,index] of Object.entries(mesh.channels)){
