@@ -16,7 +16,7 @@ concurrency:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - name: Leer código vigente de Nexo
         uses: actions/checkout@v4
@@ -28,14 +28,20 @@ jobs:
         with:
           node-version: 22
 
-      - name: Revisar rutas y funciones reales, sin datos de usuarios
-        run: node scripts/build-nexo-knowledge.cjs
+      - name: Instalar herramientas de evaluación local
+        run: npm ci
+
+      - name: Autoexaminar preguntas de Nexo y Nexa sin usuarios conectados
+        run: |
+          node scripts/build-nexo-knowledge.cjs
+          node scripts/verify-nexo-knowledge.cjs
+          node scripts/review-nexo-answers.cjs
 
       - name: Guardar nuevos hechos verificados solamente cuando cambie el código
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/knowledge/nexo-capabilities.json public/knowledge/nexo-learning-history.json
+          git add public/knowledge/nexo-capabilities.json public/knowledge/nexo-learning-history.json public/knowledge/nexo-answer-review.json
           if ! git diff --cached --quiet; then
             git commit -m "chore(knowledge): sync verified app capabilities [skip ci]"
             git push origin HEAD:main
