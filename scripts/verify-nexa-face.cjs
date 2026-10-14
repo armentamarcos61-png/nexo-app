@@ -13,13 +13,15 @@ for (const fps of [20, 30, 60, 120]) {
   const mesh = { isSkinnedMesh: true, morphTargetDictionary: Object.fromEntries(names.map((n,i)=>[n,i])), morphTargetInfluences: names.map(()=>0) };
   const rig = exportsObject.installNexaFaceRig(null, { traverse: f => [head,mesh].forEach(f) });
   assert.ok(rig.available);
-  let closed = 0, largestOpening = 0, largestGaze = 0, largestBrow = 0;
+  assert.equal(typeof rig.blinkNow,'function');
+  rig.blinkNow();
+  let closed = 0, earliestBlink=100, largestOpening = 0, largestGaze = 0, largestBrow = 0;
   for (let frame=0;frame<fps*12;frame++) {
     rig.beforeUpdate();
     rig.update(1/fps, frame/fps, frame < fps*8);
     const weights=mesh.morphTargetInfluences;
     assert.ok(weights.every(v => Number.isFinite(v) && v>=0 && v<=1));
-    if (weights[4] === 1 && weights[5] === 1) closed++;
+    if (weights[4] === 1 && weights[5] === 1) {closed++;earliestBlink=Math.min(earliestBlink,frame/fps);}
     largestOpening=Math.max(largestOpening,weights[0]);
     largestBrow=Math.max(largestBrow,weights[6],weights[7]);
     largestGaze=Math.max(largestGaze, ...weights.slice(9,13));
@@ -30,6 +32,7 @@ for (const fps of [20, 30, 60, 120]) {
       'Every head gesture must be reversible without drift');
   }
   assert.ok(closed>0, 'Blink must reach full closure at '+fps+' fps');
+  assert.ok(earliestBlink<.5, 'Blink demonstration must visibly close both eyelids immediately');
   assert.ok(largestOpening>.28, 'Speech must articulate the lips');
   assert.ok(largestBrow>.31 && largestBrow<.48, 'Brows must be visibly expressive but not exaggerated');
   assert.ok(largestGaze>.02, 'Eyes must change gaze without moving brows or skull');
