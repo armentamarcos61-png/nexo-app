@@ -51,6 +51,14 @@ const corpus=[
  ['¿Cuántas lunas tiene Júpiter?','other.out_of_scope','scope'],
  ['¿Qué impuestos paga una venta de productos?','other.unknown_nexo','unverified'],
 ];
+// The knowledge builder discovers public screens from the current code.
+// Independently pose new navigation questions for every discovered screen,
+// even when nobody has ever asked about those routes.
+const manifest=JSON.parse(fs.readFileSync('public/knowledge/nexo-capabilities.json','utf8'));
+const newScreenTests=(manifest.screens||[])
+ .filter(screen=>screen.route!=='/'&&
+  typeof screen.title==='string'&&screen.title.length>1)
+ .map(screen=>'¿Dónde encuentro la pantalla '+screen.title+' de Nexo?');
 const checks=[];
 for(const assistant of ['nexo','nexa']){
  for(const [question,topic,status] of corpus){
@@ -62,6 +70,16 @@ for(const assistant of ['nexo','nexa']){
   checks.push({assistant,question,expected:topic,actual:final.topic,
    expectedStatus:status,status:final.status,score:review.score,
    improved:review.improved,passed});
+ }
+ for(const question of newScreenTests){
+  const raw=knowledge.answerVerifiedNexoQuestion(question);
+  const review=reviewer.reviewNexoAnswer(question,raw);
+  const final=review.reviewedAnswer;
+  const passed=review.sourceChecked&&final.status==='available'&&
+    final.topic!=='navigation.how_nexo_works';
+  checks.push({assistant,question,expected:'available public screen',
+   actual:final.topic,expectedStatus:'available',status:final.status,
+   score:review.score,improved:review.improved,passed});
  }
 }
 const failed=checks.filter(check=>!check.passed);
@@ -80,6 +98,7 @@ const report={
  definition:'Preguntas sintéticas sobre el código de Nexo, probadas para ambos asistentes. No contiene conversaciones privadas.',
  assistants:['nexo','nexa'],
  questionsChecked:checks.length,
+ scenariosCreatedAutomatically:newScreenTests.length*2,
  passed:checks.length-failed.length,
  failed:failed.length,
  averageScore:Number((checks.reduce((n,c)=>n+c.score,0)/checks.length).toFixed(1)),
