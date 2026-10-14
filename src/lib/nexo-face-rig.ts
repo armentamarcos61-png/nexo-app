@@ -5,6 +5,7 @@
  */
 export type NexoFaceController={
   available:boolean;
+  blinkNow:()=>void;
   update:(dt:number,time:number,speaking:boolean,text:string)=>void;
   dispose:()=>void;
 };
@@ -19,10 +20,10 @@ const prepared=new WeakSet<object>();
 export function calibrateNexoFaceMorphs(root:any):number {
  let changed=0;
  const factors:Record<string,number>={
-  EyeBlinkLeft:1.94,EyeBlinkRight:1.94,
+  EyeBlinkLeft:2.58,EyeBlinkRight:2.58,
   EyeLookLeft:2.45,EyeLookRight:2.45,EyeLookUp:2.2,EyeLookDown:2.2,
   BrowRaiseLeft:2.05,BrowRaiseRight:2.05,BrowFrown:1.7,
-  MouthOpen:2.25,MouthO:3.3,MouthWide:4.0,MouthSmile:2.5,
+  MouthOpen:2.45,MouthO:3.3,MouthWide:4.0,MouthSmile:2.5,
  };
  root.traverse?.((node:any)=>{
   const geom=node.geometry, targets=geom?.morphAttributes?.position;
@@ -61,7 +62,8 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
   delta[name]=value;
   for(const c of channels.get(name)||[])c.mesh.morphTargetInfluences[c.index]=value;
  };
- let nextBlink=1.85,lastBlink=-10;
+ let nextBlink=1.85,lastBlink=-10,lastUpdate=0;
+ let speechStart=0,wasSpeaking=false;
  // The original Meshy character has a painted mouth; the rose opening
  // supplements small lip morphs only while actually talking.
  let inner:any=null;
@@ -112,20 +114,26 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
  const restHeadRotation=head?.quaternion?.clone?.()||null;
  return {
   available,
+  blinkNow(){
+   nextBlink=lastUpdate+0.08;
+  },
   update(dt,time,speaking,text){
    if(!available)return;
    const safeDt=clamp(dt,0,.08);
+   lastUpdate=time;
+   if(speaking&&!wasSpeaking)speechStart=time;
+   wasSpeaking=speaking;
    // Upper lids close together in 110ms and reopen in 180ms.
    if(time>=nextBlink){
     lastBlink=time;
     nextBlink=time+2.65+1.10*(.5+.5*Math.sin(time*1.37));
    }
    const age=time-lastBlink;
-   const blink=age<0?0:age<.13?ease(age/.13):age<.23?1:
-    age<.45?1-ease((age-.23)/.22):0;
+   const blink=age<0?0:age<.16?ease(age/.16):age<.29?1:
+    age<.54?1-ease((age-.29)/.25):0;
    // Importer-side morph geometry has matched displacement amplitudes.
-   set('EyeBlinkLeft',blink,safeDt,32);
-   set('EyeBlinkRight',blink,safeDt,32);
+   set('EyeBlinkLeft',blink,safeDt,42);
+   set('EyeBlinkRight',blink,safeDt,42);
    const lookX=.60*Math.sin(time*.43)*(.65+.35*Math.sin(time*.27));
    const lookY=.31*Math.sin(time*.29);
    set('EyeLookLeft',Math.max(0,-lookX),safeDt,4);
@@ -133,7 +141,7 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
    set('EyeLookUp',Math.max(0,lookY),safeDt,4);
    set('EyeLookDown',Math.max(0,-lookY),safeDt,4);
    const content=text.trim();
-   const phoneme=content.length?content[Math.floor((time*7.4)%content.length)]?.toLowerCase()||'':'';
+   const phoneme=content.length?content[Math.floor(Math.max(0,time-speechStart)*8.2)%content.length]?.toLowerCase()||'':'';
    const vowel=/[aeáé]/.test(phoneme)?1:/[oóuú]/.test(phoneme)?.83:/[ií]/.test(phoneme)?.55:/[mpb]/.test(phoneme)?.07:.43;
    const cadence=.5+.5*Math.sin(time*12.7);
    const open=speaking?(.20+.59*vowel)*(.48+.52*cadence):0;
