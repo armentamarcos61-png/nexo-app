@@ -79,6 +79,16 @@ jobs:
           HTML
           touch dist/.nojekyll
 
+      - name: Marcar la versión exacta realmente publicada
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          fs.writeFileSync('dist/nexo-release.json',
+            JSON.stringify({sha:process.env.GITHUB_SHA,
+              deployedAt:new Date().toISOString(),site:'/nexo-app/',
+              version:'idle-hands-down-face-animation-20261013'},null,2)+'\n');
+          NODE
+
       - name: Contar líneas de código
         run: node scripts/report-code-lines.cjs dist/code-metrics.json
 
