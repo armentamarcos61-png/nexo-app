@@ -51,4 +51,67 @@ assert(clip.tracks.some(track=>track.name==='mixamorig:LeftArm.quaternion'));
 assert(clip.tracks.some(track=>track.name==='mixamorig:RightArm.quaternion'));
 assert(clip.duration===4);
 assert(entries.every(item=>Number.isFinite(item.quaternion.w)));
+// Also validate against both actual uploaded Meshy GLB skeletons, not only
+// a synthetic T-pose. The CI pipeline reconstructs these before this test.
+function restoredSkeleton(file){
+ const bytes=fs.readFileSync(file);
+ assert.equal(bytes.toString('ascii',0,4),'glTF','invalid 3D file: '+file);
+ const len=bytes.readUInt32LE(12);
+ const json=JSON.parse(bytes.toString('utf8',20,20+len));
+ const nodes=json.nodes;
+ const joints=new Set((json.skins||[]).flatMap(s=>s.joints||[]));
+ const bones=nodes.map((data,index)=>{
+  const object=joints.has(index)?new THREE.Bone():new THREE.Object3D();
+  object.name=data.name||'gltf-node-'+index;
+  if(data.translation)object.position.fromArray(data.translation);
+  if(data.rotation)object.quaternion.fromArray(data.rotation);
+  if(data.scale)object.scale.fromArray(data.scale);
+  if(data.matrix){
+   const m=new THREE.Matrix4().fromArray(data.matrix);
+   m.decompose(object.position,object.quaternion,object.scale);
+  }
+  return object;
+ });
+ const children=new Set();
+ nodes.forEach((node,i)=>{
+  for(const child of node.children||[]){
+   bones[i].add(bones[child]);
+   children.add(child);
+  }
+ });
+ const parent=new THREE.Group();
+ bones.forEach((node,i)=>{if(!children.has(i))parent.add(node);});
+ parent.updateMatrixWorld(true);
+ return parent;
+}
+for(const [character,file] of [
+ ['Nexa','public/models/Nexa_Android_FacialReady_v1.glb'],
+ ['Nexo','public/models/Nexo_FacialReady_v1.glb'],
+]){
+ assert(fs.existsSync(file),'missing reconstructed '+character+' GLB');
+ const model=restoredSkeleton(file);
+ const actual=imported.relaxedArmBones(THREE,model);
+ assert.equal(actual.length,2,character+' must find both real arm joints');
+ const was=actual.map(({bone})=>{
+  const elbow=bone.getObjectByName(bone.name.replace('Arm','ForeArm'))||
+   model.getObjectByName(bone.name.replace('Arm','ForeArm'));
+  assert(elbow,character+' arm missing elbow');
+  return elbow.getWorldPosition(new THREE.Vector3()).sub(
+   bone.getWorldPosition(new THREE.Vector3())).normalize().y;
+ });
+ for(const {bone,quaternion} of actual)bone.quaternion.copy(quaternion);
+ model.updateMatrixWorld(true);
+ for(const {bone} of actual){
+  const elbow=model.getObjectByName(bone.name.replace('Arm','ForeArm'));
+  const direction=elbow.getWorldPosition(new THREE.Vector3()).sub(
+   bone.getWorldPosition(new THREE.Vector3())).normalize();
+  assert(direction.y<-.96,
+   character+' elbow must settle anatomically BELOW the shoulder: '+direction.y);
+  assert(Math.abs(direction.x)<.23,
+   character+' arm still sticks outward in idle');
+ }
+ console.log('PASS '+character+': real GLB lowered both elbows; original Y = '+
+  was.map(v=>v.toFixed(3)).join(', '));
+}
+
 console.log('PASS: actual L/R skinned bone elbow vectors end 96% downward; relaxed idle track and no T-pose');
