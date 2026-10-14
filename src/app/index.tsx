@@ -10,6 +10,7 @@ import { useAuth } from '@/state/auth';
 import { useProfessionalProfile } from '@/state/professional-profile';
 import { useActivityVisibility } from '@/state/activity-visibility';
 import { useAssistant } from '@/state/assistant';
+import { hasSeenNexoOnboarding } from '@/lib/nexo-onboarding';
 import {
   Image,
   Pressable,
@@ -86,6 +87,18 @@ export default function HomeScreen() {
   const palette = getAppearancePalette(mode);
   const { profile } = useProfessionalProfile();
   const { user, signOut } = useAuth();
+  const [introChecked,setIntroChecked] = useState(false);
+  useEffect(()=>{
+    // Existing signed-in users go directly home. New visitors first see
+    // onboarding; users who skipped/finished it are never trapped in a loop.
+    if(typeof window!=='undefined'&&
+      window.location.hash.includes('access_token='))return;
+    if(!user&&!hasSeenNexoOnboarding()){
+      router.replace('/bienvenida');
+      return;
+    }
+    setIntroChecked(true);
+  },[user]);
   const { showActivity } = useActivityVisibility();
   const { assistant } = useAssistant();
   const greetingName = user?.firstName.trim() ?? '';
@@ -96,6 +109,9 @@ export default function HomeScreen() {
     router.push({ pathname: '/explorar', params: { q: busqueda.trim() } });
   }
 
+  if(!introChecked){
+    return <SafeAreaView style={{flex:1,backgroundColor:palette.background}} />;
+  }
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
       <LinearGradient
@@ -226,6 +242,17 @@ export default function HomeScreen() {
             </>
           )}
         </View>
+
+        <Pressable accessibilityRole="button"
+          accessibilityLabel="Ver de nuevo la introducción visual de Nexo"
+          onPress={()=>router.push('/bienvenida')}
+          style={{alignSelf:'flex-end',paddingHorizontal:10,paddingVertical:7,
+            marginBottom:4,borderRadius:12,borderWidth:1,
+            borderColor:'rgba(114,207,255,0.32)',backgroundColor:'rgba(34,61,110,0.30)'}}>
+          <Text style={{color:palette.title,fontSize:11,fontWeight:'800'}}>
+            ✦ Ver presentación de Nexo
+          </Text>
+        </Pressable>
 
         <View style={styles.welcomeRow}>
           <View style={styles.welcomeCopy}>
