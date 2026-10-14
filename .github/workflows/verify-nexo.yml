@@ -24,6 +24,9 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Verificar voces gratuitas femenina y masculina
+        run: node scripts/verify-assistant-voices.cjs
+
       - name: Probar carrusel de bienvenida y navegación antes del registro
         run: node scripts/verify-nexo-onboarding.cjs
 
