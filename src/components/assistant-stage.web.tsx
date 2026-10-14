@@ -746,6 +746,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             accessibilityLabel="Probar parpadeo, mirada, cejas y boca de Nexa"
             onPress={() => {
               faceRigRef.current?.setSpeechText('Hola, soy Nexa. Bienvenido a Nexo.');
+              faceRigRef.current?.blinkNow();
               facialDemoUntilRef.current=elapsedRef.current+8.5;
               if (hasBody || variant!=='studio') changeView('face');
             }}
