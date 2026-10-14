@@ -68,7 +68,7 @@ export function reviewNexoAnswer(question:string,original:NexoKnowledgeReply):Ne
  let answer={...original};
  const manifest=currentNexoKnowledge();
  const next=actionSteps[answer.topic];
- let sourceChecked=answer.verified && (
+ const sourceChecked=answer.verified && (
   answer.status==='planned' ||
   (answer.status==='available' && (
    !next || manifest.capabilities[next.capability as keyof typeof manifest.capabilities]?.status==='available'
