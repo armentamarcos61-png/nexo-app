@@ -1,3 +1,4 @@
+import {relaxedArmBones} from '@/lib/assistant-relaxed-pose';
 /**
  * Nexa híbrida: Studio aporta el rostro, gorra, busto y morph targets originales.
  * El GLB articulado aporta solamente las superficies situadas debajo del busto.
@@ -1261,6 +1262,10 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
   // Only animate the real body-arm joints, never Studio's face or the neck
   // attachment. Gradual speech-driven gestures replace the static T-pose
   // without switching to the legacy clips that tore the Studio sleeves.
+  // In the Studio composite the lower-body mixer is NOT the source of
+  // visible arm movement: restore BOTH true arms to relaxed hands-down pose,
+  // otherwise each frame overwrites the idle with its imported T-pose.
+  const relaxed=relaxedArmBones(THREE,body);
   const gestureBones: { bone:any; rest:any; axis:any; phase:number; side:number }[]=[];
   for (const side of ['Left','Right']) {
     const sign=side==='Left'?1:-1;
@@ -1270,7 +1275,8 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
       const bone=body.getObjectByName('mixamorig:'+side+joint);
       if (!bone) continue;
       gestureBones.push({
-        bone,rest:bone.quaternion.clone(),
+        bone,rest:relaxed.find(p=>p.bone===bone)?.quaternion.clone()
+          ??bone.quaternion.clone(),
         axis:new THREE.Vector3(0,0,1),phase,side:sign,
       });
     }
