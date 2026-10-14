@@ -150,7 +150,9 @@ export function Action({
   );
 }
 
-export function Field({ label, ...props }: TextInputProps & { label: string }) {
+/** All form inputs can show a short, persistent example BELOW the field.
+ * This stays visible after typing and does not mix with the typed black text. */
+export function Field({ label, hint, ...props }: TextInputProps & { label: string; hint?: string }) {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -209,6 +211,11 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
           </Pressable>
         ) : null}
       </View>
+      {hint ? (
+        <Text style={[ui.fieldHint,{color:palette.muted}]} accessibilityRole="text">
+          ⓘ {hint}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -370,6 +377,14 @@ export const ui = StyleSheet.create({
     width: '100%',
     maxWidth: '100%',
     gap: 8,
+  },
+  fieldHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+    paddingHorizontal: 5,
+    marginTop: -2,
+    opacity: 1,
   },
   inputShell: {
     position: 'relative',
