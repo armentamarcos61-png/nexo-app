@@ -29,6 +29,9 @@ jobs:
       - name: Instalar dependencias y restaurar modelo masculino
         run: npm ci
 
+      - name: Verificar selección gratuita de voz femenina y masculina
+        run: node scripts/verify-assistant-voices.cjs
+
       - name: Restaurar Nexa nueva desde archivos de respaldo
         run: |
           node scripts/restore-nexa-android.cjs
