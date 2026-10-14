@@ -1,6 +1,6 @@
 /**
  * Animaciones de Nexa. Un solo GLB y transiciones fluidas:
- * gestos de 4-7 s, aceleración y frenado gradual. Sin archivos extra.
+ * gestos prolongados 3 s, aceleración y frenado gradual. Sin archivos extra.
  */
 export type NexaMotion = 'Idle' | 'Walking' | 'Running' | 'Greeting' | 'Talking' | 'Confused' | 'Skipping';
 
@@ -38,10 +38,10 @@ export class NexaAnimationController {
     Idle: 0.83,
     Walking: 0.83,
     Running: 0.77,
-    Greeting: 0.43, // 1.9-second greeting stretched to ~4.4 seconds.
+    Greeting: 0.58, // Smooth 8.5 s wave with the current Android clip.
     Talking: 0.60,
-    Confused: 1.55, // Original thoughtful gesture lasts 11.5 s.
-    Skipping: 0.78,
+    Confused: 1.10, // 3 more seconds and a calmer thoughtful gesture.
+    Skipping: 0.57,
   };
 
   constructor(
@@ -68,11 +68,11 @@ export class NexaAnimationController {
       if (duration > 0) { this.timeLeft = duration; this.duration = duration; }
       return;
     }
-    if (this.started) this.actions[this.modeValue].fadeOut(0.85);
+    if (this.started) this.actions[this.modeValue].fadeOut(1.05);
     const action = this.actions[next];
     action.reset();
     action.timeScale = this.baselines[next];
-    action.fadeIn(0.85).play();
+    action.fadeIn(1.05).play();
     this.modeValue = next;
     this.timeLeft = duration;
     this.duration = duration;
@@ -83,17 +83,17 @@ export class NexaAnimationController {
 
   greet() {
     if (this.speaking) return;
-    this.setMotion('Greeting', 5.5);
+    this.setMotion('Greeting', 8.5);
   }
 
   expressConfused() {
     if (this.speaking) return;
-    this.setMotion('Confused', 7.2);
+    this.setMotion('Confused', 10.2);
   }
 
   skipForward() {
     if (this.speaking) return;
-    this.setMotion('Skipping', 4.7);
+    this.setMotion('Skipping', 7.7);
   }
 
   /** Speech blends in arm/hand gesture tracks; head and face stay independent. */
@@ -112,7 +112,7 @@ export class NexaAnimationController {
   /** Mantener caminar/correr varios segundos y luego detenerse suavemente. */
   moveTo(_x: number, _z: number, running = false) {
     if (this.speaking) return;
-    this.setMotion(running ? 'Running' : 'Walking', running ? 5.4 : 6.5);
+    this.setMotion(running ? 'Running' : 'Walking', running ? 8.4 : 9.5);
   }
 
   stopMoving() {
