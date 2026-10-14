@@ -187,6 +187,10 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
       return true;
      });
      clips[name]=mixer.clipAction(bodyClip);
+     // Keep every original movement, adding 3 genuine seconds to the clip
+     // instead of holding its frozen last pose for three seconds.
+     const originalDuration=Math.max(.5,bodyClip.duration||1);
+     clips[name].setEffectiveTimeScale(originalDuration/(originalDuration+3));
      clips[name].setLoop(THREE.LoopOnce,1);
      clips[name].clampWhenFinished=false;
     }
@@ -194,16 +198,16 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
     const returnIdle=()=> {
      const idle=clips.idle;
      if(activeGesture.current&&activeGesture.current!==idle){
-      activeGesture.current.fadeOut(.48);
-      idle.reset().fadeIn(.48).play();
+      activeGesture.current.fadeOut(.75);
+      idle.reset().fadeIn(.75).play();
       activeGesture.current=idle;
      }
     };
     mixer.addEventListener('finished',returnIdle);
     const initial=clips['wave_one_hand'];
     if(initial){
-     clips.idle.fadeOut(.50);
-     initial.reset().setEffectiveWeight(1).fadeIn(.50).play();
+     clips.idle.fadeOut(.75);
+     initial.reset().setEffectiveWeight(1).fadeIn(.75).play();
      activeGesture.current=initial;
     } else activeGesture.current=clips.idle;
     setLoaded(true);
@@ -251,12 +255,12 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
  },[retry]);
  const pose=(name:string)=>{
   const action=gestureRef.current[name];if(!action||!mixerRef.current)return;
-  activeGesture.current?.fadeOut(.48);
-  action.reset().setEffectiveWeight(1).fadeIn(.48).play();
+  activeGesture.current?.fadeOut(.75);
+  action.reset().setEffectiveWeight(1).fadeIn(.75).play();
   activeGesture.current=action;
  };
  const showFaceDemo=()=>{
-  demoUntil.current=timeRef.current+5.5;
+  demoUntil.current=timeRef.current+8.5;
   show('face');
  };
  function show(mode:'body'|'face'){
