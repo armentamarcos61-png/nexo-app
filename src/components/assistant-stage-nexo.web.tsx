@@ -4,6 +4,7 @@ import {LinearGradient} from 'expo-linear-gradient';
 import {NEXO_IMAGE_DATA} from '@/components/assistant-media/nexo-image';
 import {getStoredNexoGLB,saveNexoGLB} from '@/lib/nexo-model-cache';
 import {installNexoFaceRig,type NexoFaceController} from '@/lib/nexo-face-rig';
+import {relaxedIdleClip} from '@/lib/assistant-relaxed-pose';
 import type {AssistantProfile} from '@/state/assistant';
 
 type Props={profile:AssistantProfile;speaking?:boolean;speechText?:string};
@@ -161,17 +162,9 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
     const clips:Record<string,any>={};
     // A neutral, named rest action restores a natural posture after every
     // single-shot salute. Stopped Mixamo clips previously froze their final pose.
-    const restTracks:any[]=[];
-    root.traverse((bone:any)=>{
-     if(!bone.isBone||/(?:Head|Neck|headfront)/i.test(bone.name))return;
-     restTracks.push(new THREE.QuaternionKeyframeTrack(bone.name+'.quaternion',
-      [0,2],[bone.quaternion.x,bone.quaternion.y,bone.quaternion.z,bone.quaternion.w,
-       bone.quaternion.x,bone.quaternion.y,bone.quaternion.z,bone.quaternion.w]));
-     restTracks.push(new THREE.VectorKeyframeTrack(bone.name+'.position',
-      [0,2],[bone.position.x,bone.position.y,bone.position.z,
-       bone.position.x,bone.position.y,bone.position.z]));
-    });
-    clips.idle=mixer.clipAction(new THREE.AnimationClip('Nexo_Idle',2,restTracks));
+    // Original Meshy rest has the arms spread. Rebuild a genuine down-arms
+    // idle from each elbow direction (no guessing of character-local axes).
+    clips.idle=mixer.clipAction(relaxedIdleClip(THREE,root,4));
     clips.idle.setLoop(THREE.LoopRepeat).play();
     for(const animation of gltf.animations){
      const name=animation.name.toLowerCase();
@@ -195,13 +188,16 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
      clips[name].clampWhenFinished=false;
     }
     gestureRef.current=clips;
-    const returnIdle=()=> {
+    let settling=false;
+    const returnIdle=(event?:{action:any})=>{
      const idle=clips.idle;
-     if(activeGesture.current&&activeGesture.current!==idle){
-      activeGesture.current.fadeOut(.75);
-      idle.reset().fadeIn(.75).play();
-      activeGesture.current=idle;
-     }
+     // A previous clip finishing must never override a newly selected one.
+     if(event?.action&&event.action!==activeGesture.current)return;
+     if(!activeGesture.current||activeGesture.current===idle)return;
+     activeGesture.current.fadeOut(1.65);
+     idle.reset().setEffectiveWeight(1).fadeIn(1.65).play();
+     activeGesture.current=idle;
+     settling=true;
     };
     mixer.addEventListener('finished',returnIdle);
     const initial=clips['wave_one_hand'];
@@ -218,6 +214,14 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
      if(document.visibilityState!=='hidden'){
       clock+=dt;timeRef.current=clock;
       mixer.update(dt);
+      // Begin the natural return before the Mixamo action expires. Waiting
+      // for "finished" had already allowed its last pose to snap/freeze.
+      const current=activeGesture.current;
+      if(current&&current!==clips.idle&&!settling){
+       const remaining=(current.getClip().duration-current.time)/
+        Math.max(0.05,current.getEffectiveTimeScale());
+       if(remaining<=1.65&&current.time>0.03)returnIdle();
+      }
       const isDemo=clock<demoUntil.current;
       facial?.update(dt,clock,spoken.current||isDemo,
        spoken.current?spokenText.current:isDemo?'Hola, soy Nexo. Estoy para ayudarte.':spokenText.current);
