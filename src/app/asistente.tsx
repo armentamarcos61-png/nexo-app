@@ -7,7 +7,11 @@ import {
   classifyAssistantQuestion,
   recordAssistantQuestionMetric,
 } from '@/lib/assistant-analytics';
-import { speakAsAssistant, stopAssistantSpeech } from '@/lib/assistant-speech';
+import {
+  getAssistantVoiceChoice, listAssistantVoices, previewAssistantVoice,
+  setAssistantVoiceChoice, speakAsAssistant, stopAssistantSpeech,
+  type AssistantVoiceOption,
+} from '@/lib/assistant-speech';
 import { useAssistant } from '@/state/assistant';
 import { useAuth } from '@/state/auth';
 import { clearNexaHistory, readNexaHistory, recallNexaNote, rememberNexaConversation, type NexaReply, type NexaSource } from '@/lib/nexa-knowledge';
@@ -52,9 +56,53 @@ export default function AsistenteScreen() {
   const [knowledgeReviewed, setKnowledgeReviewed] = useState('');
   const requestId = useRef(0);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [voiceOptions, setVoiceOptions] = useState<AssistantVoiceOption[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<string|null>(null);
+  const [voicesOpen, setVoicesOpen] = useState(false);
+  const [voicesLoading, setVoicesLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [micError, setMicError] = useState('');
   const recognizerRef = useRef<BrowserSpeechRecognition | null>(null);
+
+  useEffect(() => {
+    if (!assistant)return;
+    let active=true;
+    setSelectedVoice(getAssistantVoiceChoice(assistant.id));
+    setVoiceOptions([]);
+    setVoicesLoading(true);
+    void listAssistantVoices(assistant.id).then(options=>{
+      if(active)setVoiceOptions(options);
+    }).catch(()=>{
+      if(active)setVoiceOptions([]);
+    }).finally(()=>{
+      if(active)setVoicesLoading(false);
+    });
+    return ()=>{active=false;};
+  },[assistant?.id]);
+
+  function refreshVoiceChoices(){
+    if(!assistant)return;
+    setVoicesLoading(true);
+    void listAssistantVoices(assistant.id).then(setVoiceOptions)
+      .catch(()=>setVoiceOptions([]))
+      .finally(()=>setVoicesLoading(false));
+  }
+  function testVoice(identifier:string|null){
+    if(!assistant)return;
+    setAssistantVoiceChoice(assistant.id,identifier);
+    setSelectedVoice(identifier);
+    setVoiceEnabled(true);
+    const spoken=assistant.id==='nexa'
+      ?'Hola, soy Nexa. Bienvenido a Nexo. Estoy aquí para ayudarte con lo que necesites.'
+      :'Hola, soy Nexo. Puedo ayudarte a encontrar trabajo, servicios y productos.';
+    setSpokenText(spoken);
+    void previewAssistantVoice(assistant.id,{
+      onStart:()=>setSpeaking(true),
+      onDone:()=>setSpeaking(false),
+      onStopped:()=>setSpeaking(false),
+      onError:()=>setSpeaking(false),
+    });
+  }
 
   // Autonomous refresh: check the approved Nexo capability manifest when the
   // screen opens, once an hour while in use, and whenever the tab is restored.
@@ -297,10 +345,88 @@ export default function AsistenteScreen() {
             {voiceEnabled ? 'Voz activada' : 'Voz desactivada'}
           </Text>
           <Text style={[styles.voiceHint, { color: palette.muted }]}>
-            {assistant.name} usa una voz en español adaptada a su perfil.
+            {assistant.name} usa una voz en español. Puedes probar opciones gratis y elegir la que más te guste.
           </Text>
         </View>
       </Pressable>
+
+      <View style={[styles.voicePicker,{borderColor:palette.cardBorder}]}>
+        <Pressable accessibilityRole="button"
+          onPress={()=>{
+            setVoicesOpen(value=>!value);
+            if(!voicesOpen)refreshVoiceChoices();
+          }}
+          style={styles.voicePickerHeader}>
+          <Text style={{fontSize:18}}>🎧</Text>
+          <View style={{flex:1,gap:3}}>
+            <Text style={{fontWeight:'900',fontSize:13,color:palette.title}}>
+              Elegir y probar voz gratis
+            </Text>
+            <Text style={{fontSize:11,color:palette.muted}}>
+              {selectedVoice
+                ?voiceOptions.find(x=>x.identifier===selectedVoice)?.name||'Voz elegida (no instalada aquí)'
+                :'Selección automática de la mejor voz en español'}
+            </Text>
+          </View>
+          <Text style={{fontSize:18,fontWeight:'800',color:palette.title}}>
+            {voicesOpen?'⌃':'⌄'}
+          </Text>
+        </Pressable>
+        {voicesOpen && (
+          <View style={styles.voicePickerBody}>
+            <Text style={{fontSize:11,lineHeight:17,color:palette.muted}}>
+              Sin suscripciones ni pagos por respuesta. Estas voces dependen de las
+              instaladas en tu teléfono o navegador. Prueba y escucha antes de elegir.
+            </Text>
+            <Pressable accessibilityRole="button"
+              onPress={()=>testVoice(null)}
+              style={[styles.voiceOption,{
+                borderColor:!selectedVoice?assistant.secondaryAccent:palette.cardBorder,
+                backgroundColor:!selectedVoice?'rgba(52,92,147,.43)':'rgba(20,37,65,.65)',
+              }]}>
+              <Text style={{fontSize:13,fontWeight:'800',color:palette.title}}>
+                {!selectedVoice?'✓  ':''}Automática · Gratis
+              </Text>
+              <Text style={{color:palette.muted,fontSize:10}}>
+                Tocar para escuchar con {assistant.name}
+              </Text>
+            </Pressable>
+            {voiceOptions.slice(0,7).map(option=>(
+              <Pressable key={option.identifier}
+                accessibilityRole="button"
+                onPress={()=>testVoice(option.identifier)}
+                style={[styles.voiceOption,{
+                  borderColor:selectedVoice===option.identifier?assistant.secondaryAccent:palette.cardBorder,
+                  backgroundColor:selectedVoice===option.identifier
+                    ?'rgba(52,92,147,.43)':'rgba(20,37,65,.65)',
+                }]}>
+                <Text style={{fontWeight:'800',fontSize:12,color:palette.title}}>
+                  {selectedVoice===option.identifier?'✓  ':''}{option.name}
+                  {option.recommended?' · Recomendada':''}
+                </Text>
+                <Text style={{color:palette.muted,fontSize:10}}>
+                  {option.language}{option.quality==='Enhanced'?' · Calidad mejorada':''}
+                  {' · Toca para escuchar'}
+                </Text>
+              </Pressable>
+            ))}
+            {!voicesLoading&&voiceOptions.length===0&&(
+              <Text style={{fontSize:11,lineHeight:17,color:palette.muted}}>
+                El navegador todavía no ha proporcionado voces españolas.
+                Prueba «Actualizar voces» o instala una voz española desde
+                los ajustes de síntesis de voz de tu dispositivo.
+              </Text>
+            )}
+            <Pressable accessibilityRole="button"
+              onPress={refreshVoiceChoices}
+              style={{paddingVertical:10,alignItems:'center'}}>
+              <Text style={{fontWeight:'800',color:assistant.secondaryAccent,fontSize:12}}>
+                {voicesLoading?'Buscando voces…':'↻ Actualizar voces disponibles'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
 
       <View style={styles.quickGrid}>
         {quickQuestions.map((item) => (
@@ -394,6 +520,33 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 14,
     lineHeight: 21,
+  },
+  voicePicker:{
+    borderRadius:17,
+    borderWidth:1,
+    backgroundColor:'rgba(9,27,53,.73)',
+    overflow:'hidden',
+  },
+  voicePickerHeader:{
+    minHeight:64,
+    flexDirection:'row',
+    alignItems:'center',
+    paddingHorizontal:14,
+    paddingVertical:10,
+    gap:11,
+  },
+  voicePickerBody:{
+    borderTopWidth:1,
+    borderTopColor:'rgba(142,190,242,.18)',
+    gap:8,
+    padding:13,
+  },
+  voiceOption:{
+    borderWidth:1,
+    borderRadius:12,
+    paddingHorizontal:12,
+    paddingVertical:11,
+    gap:4,
   },
   voiceToggle: {
     minHeight: 58,
