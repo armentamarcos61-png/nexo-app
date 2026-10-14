@@ -24,18 +24,22 @@ for(const fps of [20,30,60,120]){
  const root={traverse:cb=>[head,mesh].forEach(cb),getObjectByName:()=>head};
  const rig=exportsObject.installNexoFaceRig({Quaternion,Euler:class {}},root);
  assert(rig.available,'Nexo must detect all 13 facial morphs');
- let blink=0,mouth=0,brow=0,gaze=0;
+ assert.equal(typeof rig.blinkNow,'function');
+ rig.blinkNow();
+ let blink=0,earliestBlink=100,mouth=0,brow=0,gaze=0;
  for(let frame=0;frame<fps*10;frame++){
   const t=frame/fps;
   rig.update(1/fps,t,t<6,'Hola, bienvenidos a Nexo');
   const weights=mesh.morphTargetInfluences;
   assert(weights.every(w=>Number.isFinite(w)&&w>=0&&w<=1));
   blink=Math.max(blink,weights[0],weights[1]);
+  if(weights[0]>.9&&weights[1]>.9)earliestBlink=Math.min(earliestBlink,t);
   mouth=Math.max(mouth,weights[2]);
   brow=Math.max(brow,weights[5],weights[6]);
   gaze=Math.max(gaze,...weights.slice(7,11));
  }
  assert(blink>.90,'eyelids must close at '+fps+' FPS');
+ assert(earliestBlink<.55,'Nexo face demo must blink promptly at '+fps+' FPS');
  assert(mouth>.30,'mouth must articulate while speaking');
  assert(brow>.25,'brows must move visibly');
  assert(gaze>.09,'independent eye direction required');
