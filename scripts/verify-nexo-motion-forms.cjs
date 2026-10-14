@@ -35,6 +35,16 @@ function stay(method,runSeconds,expectedName){
  c.dispose();
 }
 stay(c=>c.greet(),8.5,'Greeting');
+// Tapping Saludar twice during a current salute must replay, not freeze.
+const repeat=makeController();
+repeat.greet();
+for(let i=0;i<90;i++)repeat.update(.05);
+repeat.greet();
+assert.equal(repeat.motion,'Greeting');
+for(let i=0;i<110;i++)repeat.update(.05);
+assert.equal(repeat.motion,'Greeting','restarted salute must remain in motion');
+repeat.dispose();
+
 stay(c=>c.expressConfused(),10.2,'Confused');
 stay(c=>c.skipForward(),7.7,'Skipping');
 stay(c=>c.moveTo(0,0,false),9.5,'Walking');
