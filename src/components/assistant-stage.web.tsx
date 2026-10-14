@@ -466,9 +466,9 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
                 controllerRef.current?.greet();
                 composite?.greet();
               };
-              // Greeting starts only after the visible articulated shoulders
-              // are attached, never while the invisible Studio arms are loaded.
-              if(!speakingRef.current)composite.greet();
+              // Do NOT greet on load. The real visible arms must start
+              // relaxed at the hips, not in the model's original T-pose.
+              // The Saludar button launches the full wave on demand.
               // Fit an actual 3D Nexo uniform collar over the shared neck cut.
               // The collar belongs to the single avatar, not to either
               // clipped mesh. Thus it bridges the join from every camera angle
@@ -598,7 +598,8 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           // only for the old Studio compositor and silently did nothing.
           greetRef.current=()=>{controllerRef.current?.greet();composite?.greet();};
           if(speakingRef.current) controllerRef.current.startSpeaking();
-          if (!speakingRef.current) controllerRef.current.greet();
+          // Remain in natural idle at first load; only the user's Saludar
+          // button triggers the wave. Avoid a permanent raised-arm first view.
           // Start with a gentle, cross-faded hello; never force walking/running.
           // Show 3D only after its first successful rendered frame.
           perspectiveCamera.position.set(0, focus+0.02, distance);
