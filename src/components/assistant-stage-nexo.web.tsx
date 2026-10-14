@@ -22,6 +22,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
  const mixerRef=useRef<any>(null);
  const gestureRef=useRef<Record<string,any>>({});
  const activeGesture=useRef<any>(null);
+ const settlingRef=useRef(false);
  const demoUntil=useRef(0);
  const timeRef=useRef(0);
  const controlRef=useRef<NexoFaceController|null>(null);
@@ -188,7 +189,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
      clips[name].clampWhenFinished=false;
     }
     gestureRef.current=clips;
-    let settling=false;
+    settlingRef.current=false;
     const returnIdle=(event?:{action:any})=>{
      const idle=clips.idle;
      // A previous clip finishing must never override a newly selected one.
@@ -197,13 +198,13 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
      activeGesture.current.fadeOut(1.65);
      idle.reset().setEffectiveWeight(1).fadeIn(1.65).play();
      activeGesture.current=idle;
-     settling=true;
+     settlingRef.current=true;
     };
     mixer.addEventListener('finished',returnIdle);
     const initial=clips['wave_one_hand'];
     if(initial){
-     clips.idle.fadeOut(.75);
-     initial.reset().setEffectiveWeight(1).fadeIn(.75).play();
+     clips.idle.fadeOut(1.12);
+     initial.reset().setEffectiveWeight(1).fadeIn(1.12).play();
      activeGesture.current=initial;
     } else activeGesture.current=clips.idle;
     setLoaded(true);
@@ -217,7 +218,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
       // Begin the natural return before the Mixamo action expires. Waiting
       // for "finished" had already allowed its last pose to snap/freeze.
       const current=activeGesture.current;
-      if(current&&current!==clips.idle&&!settling){
+      if(current&&current!==clips.idle&&!settlingRef.current){
        const remaining=(current.getClip().duration-current.time)/
         Math.max(0.05,current.getEffectiveTimeScale());
        if(remaining<=1.65&&current.time>0.03)returnIdle();
@@ -248,7 +249,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
    element.removeEventListener('pointerup',up);element.removeEventListener('pointercancel',up);
    element.removeEventListener('lostpointercapture',up);element.removeEventListener('wheel',wheel);
    cancelResize();facial?.dispose();controlRef.current=null;
-   mixerRef.current?.stopAllAction?.();mixerRef.current=null;gestureRef.current={};activeGesture.current=null;
+   mixerRef.current?.stopAllAction?.();mixerRef.current=null;gestureRef.current={};activeGesture.current=null;settlingRef.current=false;
    root?.traverse?.((obj:any)=>{
     obj.geometry?.dispose?.();
     const materials=Array.isArray(obj.material)?obj.material:[obj.material];
@@ -259,8 +260,9 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
  },[retry]);
  const pose=(name:string)=>{
   const action=gestureRef.current[name];if(!action||!mixerRef.current)return;
-  activeGesture.current?.fadeOut(.75);
-  action.reset().setEffectiveWeight(1).fadeIn(.75).play();
+  settlingRef.current=false;
+  activeGesture.current?.fadeOut(1.12);
+  action.reset().setEffectiveWeight(1).fadeIn(1.12).play();
   activeGesture.current=action;
  };
  const showFaceDemo=()=>{
