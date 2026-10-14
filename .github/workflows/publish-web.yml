@@ -29,10 +29,14 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Probar carrusel de bienvenida y navegación antes del registro
+        run: node scripts/verify-nexo-onboarding.cjs
+
       - name: Actualizar conocimiento de Nexo desde funciones verificadas
         run: |
           node scripts/build-nexo-knowledge.cjs
           node scripts/verify-nexo-knowledge.cjs
+          node scripts/review-nexo-answers.cjs
 
       - name: Reconstruir modelo oficial 3D de Nexo
         run: node scripts/restore-nexo-male.cjs
@@ -128,6 +132,7 @@ jobs:
 
       - name: Comprobar nuevo modelo Nexa en paquete web
         run: |
+          test -s dist/knowledge/nexo-answer-review.json
           test -s dist/models/Nexa_Android_FacialReady_v1.glb
           test -s dist/models/Nexo_FacialReady_v1.glb
 
@@ -148,7 +153,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           node scripts/report-code-lines.cjs docs/LINEAS-CODIGO.json
-          git add public/models/Nexa_FacialRig_V2.glb docs/LINEAS-CODIGO.json public/models/Nexo_FacialReady_v1.glb public/models/Nexa_Android_FacialReady_v1.glb public/knowledge/nexo-capabilities.json public/knowledge/nexo-learning-history.json
+          git add public/models/Nexa_FacialRig_V2.glb docs/LINEAS-CODIGO.json public/models/Nexo_FacialReady_v1.glb public/models/Nexa_Android_FacialReady_v1.glb public/knowledge/nexo-capabilities.json public/knowledge/nexo-learning-history.json public/knowledge/nexo-answer-review.json
           if ! git diff --cached --quiet; then
             git commit -m "Build Nexa and Nexo facially rigged models [skip ci]"
             git push origin HEAD:main
