@@ -161,6 +161,7 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
     if(!facial.available)throw Error('Los controles faciales del archivo no coinciden.');
     const mixer=new THREE.AnimationMixer(root);mixerRef.current=mixer;
     const clips:Record<string,any>={};
+    const baseSpeeds=new Map<any,number>();
     // A neutral, named rest action restores a natural posture after every
     // single-shot salute. Stopped Mixamo clips previously froze their final pose.
     // Original Meshy rest has the arms spread. Rebuild a genuine down-arms
@@ -184,7 +185,9 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
      // Keep every original movement, adding 3 genuine seconds to the clip
      // instead of holding its frozen last pose for three seconds.
      const originalDuration=Math.max(.5,bodyClip.duration||1);
-     clips[name].setEffectiveTimeScale(originalDuration/(originalDuration+3));
+     const nominalSpeed=originalDuration/(originalDuration+3);
+     baseSpeeds.set(clips[name],nominalSpeed);
+     clips[name].setEffectiveTimeScale(nominalSpeed);
      clips[name].setLoop(THREE.LoopOnce,1);
      clips[name].clampWhenFinished=false;
     }
@@ -218,8 +221,16 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
       // for "finished" had already allowed its last pose to snap/freeze.
       const current=activeGesture.current;
       if(current&&current!==clips.idle&&!settlingRef.current){
-       const remaining=(current.getClip().duration-current.time)/
-        Math.max(0.05,current.getEffectiveTimeScale());
+       const duration=current.getClip().duration;
+       const progress=clamp(current.time/Math.max(.01,duration),0,1);
+       // Gradually soften the final 40% of the motion, before blending
+       // shoulders and hands back to the idle pose; no abrupt speed cut.
+       const phase=clamp((progress-.58)/.42,0,1);
+       const eased=phase*phase*(3-2*phase);
+       const nominalSpeed=baseSpeeds.get(current)||1;
+       current.setEffectiveTimeScale(nominalSpeed*(1-.28*eased));
+       const remaining=(duration-current.time)/
+        Math.max(.05,current.getEffectiveTimeScale());
        if(remaining<=1.65&&current.time>0.03)returnIdle();
       }
       const isDemo=clock<demoUntil.current;
