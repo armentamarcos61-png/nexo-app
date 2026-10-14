@@ -150,6 +150,24 @@ export function Action({
   );
 }
 
+/** A concise instruction for fields without a screen-specific example. */
+function getNexoFieldHint(label:string):string {
+  const key=label.toLocaleLowerCase('es').normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g,'').replace(/[*:]/g,'').trim();
+  if(/fecha|nacimiento/.test(key))return 'Usa DD/MM/AAAA: día, mes y año con cuatro números.';
+  if(/correo|email/.test(key))return 'Ejemplo: nombre@correo.com, sin espacios.';
+  if(/contrasena/.test(key))return 'Escribe tu contraseña de forma privada y segura.';
+  if(/usuario/.test(key))return 'Escribe un nombre de usuario fácil de recordar.';
+  if(/nombre|apellido|titulo|puesto/.test(key))return 'Escribe un nombre claro y reconocible.';
+  if(/precio|importe|pago|sueldo|presupuesto/.test(key))return 'Escribe la cantidad en números; comprueba la moneda y el periodo.';
+  if(/ubicacion|zona|ciudad|direccion/.test(key))return 'Escribe la ciudad o zona que corresponda, sin datos privados innecesarios.';
+  if(/categoria|especialidad|profesion/.test(key))return 'Elige o escribe la categoría que mejor describe tu actividad.';
+  if(/descripcion|detalle|experiencia|habilidad/.test(key))
+    return 'Explica brevemente qué ofreces o necesitas con información concreta.';
+  if(/buscar|busqueda|pregunta/.test(key))return 'Escribe palabras relacionadas con lo que buscas.';
+  return 'Completa este dato de forma clara. El asterisco (*) indica que es obligatorio.';
+}
+
 /** All form inputs can show a short, persistent example BELOW the field.
  * This stays visible after typing and does not mix with the typed black text. */
 export function Field({ label, hint, ...props }: TextInputProps & { label: string; hint?: string }) {
@@ -211,11 +229,9 @@ export function Field({ label, hint, ...props }: TextInputProps & { label: strin
           </Pressable>
         ) : null}
       </View>
-      {hint ? (
-        <Text style={[ui.fieldHint,{color:palette.muted}]} accessibilityRole="text">
-          ⓘ {hint}
-        </Text>
-      ) : null}
+      <Text style={[ui.fieldHint,{color:palette.muted}]} accessibilityRole="text">
+        ⓘ {hint ?? getNexoFieldHint(label)}
+      </Text>
     </View>
   );
 }
