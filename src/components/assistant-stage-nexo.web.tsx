@@ -201,12 +201,11 @@ export function NexoModelStage({speaking=false,speechText=''}:Props){
      settlingRef.current=true;
     };
     mixer.addEventListener('finished',returnIdle);
-    const initial=clips['wave_one_hand'];
-    if(initial){
-     clips.idle.fadeOut(1.12);
-     initial.reset().setEffectiveWeight(1).fadeIn(1.12).play();
-     activeGesture.current=initial;
-    } else activeGesture.current=clips.idle;
+    // Enter with relaxed hands DOWN. The previous automatic salute meant
+    // the user never saw the corrected idle until eight seconds later.
+    // Saludar still plays the full-length gesture when explicitly selected.
+    activeGesture.current=clips.idle;
+    settlingRef.current=false;
     setLoaded(true);
     setStatus('Nexo 3D · rostro y cuerpo articulados');
     const animate=(now:number)=>{
