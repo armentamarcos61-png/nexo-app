@@ -9,6 +9,7 @@ import { installNexaFaceRig, type NexaFaceRig } from '@/lib/nexa-face-rig';
 import { addNexaCollar, composeNexaHeadBody, disposeNexaBackHair, disposeNexaCollar, joinNexaBackHair, maskNexaStudioHead, updateNexaBackHair } from '@/lib/nexa-composite';
 import { installNexaPremiumLook, type PremiumNexaLook } from '@/lib/nexa-premium-look';
 import { NexoModelStage } from '@/components/assistant-stage-nexo.web';
+import {relaxedIdleClip} from '@/lib/assistant-relaxed-pose';
 
 type Props = { profile: AssistantProfile; speaking?: boolean; speechText?: string };
 // Bundled with the app: loading Nexa must not depend on a third-party CDN.
@@ -566,8 +567,8 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             const sourceClip=gltf.animations.find((a:any)=>a.name===sourceName);
             // Use controlled arm-bone animation for Studio instead of inert
             // clips. The imported whole-body animations remain fallbacks.
-            const safeClip=studio
-              ? (name==='Idle'||name==='Talking'||name==='Greeting'
+            const safeClip=name==='Idle'?relaxedIdleClip(THREE,modelRoot,4):studio
+              ? (name==='Talking'||name==='Greeting'
                   ? syntheticGesture(name)
                   : new THREE.AnimationClip(name,1,[]))
               : (sourceClip?.clone() ??
@@ -578,7 +579,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
               if(forbidden)return false;
               // Legacy keyframes restore the horizontal Studio T-pose each
               // frame. Never let idle/locomotion overwrite the calibrated arms.
-              if (studio && /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)) return false;
+              if (studio && name!=='Idle' && /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)) return false;
               if(name==='Talking'||name==='Greeting')
                 return /(?:Left|Right)(?:Arm|ForeArm|Shoulder|Hand)/i.test(track.name)
                   && /quaternion|rotation/i.test(track.name);
@@ -588,7 +589,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             actions[name].enabled=true;
             if(name==='Greeting'){
               actions[name].setLoop(THREE.LoopOnce,1);
-              actions[name].clampWhenFinished=true;
+              actions[name].clampWhenFinished=false;
             } else actions[name].setLoop(THREE.LoopRepeat);
           }
           controllerRef.current=new NexaAnimationController(mixer,actions,modelRoot,
