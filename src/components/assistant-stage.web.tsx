@@ -516,7 +516,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
           // actual arm bones with minimal rotations; original facial geometry,
           // chest logo, textures and head are never animated by it.
           const syntheticGesture=(name:string)=>{
-            const times=[0,.22,.45,.68,.88,1.08,1.28,1.50,1.72,1.94,2.18,2.40];
+            const times=[0,.5,1,1.53,1.98,2.43,2.88,3.38,3.87,4.36,4.91,5.40];
             const wave=[0,.38,.75,1,.72,1,.70,1,.66,.44,.17,0];
             const tracks:any[]=[];
             for(const side of ['Left','Right']){
@@ -554,7 +554,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
                   bone.name+'.quaternion',times,values));
               }
             }
-            return new THREE.AnimationClip(name,2.40,tracks);
+            return new THREE.AnimationClip(name,5.40,tracks);
           };
           for(const name of names){
             const sourceName=variant==='android'
@@ -592,7 +592,10 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             } else actions[name].setLoop(THREE.LoopRepeat);
           }
           controllerRef.current=new NexaAnimationController(mixer,actions,modelRoot,
-            variant==='android'?0.88:undefined);
+            variant==='android'?0.58:undefined);
+          // The Android Nexa is the default. Its salute button was wired
+          // only for the old Studio compositor and silently did nothing.
+          greetRef.current=()=>{controllerRef.current?.greet();composite?.greet();};
           if(speakingRef.current) controllerRef.current.startSpeaking();
           if (!speakingRef.current) controllerRef.current.greet();
           // Start with a gentle, cross-faded hello; never force walking/running.
@@ -742,7 +745,7 @@ function NexaStage({ profile, speaking = false, speechText = '' }: Props) {
             accessibilityLabel="Probar parpadeo, mirada, cejas y boca de Nexa"
             onPress={() => {
               faceRigRef.current?.setSpeechText('Hola, soy Nexa. Bienvenido a Nexo.');
-              facialDemoUntilRef.current=elapsedRef.current+5.5;
+              facialDemoUntilRef.current=elapsedRef.current+8.5;
               if (hasBody || variant!=='studio') changeView('face');
             }}
             style={[styles.cameraMode,styles.cameraModeActive]}>
