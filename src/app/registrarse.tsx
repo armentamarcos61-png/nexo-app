@@ -20,6 +20,14 @@ function validBirthDate(value: string) {
     && year <= new Date().getFullYear();
 }
 
+/** Format pasted or typed digits without losing a real day/month/year. */
+function formatBirthDate(raw:string):string{
+  const digits=raw.replace(/\\D/g,'').slice(0,8);
+  if(digits.length<=2)return digits;
+  if(digits.length<=4)return digits.slice(0,2)+'/'+digits.slice(2);
+  return digits.slice(0,2)+'/'+digits.slice(2,4)+'/'+digits.slice(4);
+}
+
 export default function RegistrarseScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
@@ -102,6 +110,7 @@ export default function RegistrarseScreen() {
 
       <Field
         label="Primer nombre *"
+        hint="Escribe tu primer nombre, como aparece en tus datos personales."
         value={firstName}
         onChangeText={setFirstName}
         placeholder="Ej. Juan"
@@ -111,6 +120,7 @@ export default function RegistrarseScreen() {
 
       <Field
         label="Primer apellido *"
+        hint="Escribe tu primer apellido, sin incluir otros datos."
         value={firstSurname}
         onChangeText={setFirstSurname}
         placeholder="Ej. Arriola"
@@ -120,6 +130,7 @@ export default function RegistrarseScreen() {
 
       <Field
         label="Nombre de usuario *"
+        hint="De 3 a 24 caracteres: letras, números, punto (.) o guion bajo (_)."
         value={username}
         onChangeText={setUsername}
         placeholder="Ej. juan.arriola"
@@ -131,6 +142,7 @@ export default function RegistrarseScreen() {
 
       <Field
         label="Correo electrónico *"
+        hint="Ejemplo: nombre@correo.com. Debe ser un correo al que tengas acceso."
         value={email}
         onChangeText={setEmail}
         placeholder="correo@ejemplo.com"
@@ -143,8 +155,9 @@ export default function RegistrarseScreen() {
 
       <Field
         label="Fecha de nacimiento *"
+        hint="DD/MM/AAAA: día (2 números) / mes (2 números) / año (4 números). Ejemplo: 09/03/2007."
         value={birthDate}
-        onChangeText={setBirthDate}
+        onChangeText={(value)=>setBirthDate(formatBirthDate(value))}
         placeholder="DD/MM/AAAA"
         keyboardType="numeric"
         maxLength={10}
@@ -152,6 +165,7 @@ export default function RegistrarseScreen() {
 
       <Field
         label="Contraseña *"
+        hint="Crea una contraseña única de al menos 6 caracteres. No la compartas."
         value={password}
         onChangeText={setPassword}
         placeholder="Mínimo 6 caracteres"
@@ -163,6 +177,7 @@ export default function RegistrarseScreen() {
 
       <Field
         label="Confirmar contraseña *"
+        hint="Vuelve a escribir exactamente la misma contraseña para confirmarla."
         value={confirm}
         onChangeText={setConfirm}
         placeholder="Repite tu contraseña"
