@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "revision": "f41bd1d39713b21c8d6f590a",
-  "generatedAt": "2026-10-13T21:03:15.127Z",
+  "revision": "9ace1cccc44a9a06ad28ee55",
+  "generatedAt": "2026-10-14T05:13:07.979Z",
   "capabilities": {
     "home": {
       "status": "available",
@@ -90,6 +90,11 @@
       "route": "/asistente",
       "title": "Asistente Nexo",
       "evidence": "src/app/asistente.tsx"
+    },
+    {
+      "route": "/bienvenida",
+      "title": "bienvenida",
+      "evidence": "src/app/bienvenida.tsx"
     },
     {
       "route": "/borradores",

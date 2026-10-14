@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "revision": "1b630dcbc883474a686d7f07",
+  "reviewedAt": "2026-10-14T05:13:08.321Z",
+  "definition": "Preguntas sintéticas sobre el código de Nexo, probadas para ambos asistentes. No contiene conversaciones privadas.",
+  "assistants": [
+    "nexo",
+    "nexa"
+  ],
+  "questionsChecked": 66,
+  "scenariosCreatedAutomatically": 20,
+  "passed": 50,
+  "failed": 16,
+  "averageScore": 77,
+  "topicsNeedingImprovement": [
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla Asistente Nexo de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla bienvenida de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla Mis borradores de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla Elige tu asistente de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla Buscar en Nexo de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla explore de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla Productos de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla Nexo resuelve de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla Asistente Nexo de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla bienvenida de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla Mis borradores de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla Elige tu asistente de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla Buscar en Nexo de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla explore de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla Productos de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla Nexo resuelve de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    }
+  ],
+  "recommendations": [
+    "Revisar expresiones de intención y respuestas del catálogo; nunca aceptar datos externos sin comprobarlos."
+  ]
+}
