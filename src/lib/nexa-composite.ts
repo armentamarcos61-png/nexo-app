@@ -1291,7 +1291,7 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
       // The approved Studio is only the head. Animate the REAL visible
       // full-body arms, rather than an invisible overlapping Studio sleeve.
       greetingElapsed=0;
-      greetingRemaining=5.2;
+      greetingRemaining=8.2;
     },
     update(dt:number,speaking:boolean) {
       const frame=THREE.MathUtils.clamp(Number.isFinite(dt)?dt:0,0,0.08);
@@ -1301,20 +1301,20 @@ export function composeNexaHeadBody(THREE:any, studio:any, body:any, renderer:an
         greetingElapsed+=frame;
         greetingRemaining=Math.max(0,greetingRemaining-frame);
       } else if(speaking) greetingRemaining=0;
-      const hello=smooth(greetingElapsed/.62)*smooth(greetingRemaining/.86);
+      const hello=smooth(greetingElapsed/.92)*smooth(greetingRemaining/1.08);
       for (const entry of gestureBones) {
         const forearm=entry.phase!==0;
         const talkAngle=entry.side*gestureBlend*(
           (forearm?0.040:0.066) +
           (forearm?0.019:0.026)*Math.sin(gestureTime*2.1+entry.phase)
         );
-        // 5-second wave has a soft arrival/exit, with a small supporting
+        // 8.2-second wave has a soft arrival/exit, with a small supporting
         // left arm. Never rotate hips, hair, face or neck.
         const waving=entry.side===-1;
         const helloAngle=hello*(waving
           ? (entry.phase===0 ? -0.28
-             : entry.phase<1 ? 0.34+0.11*Math.sin(greetingElapsed*8.0)
-             : 0.20*Math.sin(greetingElapsed*9.3))
+             : entry.phase<1 ? 0.34+0.11*Math.sin(greetingElapsed*5.2)
+             : 0.20*Math.sin(greetingElapsed*6.1))
           : entry.phase===0?0.045:0);
         entry.bone.quaternion.copy(entry.rest).multiply(
           new THREE.Quaternion().setFromAxisAngle(
