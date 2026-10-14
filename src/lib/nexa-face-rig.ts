@@ -7,6 +7,7 @@ export interface NexaFaceRig {
   available: boolean;
   beforeUpdate(): void;
   setSpeechText(text: string): void;
+  blinkNow(): void;
   update(dt: number, seconds: number, speaking: boolean): void;
 }
 type CoreName = 'MouthOpen'|'MouthO'|'MouthWide'|'MouthSmile'|
@@ -121,15 +122,15 @@ export function calibrateNexaFacialMorphs(root:any):number {
     }
     // Mouth targets already isolate lip vertices. Scale those morphs, not the
     // head bone or whole face; do not synthesize a second, disconnected jaw.
-    clampScale('MouthOpen',0.155,2.9);
+    clampScale('MouthOpen',0.175,3.1);
     clampScale('MouthO',0.050,3.4);
     clampScale('MouthWide',0.056,3.6);
     clampScale('EyeLookLeft',0.045,2.9);
     clampScale('EyeLookRight',0.045,2.9);
     clampScale('EyeLookUp',0.030,2.7);
     clampScale('EyeLookDown',0.030,2.7);
-    clampScale('BrowRaiseLeft',0.045,2.1);
-    clampScale('BrowRaiseRight',0.045,2.1);
+    clampScale('BrowRaiseLeft',0.048,2.2);
+    clampScale('BrowRaiseRight',0.048,2.2);
   });
   return tuned;
 }
@@ -255,6 +256,11 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       parseSpeech(text);
       speechStart=recentSeconds;
     },
+    blinkNow(){
+      // Demonstration triggers an unmistakable but still anatomically
+      // bounded blink, without waiting 3 seconds for the next idle blink.
+      blinkAt=recentSeconds+0.08;
+    },
     update(dt:number,seconds:number,speaking:boolean){
       if (!Number.isFinite(dt)||dt<=0||!binding.length) return;
       dt=clamp(dt,0,0.08);
@@ -309,9 +315,9 @@ export function installNexaFaceRig(_THREE: any, root: any): NexaFaceRig {
       let blink=0;
       if(seconds>=blinkAt){
         const age=seconds-blinkAt;
-        blink=age<0.13?ease(age/0.13):age<0.225?1:age<0.45?
-          1-ease((age-0.225)/0.225):0;
-        if(age>=0.45) blinkAt+=2.75+0.55*Math.sin(blinkAt*0.53);
+        blink=age<0.16?ease(age/0.16):age<0.29?1:age<0.54?
+          1-ease((age-0.29)/0.25):0;
+        if(age>=0.54) blinkAt+=2.70+0.55*Math.sin(blinkAt*0.53);
       }
       values.EyeBlinkLeft=values.EyeBlinkRight=blink;
       // Iris look targets are independent of the eyebrow expression.
