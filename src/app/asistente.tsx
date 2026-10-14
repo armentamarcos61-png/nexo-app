@@ -12,6 +12,7 @@ import { useAssistant } from '@/state/assistant';
 import { useAuth } from '@/state/auth';
 import { clearNexaHistory, readNexaHistory, recallNexaNote, rememberNexaConversation, type NexaReply, type NexaSource } from '@/lib/nexa-knowledge';
 import { answerVerifiedNexoQuestion, auditNexoKnowledge, refreshNexoKnowledge } from '@/lib/nexo-product-knowledge';
+import { reviewNexoAnswer } from '@/lib/assistant-answer-review';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 type BrowserSpeechRecognition = {
@@ -131,7 +132,11 @@ export default function AsistenteScreen() {
         // The self-check runs BEFORE composing the answer. Unknown features
         // never fall through to Wikipedia or to old, unverified chat snippets.
         await refreshNexoKnowledge();
-        evaluated=answerVerifiedNexoQuestion(questionText,metric.intentKey);
+        const candidate=answerVerifiedNexoQuestion(questionText,metric.intentKey);
+        // Self-review exact intent, source-backed status and next step BEFORE
+        // any answer appears on screen or is spoken by Nexo/Nexa.
+        const checked=reviewNexoAnswer(questionText,candidate);
+        evaluated=checked.reviewedAnswer;
         auditNexoKnowledge(evaluated);
         reply={text:evaluated.text,sources:[],online:false};
       }
