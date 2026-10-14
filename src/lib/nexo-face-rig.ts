@@ -61,7 +61,7 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
   delta[name]=value;
   for(const c of channels.get(name)||[])c.mesh.morphTargetInfluences[c.index]=value;
  };
- let nextBlink=2.2,lastBlink=-10;
+ let nextBlink=1.85,lastBlink=-10;
  // The original Meshy character has a painted mouth; the rose opening
  // supplements small lip morphs only while actually talking.
  let inner:any=null;
@@ -118,16 +118,16 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
    // Upper lids close together in 110ms and reopen in 180ms.
    if(time>=nextBlink){
     lastBlink=time;
-    nextBlink=time+3.0+1.9*(.5+.5*Math.sin(time*1.37));
+    nextBlink=time+2.65+1.10*(.5+.5*Math.sin(time*1.37));
    }
    const age=time-lastBlink;
-   const blink=age<0?0:age<.11?ease(age/.11):age<.18?1:
-    age<.38?1-ease((age-.18)/.20):0;
+   const blink=age<0?0:age<.13?ease(age/.13):age<.23?1:
+    age<.45?1-ease((age-.23)/.22):0;
    // Importer-side morph geometry has matched displacement amplitudes.
    set('EyeBlinkLeft',blink,safeDt,32);
    set('EyeBlinkRight',blink,safeDt,32);
-   const lookX=.52*Math.sin(time*.43)*(.65+.35*Math.sin(time*.27));
-   const lookY=.26*Math.sin(time*.29);
+   const lookX=.60*Math.sin(time*.43)*(.65+.35*Math.sin(time*.27));
+   const lookY=.31*Math.sin(time*.29);
    set('EyeLookLeft',Math.max(0,-lookX),safeDt,4);
    set('EyeLookRight',Math.max(0,lookX),safeDt,4);
    set('EyeLookUp',Math.max(0,lookY),safeDt,4);
@@ -140,8 +140,8 @@ export function installNexoFaceRig(THREE:any,root:any):NexoFaceController{
    set('MouthOpen',open,safeDt,18);
    set('MouthO',speaking&&/[oóuú]/.test(phoneme)?.45:0,safeDt,15);
    set('MouthWide',speaking&&/[ieíé]/.test(phoneme)?.34:0,safeDt,14);
-   set('MouthSmile',speaking?.10:.17,safeDt,4);
-   const eyebrow=speaking?.29+.10*Math.sin(time*4.8):.14+.06*Math.sin(time*.8);
+   set('MouthSmile',speaking?.09:.14,safeDt,4);
+   const eyebrow=speaking?.34+.10*Math.sin(time*3.8):.19+.075*Math.sin(time*.8);
    set('BrowRaiseLeft',eyebrow,safeDt,4);
    set('BrowRaiseRight',eyebrow*.93,safeDt,4);
    if(inner&&innerMaterial){
