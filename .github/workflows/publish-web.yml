@@ -54,6 +54,9 @@ jobs:
       - name: Reconstruir nuevo Nexa Android 3D con animaciones y rostro
         run: node scripts/restore-nexa-android.cjs
 
+      - name: Verificar animaciones tres segundos más largas y pistas de formularios
+        run: node scripts/verify-nexo-motion-forms.cjs
+
       - name: Comprobar movimientos y rig facial del asistente masculino Nexo
         run: node scripts/verify-nexo-biped.cjs
 
