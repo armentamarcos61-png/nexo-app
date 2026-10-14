@@ -153,7 +153,7 @@ export function Action({
 /** A concise instruction for fields without a screen-specific example. */
 function getNexoFieldHint(label:string):string {
   const key=label.toLocaleLowerCase('es').normalize('NFD')
-    .replace(/[\\u0300-\\u036f]/g,'').replace(/[*:]/g,'').trim();
+    .replace(/[\u0300-\u036f]/g,'').replace(/[*:]/g,'').trim();
   if(/fecha|nacimiento/.test(key))return 'Usa DD/MM/AAAA: día, mes y año con cuatro números.';
   if(/correo|email/.test(key))return 'Ejemplo: nombre@correo.com, sin espacios.';
   if(/contrasena/.test(key))return 'Escribe tu contraseña de forma privada y segura.';
