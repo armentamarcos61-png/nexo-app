@@ -64,6 +64,9 @@ jobs:
       - name: Comprobar geometría de unión Nexa Studio + cuerpo completo
         run: node scripts/verify-nexa-composite.cjs
 
+      - name: Verificar animaciones tres segundos más largas y pistas de formularios
+        run: node scripts/verify-nexo-motion-forms.cjs
+
       - name: Verificar TypeScript
         run: npx tsc --noEmit
 
