@@ -9,8 +9,9 @@ import {
 import {
   acceptControlRedirect, controlApplySettings, controlCreateIdea,
   controlIdeaStatus, controlLogout, hasControlSession, loadControlDashboard,
+  loadControlFeedbackPage, controlUpdateFeedbackReview,
   parseControlCommand, sendControlEmail, verifyControlEmail,
-  type ControlDashboard, type ControlIdea, type ParsedControlCommand,
+  type ControlDashboard, type ControlIdea, type ControlFeedback, type ParsedControlCommand,
   type RuntimeSettings, type ActionId,
 } from '@/lib/nexo-control-api';
 
@@ -23,6 +24,8 @@ const ideaStatuses:Record<ControlIdea['status'],string>={
   implemented:'Implementada',rejected:'Descartada',
 };
 const phases:ControlIdea['status'][]=['pending','review','approved','implemented','rejected'];
+const improvementStates:ControlFeedback['review_status'][]=['pending','review','implemented','rejected'];
+const improvementLabels={pending:'Pendiente',review:'En revisión',implemented:'Implementada',rejected:'Descartada'};
 const accentHex={cyan:'#54DEFF',violet:'#BC8DFF',orange:'#FFA362',teal:'#56EDC7'};
 type Tab='resumen'|'ordenes'|'ideas'|'feedback'|'versiones';
 function Btn({label,onPress,disabled=false,primary=false}:{
@@ -53,6 +56,8 @@ export default function NexoControlScreen(){
  const [command,setCommand]=useState('');
  const [micStatus,setMicStatus]=useState('');
  const [listening,setListening]=useState(false);
+ const [feedbackQuery,setFeedbackQuery]=useState('');
+ const [reviewNotes,setReviewNotes]=useState<Record<string,string>>({});
  const [proposal,setProposal]=useState<ParsedControlCommand|null>(null);
  const [draft,setDraft]=useState<RuntimeSettings|null>(null);
  const recognizer=useRef<{start:()=>void;stop:()=>void}|null>(null);
@@ -158,6 +163,25 @@ export default function NexoControlScreen(){
    await refresh();setNotice('Estado actualizado.');
   });
  }
+ async function saveImprovement(entry:ControlFeedback,status:ControlFeedback['review_status']){
+  await doWork(async()=>{
+   const note=reviewNotes[entry.response_id]??entry.review_note??'';
+   await controlUpdateFeedbackReview(entry.response_id,status,note);
+   setDashboard(old=>old?{...old,feedback:old.feedback.map(x=>
+    x.response_id===entry.response_id?{...x,review_status:status,review_note:note}:x)}:old);
+   setNotice('Seguimiento de mejora actualizado.');
+  });
+ }
+ async function moreImprovements(){
+  await doWork(async()=>{
+   const page=await loadControlFeedbackPage(dashboard?.feedback.length||0);
+   setDashboard(old=>old?{...old,
+    feedback:[...old.feedback,...page.feedback.filter(item=>
+     !old.feedback.some(x=>x.response_id===item.response_id))],
+    feedbackHasMore:page.feedbackHasMore,
+    feedbackTotals:page.feedbackTotals}:old);
+  });
+ }
  function moveAction(id:ActionId,offset:number){
   const order=[...settings.action_order];const at=order.indexOf(id);
   const dest=at+offset;if(at<0||dest<0||dest>=order.length)return;
@@ -215,7 +239,7 @@ export default function NexoControlScreen(){
       <Btn label="Salir" onPress={()=>{controlLogout();setDashboard(null);setSent(false);setNotice('');}}/>
      </View>
      <View style={styles.tabs}>
-      {([['resumen','Resumen'],['ordenes','Órdenes'],['ideas','Ideas'],['feedback','Respuestas'],['versiones','Versiones']] as const)
+      {([['resumen','Resumen'],['ordenes','Órdenes'],['ideas','Ideas'],['feedback','Historial de mejora'],['versiones','Versiones']] as const)
         .map(([key,label])=><Pressable key={key} onPress={()=>setTab(key)} style={[styles.tab,tab===key&&styles.tabActive]}>
          <Text style={[styles.tabText,tab===key&&{color:'#85EDFF'}]}>{label}</Text>
         </Pressable>)}
@@ -309,18 +333,23 @@ export default function NexoControlScreen(){
        <Text style={styles.muted}>Todavía no hay ideas. Abre Órdenes para registrar la primera.</Text>}
      </>:null}
      {tab==='feedback'?<>
-      <Text style={styles.sectionTitle}>Comentarios de Nexo y Nexa</Text>
+      <Text style={styles.sectionTitle}>Historial de mejora para implementación</Text>
       <Text style={styles.muted}>
         Solo para cuentas de desarrollador verificadas. Las preguntas completas
         se muestran únicamente cuando el usuario autoriza compartir el contexto.
       </Text>
       <View style={styles.stats}>
-        <Stat label="Valoraciones recientes" count={dashboard.feedbackTotals?.total||0}/>
+        <Stat label="Valoraciones acumuladas" count={dashboard.feedbackTotals?.total||0}/>
         <Stat label="👍 Me gustó" count={dashboard.feedbackTotals?.likes||0}/>
         <Stat label="👎 No me gustó" count={dashboard.feedbackTotals?.dislikes||0}/>
         <Stat label="Comentarios" count={dashboard.feedbackTotals?.comments||0}/>
       </View>
-      {dashboard.feedback?.length?dashboard.feedback.map(entry=>(
+      <TextInput value={feedbackQuery} onChangeText={setFeedbackQuery}
+       style={styles.input} placeholder="Buscar en historial cargado" placeholderTextColor="#7185A0"/>
+      {dashboard.feedback?.length?dashboard.feedback.filter(entry=>
+       [entry.intent_key,entry.comment,entry.context_shared?entry.question_text:'',
+        entry.context_shared?entry.answer_text:''].filter(Boolean).join(' ').toLowerCase()
+        .includes(feedbackQuery.trim().toLowerCase())).map(entry=>(
         <View style={styles.box} key={entry.response_id}>
           <Text style={styles.heading}>
             {entry.rating==='up'?'👍 Me gustó':entry.rating==='down'
@@ -337,8 +366,27 @@ export default function NexoControlScreen(){
               <Text style={styles.muted}>Respuesta: {entry.answer_text}</Text>
             </View>:
             <Text style={styles.dimSmall}>No compartió el texto de la conversación.</Text>}
+           <Text style={styles.fieldLabel}>Estado: {improvementLabels[entry.review_status||'pending']}</Text>
+           <View style={styles.buttonRow}>
+            {improvementStates.map(st=><Pressable key={st} disabled={working}
+             onPress={()=>{void saveImprovement(entry,st);}}
+             style={[styles.smallChip,entry.review_status===st&&styles.chipActive]}>
+             <Text style={styles.chipText}>{improvementLabels[st]}</Text>
+            </Pressable>)}
+           </View>
+           <Text style={styles.fieldLabel}>Nota para implementación</Text>
+           <TextInput multiline style={[styles.input,styles.commandInput]}
+            value={reviewNotes[entry.response_id]??entry.review_note??''}
+            maxLength={800}
+            onChangeText={value=>setReviewNotes(old=>({...old,[entry.response_id]:value}))}
+            placeholder="Qué hay que corregir…" placeholderTextColor="#7185A0"/>
+           <Btn primary label="Guardar nota" disabled={working}
+            onPress={()=>{void saveImprovement(entry,entry.review_status||'pending');}}/>
         </View>
       )):<Text style={styles.muted}>Aún no se han recibido valoraciones.</Text>}
+      {dashboard.feedbackHasMore&&<Btn label="Cargar más historial" disabled={working}
+        onPress={()=>{void moreImprovements();}}/>}
+      <Text style={styles.dimSmall}>Marcar Implementada registra el seguimiento; no publica código automáticamente.</Text>
      </>:null}
      {tab==='versiones'?<>
       <Text style={styles.sectionTitle}>Ejecuciones y publicaciones</Text>
