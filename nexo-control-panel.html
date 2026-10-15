@@ -103,6 +103,7 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <button class="tab" aria-selected="true" data-tab="summary">Resumen</button>
 <button class="tab" aria-selected="false" data-tab="commands">Órdenes</button>
 <button class="tab" aria-selected="false" data-tab="ideas">Ideas</button>
+<button class="tab" aria-selected="false" data-tab="feedback">Respuestas 👍👎</button>
 <button class="tab" aria-selected="false" data-tab="versions">Versiones</button>
 </div>
 <div id="summary" data-page="summary">
@@ -146,6 +147,21 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 </div>
 <div id="ideas" data-page="ideas" class="hidden"><section class="panel"><h2>Solicitudes de implementación</h2>
 <p>Las instrucciones pendientes, los cambios por revisar y las funciones terminadas. La generación de código puede tardar varios minutos y requiere acceso a GitHub Models.</p><div id="idea-list"></div></section></div>
+<div id="feedback" data-page="feedback" class="hidden">
+ <section class="panel">
+  <h2>Opiniones sobre Nexo y Nexa</h2>
+  <p>Solo desarrolladores autorizados pueden ver estas valoraciones. Las preguntas
+   completas solo aparecen si el usuario autorizó compartirlas. Los comentarios
+   no se publican ni se usan como hechos nuevos sin revisión.</p>
+  <div class="stats">
+   <div class="stat"><div class="number" id="fb-total">0</div><div class="metric-label">Valoraciones recientes</div></div>
+   <div class="stat"><div class="number" id="fb-likes">0</div><div class="metric-label">👍 Me gustó</div></div>
+   <div class="stat"><div class="number" id="fb-dislikes">0</div><div class="metric-label">👎 No me gustó</div></div>
+   <div class="stat"><div class="number" id="fb-comments">0</div><div class="metric-label">Comentarios</div></div>
+  </div>
+  <div id="feedback-list" aria-live="polite"></div>
+ </section>
+</div>
 <div id="versions" data-page="versions" class="hidden"><section class="panel"><h2>Publicaciones y validaciones</h2>
 <p>Estados obtenidos de GitHub Actions. Una ejecución no equivale a una función terminada.</p><div id="runs"></div>
 <a href="https://github.com/armentamarcos61-png/nexo-app/actions" target="_blank" rel="noopener noreferrer">Ver compilaciones en GitHub ↗</a></section>
@@ -295,7 +311,7 @@ async function load(){
  show('login',false);show('dashboard',true);text('sessionline',data.account.email+' · '+data.account.role);
  text('total',data.metrics.total);text('resolved',data.metrics.resolved);
  text('pending',data.metrics.unresolved);text('searches',data.metrics.searches);
- drawTopics();drawSettings();drawShortcuts();drawIdeas();drawVersions();return data;
+ drawTopics();drawSettings();drawShortcuts();drawIdeas();drawFeedback();drawVersions();return data;
 }
 function drawTopics(){
  const root=$('topics');root.replaceChildren();
@@ -381,6 +397,47 @@ function drawIdeas(){
    }
   }
   parent.append(block);
+ }
+}
+function drawFeedback(){
+ const items=Array.isArray(dashboard.feedback)?dashboard.feedback:[];
+ const totals=dashboard.feedbackTotals||{};
+ text('fb-total',totals.total??items.length);
+ text('fb-likes',totals.likes??0);
+ text('fb-dislikes',totals.dislikes??0);
+ text('fb-comments',totals.comments??0);
+ const box=$('feedback-list');box.replaceChildren();
+ if(!items.length){
+  const p=document.createElement('p');p.className='note';
+  p.textContent='Todavía no hay valoraciones ni comentarios recibidos.';
+  box.append(p);return;
+ }
+ for(const item of items){
+  const card=document.createElement('article');
+  card.className='idea';
+  const title=document.createElement('h3');
+  title.textContent=(item.rating==='up'?'👍 Positiva':
+   item.rating==='down'?'👎 Necesita mejorar':'💬 Comentario')+
+   ' · '+(item.assistant_id==='nexa'?'Nexa':'Nexo');
+  const meta=document.createElement('p');meta.className='note';
+  meta.textContent=(item.intent_key||'Pregunta')+' · '+
+   (item.updated_at?new Date(item.updated_at).toLocaleString('es-MX'):'')+
+   ' · '+(item.context_shared?'Contexto autorizado':'Sin pregunta privada');
+  card.append(title,meta);
+  if(item.comment){
+   const comment=document.createElement('p');
+   comment.style.color='#F3F9FF';
+   comment.textContent=item.comment;
+   card.append(comment);
+  }
+  if(item.context_shared&&item.question_text&&item.answer_text){
+   const q=document.createElement('p');q.className='note';
+   q.textContent='Pregunta: '+item.question_text;
+   const a=document.createElement('p');a.className='note';
+   a.textContent='Respuesta: '+item.answer_text;
+   card.append(q,a);
+  }
+  box.append(card);
  }
 }
 function drawVersions(){

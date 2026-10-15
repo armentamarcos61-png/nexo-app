@@ -28,8 +28,8 @@
     "note": "Revisión automática de código y pantallas. No incorpora respuestas de usuarios sin verificación."
   },
   {
-    "revision": "209ea092c51c73ded19fe8dd",
-    "reviewedAt": "2026-10-15T20:35:44.680Z",
+    "revision": "77395dc272a9acd937b8aa69",
+    "reviewedAt": "2026-10-15T20:44:47.334Z",
     "statusChanges": [],
     "newScreens": [
       "/bienvenida"
