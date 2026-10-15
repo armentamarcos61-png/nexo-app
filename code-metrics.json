@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-10-15T20:57:30.658Z",
+  "generatedAt": "2026-10-15T21:00:13.642Z",
   "definition": "Lineas fisicas incluidas en Git: TS/TSX/JS/JSX/MJS/CJS/PY/CSS/SCSS/HTML/SQL/SH; excluye dependencias, medios, modelos y archivos de compilacion.",
   "files": 126,
-  "totalLines": 33217,
-  "codeLines": 20284,
+  "totalLines": 33297,
+  "codeLines": 20364,
   "configurationLines": 12933,
   "codeFiles": 113,
   "byFolder": {
@@ -16,7 +16,7 @@
     "package.json": 53,
     "public": 996,
     "scripts": 2462,
-    "src": 16606,
+    "src": 16686,
     "supabase": 390,
     "tsconfig.json": 20,
     "vercel.json": 14
@@ -32,7 +32,7 @@
     ".sh": 43,
     ".sql": 42,
     ".ts": 4600,
-    ".tsx": 12249,
+    ".tsx": 12329,
     ".yml": 402
   }
 }
