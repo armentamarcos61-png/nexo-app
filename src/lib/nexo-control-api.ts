@@ -14,9 +14,17 @@ export type ControlMetrics={
  searchCategories:{name:string;count:number}[];
  workflows:{count:number;latest:{name:string;status:string;conclusion:string|null;created_at:string}[]}|null;
 };
+export type ControlFeedback={
+ response_id:string;assistant_id:'nexo'|'nexa';intent_key:string;
+ rating:'up'|'down'|'comment';comment:string;
+ question_text:string|null;answer_text:string|null;context_shared:boolean;
+ created_at:string;updated_at:string;
+};
 export type ControlDashboard={
  account:{email:string;role:string};metrics:ControlMetrics;settings:RuntimeSettings;
  ideas:ControlIdea[];audit:{id:number;action:string;detail:Record<string,unknown>;created_at:string}[];
+ feedback:ControlFeedback[];
+ feedbackTotals:{total:number;likes:number;dislikes:number;comments:number};
 };
 type Session={access_token:string;refresh_token:string;expires_at:number};
 const headers=()=>({'apikey':KEY,'content-type':'application/json'});
