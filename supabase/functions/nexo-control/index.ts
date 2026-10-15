@@ -49,6 +49,26 @@ async function settings(){
 async function audit(actor:string,action:string,detail:object){
   await db.from("nexo_control_audit").insert({actor,action,detail});
 }
+async function feedbackPage(offset=0,limit=50){
+  const page=Math.min(100,Math.max(1,Math.trunc(Number(limit)||50)));
+  const start=Math.max(0,Math.min(1000000,Math.trunc(Number(offset)||0)));
+  const columns="response_id,assistant_id,intent_key,rating,comment,question_text,answer_text,context_shared,review_status,review_note,created_at,updated_at";
+  const [recent,total,likes,dislikes,comments]=await Promise.all([
+    db.from("nexo_assistant_feedback").select(columns)
+      .order("updated_at",{ascending:false}).order("response_id",{ascending:true})
+      .range(start,start+page-1),
+    db.from("nexo_assistant_feedback").select("response_id",{count:"exact",head:true}),
+    db.from("nexo_assistant_feedback").select("response_id",{count:"exact",head:true}).eq("rating","up"),
+    db.from("nexo_assistant_feedback").select("response_id",{count:"exact",head:true}).eq("rating","down"),
+    db.from("nexo_assistant_feedback").select("response_id",{count:"exact",head:true}).neq("comment",""),
+  ]);
+  if(recent.error||total.error||likes.error||dislikes.error||comments.error)
+    throw new Error("No se pudo cargar el historial de mejora.");
+  const feedback=recent.data||[];
+  const feedbackTotals={total:total.count||0,likes:likes.count||0,
+    dislikes:dislikes.count||0,comments:comments.count||0};
+  return {feedback,feedbackTotals,feedbackHasMore:start+feedback.length<feedbackTotals.total};
+}
 async function dashboard(actor:{id:string,email:string,role:string}){
   const [cfg, metricsRes, ideasRes, auditRes, searchRes, jobsRes]=await Promise.all([
     settings(),
@@ -93,20 +113,10 @@ async function dashboard(actor:{id:string,email:string,role:string}){
   }catch{ /* Source unavailable; never invent counts. */ }
   // An admin's preexisting "viewer" role cannot read user feedback.
   // Only the specifically allowlisted owner and developers can review it.
-  let feedback:any[]=[];
-  if(actor.role==="owner"||actor.role==="developer"){
-    const {data:recentFeedback,error:feedbackError}=await db.from("nexo_assistant_feedback")
-      .select("response_id,assistant_id,intent_key,rating,comment,question_text,answer_text,context_shared,created_at,updated_at")
-      .order("updated_at",{ascending:false}).limit(150);
-    if(feedbackError)throw new Error("No se pudieron consultar los comentarios del asistente.");
-    feedback=recentFeedback||[];
-  }
-  const feedbackTotals={
-    total:feedback.length,
-    likes:feedback.filter(row=>row.rating==="up").length,
-    dislikes:feedback.filter(row=>row.rating==="down").length,
-    comments:feedback.filter(row=>!!row.comment).length,
-  };
+  // Viewer accounts never see individual feedback, including user comments.
+  const history=(actor.role==="owner"||actor.role==="developer")
+    ?await feedbackPage():{feedback:[],feedbackTotals:{total:0,likes:0,dislikes:0,comments:0},feedbackHasMore:false};
+  const {feedback,feedbackTotals,feedbackHasMore}=history;
   return {account:{email:actor.email,role:actor.role},
     metrics:{total,resolved,unresolved:total-resolved,
       topics:[...byTopic.values()].sort((a,b)=>b.count-a.count).slice(0,25),
@@ -115,7 +125,7 @@ async function dashboard(actor:{id:string,email:string,role:string}){
       workflows:deployments,
     },
     settings:cfg,ideas:ideasRes.data||[],audit:auditRes.data||[],coding_jobs:jobsRes.data||[],
-    feedback,feedbackTotals};
+    feedback,feedbackTotals,feedbackHasMore};
 }
 const jwks=createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 async function verifyGithubRunner(req:Request):Promise<boolean>{
@@ -181,6 +191,11 @@ Deno.serve(async(req:Request)=>{
       }
       const actor=await admin(req);
       if(!actor)return fail(403,"Acceso de desarrollador no autorizado. Verifica tu correo con Supabase.");
+      if(scope==="feedback"){
+        if(actor.role!=="owner"&&actor.role!=="developer")return fail(403,"Solo desarrolladores autorizados.");
+        const params=new URL(req.url).searchParams;
+        return json(await feedbackPage(params.get("offset")||0,params.get("limit")||50));
+      }
       return json(await dashboard(actor));
     }
     if(req.method!=="POST")return fail(405,"Método no permitido");
@@ -246,6 +261,24 @@ Deno.serve(async(req:Request)=>{
     const actor=await admin(req);
     if(!actor)return fail(403,"Sólo un administrador verificado puede modificar Nexo Control.");
     if(actor.role==="viewer")return fail(403,"Esta cuenta tiene acceso de solo lectura.");
+    if(body.action==="update_feedback_review"){
+      if(actor.role!=="owner"&&actor.role!=="developer")return fail(403,"Solo desarrolladores autorizados.");
+      const responseId=typeof body.responseId==="string"?body.responseId:"";
+      const validId=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const allowed=["pending","review","implemented","rejected"];
+      const note=typeof body.note==="string"?body.note.trim():"";
+      if(!validId.test(responseId)||!allowed.includes(body.status)||note.length>800
+         ||(body.note!==undefined&&typeof body.note!=="string"))
+        return fail(400,"Revisa el estado y la nota de mejora.");
+      const {data,error}=await db.from("nexo_assistant_feedback")
+        .update({review_status:body.status,review_note:note})
+        .eq("response_id",responseId)
+        .select("response_id,review_status,review_note").maybeSingle();
+      if(error)throw error;
+      if(!data)return fail(404,"La valoración ya no existe.");
+      await audit(actor.id,"feedback_review",{response_id:responseId,status:body.status});
+      return json({ok:true,entry:data});
+    }
     if(body.action==="create_idea"){
       const description=typeof body.description==="string"?body.description.trim():"";
       const title=typeof body.title==="string"?body.title.trim():"";
