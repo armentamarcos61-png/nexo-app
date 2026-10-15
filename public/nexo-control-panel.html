@@ -103,7 +103,7 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <button class="tab" aria-selected="true" data-tab="summary">Resumen</button>
 <button class="tab" aria-selected="false" data-tab="commands">Órdenes</button>
 <button class="tab" aria-selected="false" data-tab="ideas">Ideas</button>
-<button class="tab" aria-selected="false" data-tab="feedback">Respuestas 👍👎</button>
+<button class="tab" aria-selected="false" data-tab="feedback">Historial de mejora</button>
 <button class="tab" aria-selected="false" data-tab="versions">Versiones</button>
 </div>
 <div id="summary" data-page="summary">
@@ -123,7 +123,8 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <p>Escribe o dicta: «Pon el color naranja», «Sube Productos al primer lugar» o «Crea una función para compartir portafolios».</p>
 <label for="command">Tu instrucción</label>
 <textarea id="command" placeholder="¿Qué cambiamos en Nexo?"></textarea>
-<div class="row" style="margin-top:12px"><button class="btn" id="dictate">🎙 Dictar</button><button class="btn primary" id="interpret">Preparar cambio</button></div>
+<div class="row" style="margin-top:12px"><button class="btn" id="dictate" type="button">🎙 Dictar</button><button class="btn primary" id="interpret" type="button">Preparar cambio</button></div>
+<p class="note" id="dictate-status" aria-live="polite">Pulsa Dictar y autoriza el micrófono. En Android también puedes usar el micrófono del teclado.</p>
 <div class="panel hidden" id="preview">
 <h2>Confirmar orden</h2><p id="preview-desc"></p>
 <button class="btn primary" id="apply">Confirmar y aplicar</button>
@@ -149,17 +150,40 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <p>Las instrucciones pendientes, los cambios por revisar y las funciones terminadas. La generación de código puede tardar varios minutos y requiere acceso a GitHub Models.</p><div id="idea-list"></div></section></div>
 <div id="feedback" data-page="feedback" class="hidden">
  <section class="panel">
-  <h2>Opiniones sobre Nexo y Nexa</h2>
-  <p>Solo desarrolladores autorizados pueden ver estas valoraciones. Las preguntas
-   completas solo aparecen si el usuario autorizó compartirlas. Los comentarios
-   no se publican ni se usan como hechos nuevos sin revisión.</p>
+  <h2>Historial de mejora para implementación</h2>
+  <p>Seguimiento privado de las respuestas que los usuarios valoraron o comentaron.
+   Se guardan las valoraciones y comentarios recibidos. La pregunta y la respuesta
+   completas solo se muestran si la persona autorizó compartir ese contexto.</p>
   <div class="stats">
-   <div class="stat"><div class="number" id="fb-total">0</div><div class="metric-label">Valoraciones recientes</div></div>
+   <div class="stat"><div class="number" id="fb-total">0</div><div class="metric-label">Valoraciones acumuladas</div></div>
    <div class="stat"><div class="number" id="fb-likes">0</div><div class="metric-label">👍 Me gustó</div></div>
    <div class="stat"><div class="number" id="fb-dislikes">0</div><div class="metric-label">👎 No me gustó</div></div>
-   <div class="stat"><div class="number" id="fb-comments">0</div><div class="metric-label">Comentarios</div></div>
+   <div class="stat"><div class="number" id="fb-comments">0</div><div class="metric-label">💬 Con comentario</div></div>
   </div>
+  <div class="row" style="margin-top:15px;align-items:flex-end">
+   <div style="flex:2 1 200px">
+    <label for="history-search">Buscar en el historial cargado</label>
+    <input type="search" id="history-search" placeholder="Tema, opinión, pregunta o respuesta">
+   </div>
+   <div style="flex:1 1 175px">
+    <label for="history-filter">Filtrar valoraciones</label>
+    <select id="history-filter">
+     <option value="all">Todas</option>
+     <option value="down">👎 No me gustó</option>
+     <option value="up">👍 Me gustó</option>
+     <option value="comment">💬 Con comentario</option>
+     <option value="pending">Pendiente</option>
+     <option value="review">En revisión</option>
+     <option value="implemented">Implementada</option>
+     <option value="rejected">Descartada</option>
+    </select>
+   </div>
+  </div>
+  <p id="history-count" class="note" aria-live="polite"></p>
   <div id="feedback-list" aria-live="polite"></div>
+  <button class="btn hidden" id="feedback-more" type="button">Cargar más historial</button>
+  <p class="note">Las mejoras necesitan revisión técnica: marcar «Implementada»
+    documenta el seguimiento, no modifica ni publica código automáticamente.</p>
  </section>
 </div>
 <div id="versions" data-page="versions" class="hidden"><section class="panel"><h2>Publicaciones y validaciones</h2>
@@ -186,6 +210,7 @@ const allowedScreens={
 const supported=['employment','services','products','offer'];
 const statusNames={pending:'Pendiente',review:'Revisión',approved:'Aprobada',implemented:'Implementada',rejected:'Descartada'};
 let dashboard=null,draft=null,proposal=null,busy=false;
+let feedbackHistory=[],feedbackHasMore=false,activeRecognition=null;
 let pendingLinkPassword=null,pendingLinkEmail=null,lastEmailFlow='email';
 const show=(id,visible)=>$(id).classList.toggle('hidden',!visible);
 const text=(id,value)=>$(id).textContent=String(value??'');
@@ -220,9 +245,9 @@ async function token(){
  if(!response.ok){sessionStorage.removeItem(STORAGE);throw Error('Tu sesión venció. Verifica tu correo nuevamente.');}
  saveSession(await parse(response));return session().access_token;
 }
-async function request(action,body){
+async function request(action,body,endpoint=API){
  const access=await token();
- return parse(await fetch(API,{method:action,headers:{...headers(),Authorization:'Bearer '+access},
+ return parse(await fetch(endpoint,{method:action,headers:{...headers(),Authorization:'Bearer '+access},
   ...(body?{body:JSON.stringify(body)}:{})}));
 }
 /**
@@ -311,6 +336,8 @@ async function load(){
  show('login',false);show('dashboard',true);text('sessionline',data.account.email+' · '+data.account.role);
  text('total',data.metrics.total);text('resolved',data.metrics.resolved);
  text('pending',data.metrics.unresolved);text('searches',data.metrics.searches);
+ feedbackHistory=Array.isArray(data.feedback)?data.feedback:[];
+ feedbackHasMore=data.feedbackHasMore===true;
  drawTopics();drawSettings();drawShortcuts();drawIdeas();drawFeedback();drawVersions();return data;
 }
 function drawTopics(){
@@ -399,36 +426,55 @@ function drawIdeas(){
   parent.append(block);
  }
 }
+const reviewLabels={pending:'Pendiente',review:'En revisión',implemented:'Implementada',rejected:'Descartada'};
 function drawFeedback(){
- const items=Array.isArray(dashboard.feedback)?dashboard.feedback:[];
+ if(!dashboard)return;
  const totals=dashboard.feedbackTotals||{};
- text('fb-total',totals.total??items.length);
+ text('fb-total',totals.total??feedbackHistory.length);
  text('fb-likes',totals.likes??0);
  text('fb-dislikes',totals.dislikes??0);
  text('fb-comments',totals.comments??0);
  const box=$('feedback-list');box.replaceChildren();
- if(!items.length){
+ const query=$('history-search').value.trim().toLocaleLowerCase('es');
+ const filter=$('history-filter').value;
+ const matches=feedbackHistory.filter(item=>{
+  const status=item.review_status||'pending';
+  if(filter==='comment'&&!item.comment)return false;
+  if(['up','down'].includes(filter)&&item.rating!==filter)return false;
+  if(Object.keys(reviewLabels).includes(filter)&&status!==filter)return false;
+  if(!query)return true;
+  const searchable=[item.intent_key,item.comment,
+   item.context_shared?item.question_text:'',item.context_shared?item.answer_text:'']
+    .filter(Boolean).join(' ').toLocaleLowerCase('es');
+  return searchable.includes(query);
+ });
+ text('history-count','Mostrando '+matches.length+' de '+feedbackHistory.length+
+   ' registros cargados (total: '+(totals.total??feedbackHistory.length)+').');
+ show('feedback-more',feedbackHasMore);
+ if(!feedbackHistory.length){
   const p=document.createElement('p');p.className='note';
-  p.textContent='Todavía no hay valoraciones ni comentarios recibidos.';
+  p.textContent='Todavía no se han recibido valoraciones. Aquí aparecerán conforme los usuarios las envíen.';
   box.append(p);return;
  }
- for(const item of items){
-  const card=document.createElement('article');
-  card.className='idea';
+ if(!matches.length){
+  const p=document.createElement('p');p.className='note';
+  p.textContent='No hay coincidencias entre las valoraciones cargadas. Cambia los filtros o carga más.';
+  box.append(p);return;
+ }
+ for(const item of matches){
+  const card=document.createElement('article');card.className='idea';
   const title=document.createElement('h3');
-  title.textContent=(item.rating==='up'?'👍 Positiva':
-   item.rating==='down'?'👎 Necesita mejorar':'💬 Comentario')+
+  title.textContent=(item.rating==='up'?'👍 Me gustó':
+   item.rating==='down'?'👎 No me gustó':'💬 Comentario')+
    ' · '+(item.assistant_id==='nexa'?'Nexa':'Nexo');
   const meta=document.createElement('p');meta.className='note';
   meta.textContent=(item.intent_key||'Pregunta')+' · '+
    (item.updated_at?new Date(item.updated_at).toLocaleString('es-MX'):'')+
-   ' · '+(item.context_shared?'Contexto autorizado':'Sin pregunta privada');
+   ' · '+(item.context_shared?'Pregunta y respuesta autorizadas':'Contexto privado');
   card.append(title,meta);
   if(item.comment){
-   const comment=document.createElement('p');
-   comment.style.color='#F3F9FF';
-   comment.textContent=item.comment;
-   card.append(comment);
+   const comment=document.createElement('p');comment.style.color='#F3F9FF';
+   comment.textContent='Opinión del usuario: '+item.comment;card.append(comment);
   }
   if(item.context_shared&&item.question_text&&item.answer_text){
    const q=document.createElement('p');q.className='note';
@@ -436,7 +482,30 @@ function drawFeedback(){
    const a=document.createElement('p');a.className='note';
    a.textContent='Respuesta: '+item.answer_text;
    card.append(q,a);
+  }else{
+   const p=document.createElement('p');p.className='note';
+   p.textContent='El usuario no autorizó mostrar aquí la conversación completa.';
+   card.append(p);
   }
+  const statusLabel=document.createElement('label');
+  statusLabel.textContent='Estado de mejora';statusLabel.htmlFor='state-'+item.response_id;
+  const select=document.createElement('select');select.id=statusLabel.htmlFor;
+  for(const [key,label] of Object.entries(reviewLabels)){
+   const option=document.createElement('option');option.value=key;option.textContent=label;
+   option.selected=key===(item.review_status||'pending');select.append(option);
+  }
+  const noteLabel=document.createElement('label');
+  noteLabel.textContent='Nota para implementación';noteLabel.htmlFor='review-'+item.response_id;
+  const note=document.createElement('textarea');note.id=noteLabel.htmlFor;
+  note.maxLength=800;note.rows=2;note.placeholder='Qué se debe corregir, comprobar o implementar…';
+  note.value=item.review_note||'';
+  const save=button('Guardar seguimiento',()=>run(async()=>{
+   await request('POST',{action:'update_feedback_review',responseId:item.response_id,
+     status:select.value,note:note.value});
+   item.review_status=select.value;item.review_note=note.value.trim();
+   drawFeedback();message('Seguimiento guardado correctamente.');
+  }),'btn primary');
+  card.append(statusLabel,select,noteLabel,note,save);
   box.append(card);
  }
 }
@@ -625,6 +694,17 @@ $('logout').addEventListener('click',()=>{
  sessionStorage.removeItem(STORAGE);dashboard=null;
  show('login',true);show('dashboard',false);message('Sesión cerrada.');
 });
+$('history-search').addEventListener('input',drawFeedback);
+$('history-filter').addEventListener('change',drawFeedback);
+$('feedback-more').addEventListener('click',()=>run(async()=>{
+ const offset=feedbackHistory.length;
+ const page=await request('GET',null,API+'?scope=feedback&offset='+offset+'&limit=50');
+ const seen=new Set(feedbackHistory.map(item=>item.response_id));
+ for(const item of page.feedback||[])if(!seen.has(item.response_id))feedbackHistory.push(item);
+ feedbackHasMore=page.feedbackHasMore===true;
+ dashboard.feedbackTotals=page.feedbackTotals||dashboard.feedbackTotals;
+ drawFeedback();
+}));
 for(const tab of document.querySelectorAll('[data-tab]'))tab.addEventListener('click',()=>{
  for(const b of document.querySelectorAll('[data-tab]'))b.setAttribute('aria-selected',String(tab===b));
  for(const el of document.querySelectorAll('[data-page]'))show(el.id,el.id===tab.dataset.tab);
@@ -656,16 +736,68 @@ $('apply').addEventListener('click',()=>run(async()=>{
   kind==='shortcut'?'El botón nuevo ya está configurado en Nexo.':
   'Solicitud enviada a la cola de programación de GitHub. Si los cambios pasan las pruebas, aparecerá una propuesta revisable en Ideas. No se publica automáticamente.');
 }));
+const speechErrors={
+ 'not-allowed':'El micrófono está bloqueado. Permite su uso en los ajustes del sitio de Chrome y vuelve a intentar.',
+ 'service-not-allowed':'El servicio de voz del navegador está bloqueado. Prueba en Chrome o usa el micrófono del teclado.',
+ 'audio-capture':'No se detectó un micrófono disponible. Revisa el permiso y que ninguna app lo esté usando.',
+ 'network':'El servicio de reconocimiento de voz del navegador no pudo conectarse. Prueba Chrome actualizado o dicta con el micrófono del teclado.',
+ 'no-speech':'No se escucharon palabras. Acerca el teléfono, habla claramente y vuelve a intentar.',
+ 'language-not-supported':'El navegador no tiene disponible el reconocimiento en español.',
+ 'aborted':'Dictado detenido. Puedes volver a intentarlo.',
+};
+function speechNotice(textValue,isError=false){
+ const label=$('dictate-status');
+ label.textContent=textValue;
+ label.style.color=isError?'#ffb8c4':'#b9eeff';
+}
+function speechStopped(){
+ activeRecognition=null;
+ $('dictate').textContent='🎙 Dictar';
+}
 $('dictate').addEventListener('click',()=>{
+ if(activeRecognition){
+  try{activeRecognition.stop();}catch{/* Browser may already be ending. */}
+  speechStopped();speechNotice('Dictado detenido.');
+  return;
+ }
  const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!Speech){message('El dictado no está disponible en este navegador. Puedes escribir la orden.',true);return;}
+ if(!Speech){
+  speechNotice('Este navegador no permite dictado desde la página. Abre en Chrome o utiliza el micrófono del teclado para escribir la orden.',true);
+  return;
+ }
+ if(!window.isSecureContext){
+  speechNotice('Abre el panel usando HTTPS para activar el micrófono.',true);return;
+ }
  try{
-  const recognizer=new Speech();recognizer.lang='es-MX';recognizer.interimResults=false;recognizer.maxAlternatives=1;
-  recognizer.onresult=e=>{const transcript=e.results?.[0]?.[0]?.transcript;
-   if(transcript){$('command').value=transcript;show('preview',false);}};
-  recognizer.onerror=()=>message('No se pudo reconocer la voz. Comprueba el micrófono.',true);
-  recognizer.start();message('Escuchando… dicta tu orden.');
- }catch{message('No se pudo iniciar el micrófono.',true);}
+  const recognizer=new Speech();activeRecognition=recognizer;
+  recognizer.lang='es-MX';recognizer.continuous=false;
+  recognizer.interimResults=false;recognizer.maxAlternatives=1;
+  let received=false,failed=false;
+  recognizer.onstart=()=>speechNotice('🎙 Escuchando… habla ahora.');
+  recognizer.onresult=e=>{
+   const words=Array.from(e.results||[]).map(result=>result[0]?.transcript||'').join(' ').trim();
+   if(words){
+    received=true;
+    $('command').value=($('command').value.trim()+' '+words).trim();
+    proposal=null;show('preview',false);
+    speechNotice('Orden capturada. Revisa el texto y pulsa «Preparar cambio».');
+   }
+  };
+  recognizer.onerror=e=>{
+   failed=true;
+   speechNotice(speechErrors[e.error]||'No se pudo transcribir la voz. Prueba de nuevo o dicta con el micrófono del teclado.',true);
+  };
+  recognizer.onend=()=>{
+   if(activeRecognition===recognizer)speechStopped();
+   if(!received&&!failed)speechNotice('Dictado finalizado. Si no se escribió nada, pulsa Dictar otra vez.');
+  };
+  recognizer.start();
+  $('dictate').textContent='⏹ Detener dictado';
+  speechNotice('Iniciando el micrófono… acepta el permiso cuando aparezca.');
+ }catch{
+  speechStopped();
+  speechNotice('No se pudo activar el dictado. Revisa los permisos del sitio o usa el micrófono del teclado.',true);
+ }
 });
 $('refresh').addEventListener('click',()=>run(async()=>{await load();message('Datos actualizados.');}));
 (async()=>{
