@@ -17,8 +17,12 @@ export function newAnswerFeedbackId():string{
  const api=globalThis.crypto;
  if(typeof api?.randomUUID==='function')return api.randomUUID();
  const bytes=new Uint8Array(16);
- if(!api?.getRandomValues)throw Error('Este navegador no permite valorar respuestas de manera segura.');
- api.getRandomValues(bytes);
+ if(api?.getRandomValues)api.getRandomValues(bytes);
+ else{
+  // Only a feedback deduplication ID; never a credential or security token.
+  // Some React Native JS engines don't expose Web Crypto yet.
+  for(let i=0;i<bytes.length;i++)bytes[i]=Math.floor(Math.random()*256);
+ }
  bytes[6]=(bytes[6]&0x0f)|0x40;
  bytes[8]=(bytes[8]&0x3f)|0x80;
  const hex=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
