@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AssistantStage } from '@/components/assistant-stage';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import {
@@ -17,6 +17,8 @@ import { useAuth } from '@/state/auth';
 import { clearNexaHistory, readNexaHistory, recallNexaNote, rememberNexaConversation, type NexaReply, type NexaSource } from '@/lib/nexa-knowledge';
 import { answerVerifiedNexoQuestion, auditNexoKnowledge, refreshNexoKnowledge } from '@/lib/nexo-product-knowledge';
 import { reviewNexoAnswer } from '@/lib/assistant-answer-review';
+import { newAnswerFeedbackId, sendAssistantFeedback,
+ type AssistantAnswerFeedback, type FeedbackVote } from '@/lib/nexo-assistant-feedback';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 type BrowserSpeechRecognition = {
@@ -62,6 +64,14 @@ export default function AsistenteScreen() {
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [micError, setMicError] = useState('');
+  const [feedbackRecord,setFeedbackRecord]=useState<AssistantAnswerFeedback|null>(null);
+  const [feedbackVote,setFeedbackVote]=useState<'up'|'down'|null>(null);
+  const [feedbackComment,setFeedbackComment]=useState('');
+  const [feedbackOpen,setFeedbackOpen]=useState(false);
+  const [feedbackSharing,setFeedbackSharing]=useState(false);
+  const [feedbackSaving,setFeedbackSaving]=useState(false);
+  const [feedbackNotice,setFeedbackNotice]=useState('');
+  const [feedbackError,setFeedbackError]=useState('');
   const recognizerRef = useRef<BrowserSpeechRecognition | null>(null);
 
   useEffect(() => {
@@ -140,6 +150,30 @@ export default function AsistenteScreen() {
     };
   }, []);
 
+  async function saveFeedback(vote:FeedbackVote,fromModal=false){
+    if(!feedbackRecord||feedbackSaving)return;
+    const comment=feedbackComment.trim();
+    if(vote==='comment'&&!comment){
+      setFeedbackError('Escribe primero tu comentario.');
+      return;
+    }
+    setFeedbackSaving(true);
+    setFeedbackError('');
+    setFeedbackNotice('');
+    try{
+      await sendAssistantFeedback(feedbackRecord,{
+        rating:vote,comment,includeContext:feedbackSharing,
+      });
+      setFeedbackVote(vote==='comment'?null:vote);
+      setFeedbackNotice(comment?'Comentario recibido. Gracias por ayudar a mejorar Nexo.'
+        :vote==='up'?'Gracias. Registramos que esta respuesta te ayudó.'
+        :'Gracias. Registramos que esta respuesta necesita mejorar.');
+      if(fromModal)setFeedbackOpen(false);
+    }catch(e){
+      setFeedbackError(e instanceof Error?e.message:'No se pudo enviar. Intenta otra vez.');
+    }finally{setFeedbackSaving(false);}
+  }
+
   async function respond(value: string) {
     const questionText = value.trim().slice(0, 300);
     if (!questionText) return;
@@ -150,6 +184,13 @@ export default function AsistenteScreen() {
     const current = ++requestId.current;
     setPending(true);
     setSources([]);
+    setFeedbackRecord(null);
+    setFeedbackVote(null);
+    setFeedbackComment('');
+    setFeedbackSharing(false);
+    setFeedbackOpen(false);
+    setFeedbackNotice('');
+    setFeedbackError('');
     setQuestion('');
     setSpeaking(false);
     await stopAssistantSpeech();
@@ -196,6 +237,13 @@ export default function AsistenteScreen() {
     rememberNexaConversation(questionText, reply, user?.id);
     setHistoryCount(readNexaHistory(user?.id).length);
     setAnswer(reply.text);
+    setFeedbackRecord({
+      responseId:newAnswerFeedbackId(),
+      assistantId:assistant.id,
+      intentKey:metric.intentKey,
+      question:questionText,
+      answer:reply.text,
+    });
     setSources(reply.sources);
     setSpokenText(reply.text);
     setPending(false);
@@ -298,7 +346,106 @@ export default function AsistenteScreen() {
             <Text style={{ color: '#8CE9FF', fontSize: 12, fontWeight: '700' }}>↗ Fuente: {source.title}</Text>
           </Pressable>
         ))}
+        {feedbackRecord&&!pending&&(
+          <View style={styles.feedbackArea}>
+            <Text style={[styles.feedbackPrompt,{color:palette.muted}]}>
+              ¿Te sirvió esta respuesta?
+            </Text>
+            <View style={styles.feedbackActions}>
+              <Pressable accessibilityRole="button"
+                accessibilityLabel="Me gustó esta respuesta"
+                accessibilityState={{selected:feedbackVote==='up',disabled:feedbackSaving}}
+                disabled={feedbackSaving}
+                onPress={()=>void saveFeedback('up')}
+                style={[styles.feedbackButton,feedbackVote==='up'&&styles.feedbackSelected,
+                  {borderColor:feedbackVote==='up'?assistant.secondaryAccent:palette.cardBorder}]}>
+                <Text style={styles.feedbackButtonText}>👍 Me gustó</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button"
+                accessibilityLabel="Esta respuesta no me gustó"
+                accessibilityState={{selected:feedbackVote==='down',disabled:feedbackSaving}}
+                disabled={feedbackSaving}
+                onPress={()=>void saveFeedback('down')}
+                style={[styles.feedbackButton,feedbackVote==='down'&&styles.feedbackSelected,
+                  {borderColor:feedbackVote==='down'?assistant.secondaryAccent:palette.cardBorder}]}>
+                <Text style={styles.feedbackButtonText}>👎 No me gustó</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button"
+                accessibilityLabel="Escribir un comentario sobre la respuesta"
+                onPress={()=>{setFeedbackError('');setFeedbackOpen(true);}}
+                style={[styles.feedbackButton,{borderColor:palette.cardBorder}]}>
+                <Text style={styles.feedbackButtonText}>✎ Comentar</Text>
+              </Pressable>
+            </View>
+            {!!feedbackNotice&&(
+              <Text accessibilityRole="text" style={styles.feedbackSuccess}>{feedbackNotice}</Text>
+            )}
+            {!!feedbackError&&(
+              <Text accessibilityRole="alert" style={styles.feedbackFailure}>{feedbackError}</Text>
+            )}
+          </View>
+        )}
       </View>
+
+      <Modal visible={feedbackOpen&&!!feedbackRecord} animationType="fade"
+        transparent onRequestClose={()=>setFeedbackOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined}
+          style={styles.feedbackModalBackdrop}>
+          <View style={styles.feedbackModalCard}>
+            <Text style={styles.feedbackModalTitle}>Ayúdanos a mejorar la respuesta</Text>
+            <Text style={styles.feedbackModalCaption}>
+              Tu comentario llegará al panel privado del equipo desarrollador.
+              Puedes explicar qué información faltó o qué deberíamos corregir.
+            </Text>
+            <TextInput
+              accessibilityLabel="Comentario sobre la respuesta"
+              placeholder="Ejemplo: Me faltó saber dónde está el botón para publicar..."
+              placeholderTextColor="#617086"
+              multiline
+              maxLength={1200}
+              value={feedbackComment}
+              onChangeText={setFeedbackComment}
+              style={styles.feedbackTextarea}
+              textAlignVertical="top"
+            />
+            <Text style={styles.feedbackCharacterCount}>{feedbackComment.length}/1200</Text>
+            <Pressable accessibilityRole="checkbox"
+              accessibilityState={{checked:feedbackSharing}}
+              onPress={()=>setFeedbackSharing(v=>!v)}
+              style={styles.feedbackConsent}>
+              <Text style={[styles.feedbackConsentCheck,feedbackSharing&&styles.feedbackConsentActive]}>
+                {feedbackSharing?'✓':'□'}
+              </Text>
+              <Text style={styles.feedbackConsentText}>
+                También compartir mi pregunta y la respuesta con los desarrolladores
+                para que puedan revisar el contexto.
+              </Text>
+            </Pressable>
+            <Text style={styles.feedbackPrivacy}>
+              Si no activas la casilla, solo enviaremos tu valoración, comentario y
+              la categoría de la pregunta, no el texto de la conversación.
+            </Text>
+            {!!feedbackError&&<Text accessibilityRole="alert" style={styles.feedbackFailure}>
+              {feedbackError}
+            </Text>}
+            <View style={styles.feedbackModalActions}>
+              <Pressable onPress={()=>setFeedbackOpen(false)}
+                accessibilityRole="button" style={styles.feedbackCancel}>
+                <Text style={styles.feedbackCancelText}>Cancelar</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button"
+                disabled={feedbackSaving||!feedbackComment.trim()}
+                onPress={()=>void saveFeedback(feedbackVote||'comment',true)}
+                style={[styles.feedbackSend,
+                  (feedbackSaving||!feedbackComment.trim())&&{opacity:.55}]}>
+                <Text style={styles.feedbackSendText}>
+                  {feedbackSaving?'Enviando…':'Enviar comentario'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
       <Text style={{fontSize:11,lineHeight:17,color:palette.muted,textAlign:'center'}}>
         Conocimiento de Nexo: {knowledgeReviewed
           ? 'verificado con el código · actualizado '+new Date(knowledgeReviewed).toLocaleDateString('es-MX')
@@ -490,6 +637,39 @@ export default function AsistenteScreen() {
 }
 
 const styles = StyleSheet.create({
+  feedbackArea:{marginTop:14,paddingTop:14,borderTopWidth:1,
+    borderTopColor:'rgba(139,178,216,.24)',gap:9},
+  feedbackPrompt:{fontSize:12,fontWeight:'800'},
+  feedbackActions:{flexDirection:'row',gap:7,flexWrap:'wrap'},
+  feedbackButton:{borderWidth:1,borderRadius:12,minHeight:40,
+    paddingVertical:9,paddingHorizontal:11,
+    backgroundColor:'rgba(39,61,100,.45)',justifyContent:'center'},
+  feedbackSelected:{backgroundColor:'rgba(47,124,171,.38)'},
+  feedbackButtonText:{color:'#F5FAFF',fontSize:11,fontWeight:'800'},
+  feedbackSuccess:{color:'#81F1CA',fontWeight:'800',fontSize:11,lineHeight:17},
+  feedbackFailure:{color:'#FFB2BD',fontWeight:'800',fontSize:11,lineHeight:17},
+  feedbackModalBackdrop:{flex:1,backgroundColor:'rgba(2,9,25,.80)',
+    justifyContent:'center',paddingHorizontal:18},
+  feedbackModalCard:{backgroundColor:'#132541',borderRadius:22,padding:19,
+    borderWidth:1,borderColor:'#43658E',gap:11,maxWidth:520,width:'100%',alignSelf:'center'},
+  feedbackModalTitle:{fontSize:19,fontWeight:'900',color:'#F6FBFF'},
+  feedbackModalCaption:{fontSize:12,lineHeight:19,color:'#C7D9ED'},
+  feedbackTextarea:{backgroundColor:'#F1F7FF',color:'#0E1F36',fontSize:15,
+    minHeight:130,maxHeight:235,borderRadius:13,padding:13,fontWeight:'600'},
+  feedbackCharacterCount:{alignSelf:'flex-end',fontSize:10,color:'#D3E2F2'},
+  feedbackConsent:{flexDirection:'row',alignItems:'flex-start',gap:10,paddingVertical:4},
+  feedbackConsentCheck:{fontSize:20,color:'#E3F0FF',lineHeight:24},
+  feedbackConsentActive:{color:'#7AE7F6'},
+  feedbackConsentText:{flex:1,fontSize:11,lineHeight:18,color:'#E2F0FF'},
+  feedbackPrivacy:{fontSize:10,lineHeight:16,color:'#ACC8E1'},
+  feedbackModalActions:{flexDirection:'row',justifyContent:'flex-end',gap:10},
+  feedbackCancel:{borderWidth:1,borderColor:'#6B819A',borderRadius:11,
+    paddingVertical:11,paddingHorizontal:14},
+  feedbackCancelText:{color:'#E9F1FC',fontWeight:'800'},
+  feedbackSend:{borderRadius:11,backgroundColor:'#7FE5F2',
+    paddingVertical:11,paddingHorizontal:14},
+  feedbackSendText:{color:'#06263C',fontWeight:'900'},
+
   micAction: {
     minHeight: 48,
     flexDirection: 'row',
