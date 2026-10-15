@@ -18,6 +18,7 @@ export type ControlFeedback={
  response_id:string;assistant_id:'nexo'|'nexa';intent_key:string;
  rating:'up'|'down'|'comment';comment:string;
  question_text:string|null;answer_text:string|null;context_shared:boolean;
+ review_status:'pending'|'review'|'implemented'|'rejected';review_note:string;
  created_at:string;updated_at:string;
 };
 export type ControlDashboard={
@@ -25,6 +26,7 @@ export type ControlDashboard={
  ideas:ControlIdea[];audit:{id:number;action:string;detail:Record<string,unknown>;created_at:string}[];
  feedback:ControlFeedback[];
  feedbackTotals:{total:number;likes:number;dislikes:number;comments:number};
+ feedbackHasMore:boolean;
 };
 type Session={access_token:string;refresh_token:string;expires_at:number};
 const headers=()=>({'apikey':KEY,'content-type':'application/json'});
@@ -100,9 +102,9 @@ async function sessionToken():Promise<string>{
 }
 export function controlLogout(){saveSession(null);}
 export function hasControlSession(){return !!readSession();}
-async function controlRequest(method:'GET'|'POST',body?:object):Promise<any>{
+async function controlRequest(method:'GET'|'POST',body?:object,query=''):Promise<any>{
  const token=await sessionToken();
- const response=await fetch(BASE+'/functions/v1/nexo-control',{
+ const response=await fetch(BASE+'/functions/v1/nexo-control'+query,{
   method,headers:{...headers(),Authorization:'Bearer '+token},
   ...(body?{body:JSON.stringify(body)}:{}),
  });
@@ -110,6 +112,13 @@ async function controlRequest(method:'GET'|'POST',body?:object):Promise<any>{
 }
 export async function loadControlDashboard():Promise<ControlDashboard>{
  return controlRequest('GET');
+}
+export async function loadControlFeedbackPage(offset:number){
+ const page=await controlRequest('GET',undefined,'?scope=feedback&offset='+Math.max(0,offset)+'&limit=50');
+ return page as Pick<ControlDashboard,'feedback'|'feedbackTotals'|'feedbackHasMore'>;
+}
+export async function controlUpdateFeedbackReview(responseId:string,status:ControlFeedback['review_status'],note:string){
+ return controlRequest('POST',{action:'update_feedback_review',responseId,status,note});
 }
 export async function controlCreateIdea(title:string,description:string,category:ControlIdea['category']){
  return controlRequest('POST',{action:'create_idea',title,description,category});
