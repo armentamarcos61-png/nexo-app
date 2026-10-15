@@ -240,14 +240,21 @@ Deno.serve(async(req:Request)=>{
         if((count||0)>=15)
           return fail(429,"Límite temporal de comentarios. Intenta más tarde.");
       }
-      const {error}=await db.from("nexo_assistant_feedback").upsert({
-        response_id:responseId,assistant_id:body.assistantId,
-        intent_key:body.intentKey,rating:body.rating,comment,
+      // Only user-owned feedback fields can change after submission:
+      // an existing developer review must never be reset by an edited comment.
+      const feedbackData={
+        assistant_id:body.assistantId,intent_key:body.intentKey,
+        rating:body.rating,comment,
         question_text:sharing?question:null,answer_text:sharing?answer:null,
-        context_shared:sharing,client_hash:clientHash,
-        updated_at:new Date().toISOString(),
-      },{onConflict:"response_id"});
-      if(error)throw error;
+        context_shared:sharing,updated_at:new Date().toISOString(),
+      };
+      const result=existing
+        ?await db.from("nexo_assistant_feedback").update(feedbackData)
+           .eq("response_id",responseId).eq("client_hash",clientHash)
+        :await db.from("nexo_assistant_feedback").insert({
+           response_id:responseId,...feedbackData,client_hash:clientHash,
+         });
+      if(result.error)throw result.error;
       return json({ok:true});
     }
     if(body.action==="search_event"){
