@@ -24,7 +24,7 @@ const ideaStatuses:Record<ControlIdea['status'],string>={
 };
 const phases:ControlIdea['status'][]=['pending','review','approved','implemented','rejected'];
 const accentHex={cyan:'#54DEFF',violet:'#BC8DFF',orange:'#FFA362',teal:'#56EDC7'};
-type Tab='resumen'|'ordenes'|'ideas'|'versiones';
+type Tab='resumen'|'ordenes'|'ideas'|'feedback'|'versiones';
 function Btn({label,onPress,disabled=false,primary=false}:{
  label:string;onPress:()=>void;disabled?:boolean;primary?:boolean;
 }){
@@ -184,7 +184,7 @@ export default function NexoControlScreen(){
       <Btn label="Salir" onPress={()=>{controlLogout();setDashboard(null);setSent(false);setNotice('');}}/>
      </View>
      <View style={styles.tabs}>
-      {([['resumen','Resumen'],['ordenes','Órdenes'],['ideas','Ideas'],['versiones','Versiones']] as const)
+      {([['resumen','Resumen'],['ordenes','Órdenes'],['ideas','Ideas'],['feedback','Respuestas'],['versiones','Versiones']] as const)
         .map(([key,label])=><Pressable key={key} onPress={()=>setTab(key)} style={[styles.tab,tab===key&&styles.tabActive]}>
          <Text style={[styles.tabText,tab===key&&{color:'#85EDFF'}]}>{label}</Text>
         </Pressable>)}
@@ -276,6 +276,38 @@ export default function NexoControlScreen(){
       </View>):
        <Text style={styles.muted}>Todavía no hay ideas. Abre Órdenes para registrar la primera.</Text>}
      </>:null}
+     {tab==='feedback'?<>
+      <Text style={styles.sectionTitle}>Comentarios de Nexo y Nexa</Text>
+      <Text style={styles.muted}>
+        Solo para cuentas de desarrollador verificadas. Las preguntas completas
+        se muestran únicamente cuando el usuario autoriza compartir el contexto.
+      </Text>
+      <View style={styles.stats}>
+        <Stat label="Valoraciones recientes" count={dashboard.feedbackTotals?.total||0}/>
+        <Stat label="👍 Me gustó" count={dashboard.feedbackTotals?.likes||0}/>
+        <Stat label="👎 No me gustó" count={dashboard.feedbackTotals?.dislikes||0}/>
+        <Stat label="Comentarios" count={dashboard.feedbackTotals?.comments||0}/>
+      </View>
+      {dashboard.feedback?.length?dashboard.feedback.map(entry=>(
+        <View style={styles.box} key={entry.response_id}>
+          <Text style={styles.heading}>
+            {entry.rating==='up'?'👍 Me gustó':entry.rating==='down'
+              ?'👎 Necesita mejorar':'💬 Comentario'}
+            {' · '}{entry.assistant_id==='nexa'?'Nexa':'Nexo'}
+          </Text>
+          <Text style={styles.dimSmall}>
+            {entry.intent_key} · {new Date(entry.updated_at).toLocaleString('es-MX')}
+          </Text>
+          {!!entry.comment&&<Text style={styles.topicName}>{entry.comment}</Text>}
+          {entry.context_shared&&entry.question_text&&entry.answer_text?
+            <View style={styles.preview}>
+              <Text style={styles.muted}>Pregunta: {entry.question_text}</Text>
+              <Text style={styles.muted}>Respuesta: {entry.answer_text}</Text>
+            </View>:
+            <Text style={styles.dimSmall}>No compartió el texto de la conversación.</Text>}
+        </View>
+      )):<Text style={styles.muted}>Aún no se han recibido valoraciones.</Text>}
+     </>:null}
      {tab==='versiones'?<>
       <Text style={styles.sectionTitle}>Ejecuciones y publicaciones</Text>
       <Text style={styles.muted}>Conteo real de ejecuciones de GitHub Actions. No equivale a número de funciones implementadas.</Text>
@@ -294,7 +326,7 @@ export default function NexoControlScreen(){
      </>:null}
      <View style={{marginTop:20}}><Btn label={working?'Actualizando…':'Actualizar datos'} disabled={working}
       onPress={()=>{void doWork(refresh);}}/></View>
-     <Text style={styles.footNote}>Datos agregados de usuarios; las consultas personales no se muestran en este panel. Las operaciones privilegiadas requieren una sesión verificada en el servidor.</Text>
+     <Text style={styles.footNote}>Las métricas generales son agregadas. Solo en Respuestas se muestra información que el usuario autorizó compartir para mejorar los asistentes. El servidor requiere una sesión administrativa verificada.</Text>
     </>
    }
   </ScrollView>
@@ -319,7 +351,7 @@ const styles=StyleSheet.create({
  disabled:{opacity:0.4},btnText:{color:'#EDF4FF',fontWeight:'800',fontSize:12},
  session:{flexDirection:'row',gap:12,alignItems:'center',borderRadius:17,padding:12,backgroundColor:'#182846'},
  sessionText:{color:'#EDF7FF',fontWeight:'800',fontSize:13},
- tabs:{flexDirection:'row',gap:5,borderBottomWidth:1,borderBottomColor:'#38507D',paddingBottom:7},
+ tabs:{flexDirection:'row',gap:5,flexWrap:'wrap',borderBottomWidth:1,borderBottomColor:'#38507D',paddingBottom:7},
  tab:{paddingVertical:11,paddingHorizontal:11,flex:1,alignItems:'center',borderRadius:10},
  tabActive:{backgroundColor:'#263B66'},tabText:{fontSize:11,color:'#AFBED8',fontWeight:'800'},
  stats:{flexDirection:'row',flexWrap:'wrap',gap:8},
