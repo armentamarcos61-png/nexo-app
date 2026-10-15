@@ -32,6 +32,9 @@ jobs:
       - name: Verificar valoraciones y comentarios privados de Nexo y Nexa
         run: node scripts/verify-assistant-feedback.cjs
 
+      - name: Verificar historial de mejora y permisos del micrófono
+        run: node scripts/verify-control-history.cjs
+
       - name: Verificar selección gratuita de voz femenina y masculina
         run: node scripts/verify-assistant-voices.cjs
 
