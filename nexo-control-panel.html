@@ -123,7 +123,7 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <p>Escribe o dicta: «Pon el color naranja», «Sube Productos al primer lugar» o «Crea una función para compartir portafolios».</p>
 <label for="command">Tu instrucción</label>
 <textarea id="command" placeholder="¿Qué cambiamos en Nexo?"></textarea>
-<div class="row" style="margin-top:12px"><button class="btn" id="dictate" type="button">🎙 Dictar</button><button class="btn primary" id="interpret" type="button">Preparar cambio</button></div>
+<div class="row" style="margin-top:12px"><button class="btn" id="dictate" type="button">🎙 Dictar</button><button class="btn" id="mic-permission" type="button">Permitir micrófono</button><button class="btn primary" id="interpret" type="button">Preparar cambio</button></div>
 <p class="note" id="dictate-status" aria-live="polite">Pulsa Dictar y autoriza el micrófono. En Android también puedes usar el micrófono del teclado.</p>
 <div class="panel hidden" id="preview">
 <h2>Confirmar orden</h2><p id="preview-desc"></p>
@@ -736,6 +736,24 @@ $('apply').addEventListener('click',()=>run(async()=>{
   kind==='shortcut'?'El botón nuevo ya está configurado en Nexo.':
   'Solicitud enviada a la cola de programación de GitHub. Si los cambios pasan las pruebas, aparecerá una propuesta revisable en Ideas. No se publica automáticamente.');
 }));
+$('mic-permission').addEventListener('click',async()=>{
+ if(!navigator.mediaDevices?.getUserMedia){
+  speechNotice('Este navegador no permite comprobar el micrófono. Abre Chrome actualizado.',true);return;
+ }
+ const permission=$('mic-permission');permission.disabled=true;
+ try{
+  const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  stream.getTracks().forEach(track=>track.stop());
+  speechNotice('Micrófono disponible y autorizado. Ahora toca «Dictar» y habla claramente.');
+ }catch(e){
+  const messages={
+   NotAllowedError:'Se rechazó el permiso. En Chrome abre Configuración del sitio y permite el micrófono.',
+   NotFoundError:'El navegador no encuentra un micrófono conectado.',
+   NotReadableError:'Otra aplicación puede estar ocupando el micrófono. Ciérrala e intenta de nuevo.',
+  };
+  speechNotice(messages[e?.name]||'No fue posible comprobar el micrófono. Revisa permisos y ajustes del teléfono.',true);
+ }finally{permission.disabled=false;}
+});
 const speechErrors={
  'not-allowed':'El micrófono está bloqueado. Permite su uso en los ajustes del sitio de Chrome y vuelve a intentar.',
  'service-not-allowed':'El servicio de voz del navegador está bloqueado. Prueba en Chrome o usa el micrófono del teclado.',
