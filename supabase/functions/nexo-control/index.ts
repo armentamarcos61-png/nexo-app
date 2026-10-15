@@ -194,7 +194,7 @@ Deno.serve(async(req:Request)=>{
       if(scope==="feedback"){
         if(actor.role!=="owner"&&actor.role!=="developer")return fail(403,"Solo desarrolladores autorizados.");
         const params=new URL(req.url).searchParams;
-        return json(await feedbackPage(params.get("offset")||0,params.get("limit")||50));
+        return json(await feedbackPage(Number(params.get("offset")||0),Number(params.get("limit")||50)));
       }
       return json(await dashboard(actor));
     }
