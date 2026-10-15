@@ -424,6 +424,7 @@ export default function AsistenteScreen() {
             <Text style={styles.feedbackPrivacy}>
               Si no activas la casilla, solo enviaremos tu valoración, comentario y
               la categoría de la pregunta, no el texto de la conversación.
+              No escribas contraseñas, códigos ni datos bancarios en el comentario.
             </Text>
             {!!feedbackError&&<Text accessibilityRole="alert" style={styles.feedbackFailure}>
               {feedbackError}
