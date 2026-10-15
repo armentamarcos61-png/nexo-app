@@ -51,6 +51,8 @@ export default function NexoControlScreen(){
  const [notice,setNotice]=useState('');
  const [tab,setTab]=useState<Tab>('resumen');
  const [command,setCommand]=useState('');
+ const [micStatus,setMicStatus]=useState('');
+ const [listening,setListening]=useState(false);
  const [proposal,setProposal]=useState<ParsedControlCommand|null>(null);
  const [draft,setDraft]=useState<RuntimeSettings|null>(null);
  const recognizer=useRef<{start:()=>void;stop:()=>void}|null>(null);
@@ -82,26 +84,55 @@ export default function NexoControlScreen(){
   finally{setWorking(false);}
  }
  function listen(){
+  if(recognizer.current){
+   try{recognizer.current.stop();}catch{/* already stopping */}
+   recognizer.current=null;setListening(false);setMicStatus('Dictado detenido.');
+   return;
+  }
   if(Platform.OS!=='web'||typeof window==='undefined'){
-   setError('El dictado está disponible en navegadores compatibles. También puedes escribir.');return;
+   setMicStatus('Abre el panel en Chrome o usa el micrófono del teclado.');return;
   }
   const speech=window as typeof window & {
    SpeechRecognition?:new()=>any;webkitSpeechRecognition?:new()=>any;
   };
   const Recognition=speech.SpeechRecognition||speech.webkitSpeechRecognition;
-  if(!Recognition){setError('Este navegador no permite dictado. Escribe tu orden.');return;}
+  if(!Recognition){
+   setMicStatus('Este navegador no permite dictado. Usa Chrome o el micrófono del teclado.');return;
+  }
+  const errors:Record<string,string>={
+   'not-allowed':'Permite el micrófono en los ajustes del sitio y vuelve a intentar.',
+   'service-not-allowed':'El servicio de voz está bloqueado. Prueba Chrome o el teclado.',
+   'audio-capture':'No se detectó micrófono. Revisa permisos y otras aplicaciones.',
+   'network':'El servicio de voz del navegador falló. Prueba Chrome actualizado o el teclado.',
+   'no-speech':'No se escucharon palabras. Acerca el teléfono y vuelve a intentar.',
+  };
   try{
-   recognizer.current?.stop();
-   const recognition=new Recognition();
-   recognizer.current=recognition;
-   recognition.lang='es-MX';recognition.interimResults=false;recognition.maxAlternatives=1;
+   const recognition=new Recognition();recognizer.current=recognition;
+   recognition.lang='es-MX';recognition.continuous=false;
+   recognition.interimResults=false;recognition.maxAlternatives=1;
+   let received=false,failed=false;
+   recognition.onstart=()=>{setListening(true);setMicStatus('🎙 Escuchando… habla ahora.');};
    recognition.onresult=(e:any)=>{
-    const result=e.results?.[0]?.[0]?.transcript;
-    if(typeof result==='string'){setCommand(result);setProposal(null);}
+    const words=e.results?.[0]?.[0]?.transcript;
+    if(typeof words==='string'&&words.trim()){
+     received=true;setCommand(old=>(old.trim()+' '+words.trim()).trim());
+     setProposal(null);setMicStatus('Orden capturada. Revisa el texto.');
+    }
    };
-   recognition.onerror=()=>setError('No se pudo reconocer la voz. Puedes escribir la orden.');
-   recognition.start();
-  }catch{setError('Comprueba el permiso del micrófono o escribe tu orden.');}
+   recognition.onerror=(e:{error?:string})=>{
+    failed=true;setMicStatus(errors[e.error||'']||'No se pudo transcribir. Vuelve a intentar.');
+    setListening(false);
+   };
+   recognition.onend=()=>{
+    if(recognizer.current===recognition)recognizer.current=null;
+    setListening(false);
+    if(!received&&!failed)setMicStatus('Dictado terminado. Pulsa Dictar para intentar otra vez.');
+   };
+   recognition.start();setListening(true);setMicStatus('Solicitando acceso al micrófono…');
+  }catch{
+   recognizer.current=null;setListening(false);
+   setMicStatus('No se pudo iniciar el micrófono. Revisa sus permisos.');
+  }
  }
  function interpret(){
   if(!command.trim())return;
@@ -222,10 +253,11 @@ export default function NexoControlScreen(){
          style={[styles.input,styles.commandInput]} placeholder="¿Qué cambiamos o implementamos?"
          placeholderTextColor="#7185A0"/>
        <View style={styles.buttonRow}>
-        <Btn label="🎙 Dictar" onPress={listen}/>
+        <Btn label={listening?'⏹ Detener':'🎙 Dictar'} onPress={listen}/>
         <Btn primary label="Interpretar" onPress={interpret} disabled={!command.trim()}/>
        </View>
-       {proposal?<View style={styles.preview}>
+       {!!micStatus&&<Text style={styles.dimSmall}>{micStatus}</Text>}
+        {proposal?<View style={styles.preview}>
         <Text style={styles.heading}>Vista previa</Text>
         <Text style={styles.muted}>{proposal.kind==='settings'?proposal.explanation:
          'Se guardará como propuesta de implementación. No se ejecutará código automáticamente.'}</Text>
