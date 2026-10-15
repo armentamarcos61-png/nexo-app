@@ -91,11 +91,16 @@ async function dashboard(actor:{id:string,email:string,role:string}){
           status:String(r.status||"unknown"),conclusion:r.conclusion||null,created_at:String(r.created_at||"")}))};
     }
   }catch{ /* Source unavailable; never invent counts. */ }
-  const {data:recentFeedback,error:feedbackError}=await db.from("nexo_assistant_feedback")
-    .select("response_id,assistant_id,intent_key,rating,comment,question_text,answer_text,context_shared,created_at,updated_at")
-    .order("updated_at",{ascending:false}).limit(150);
-  if(feedbackError)throw new Error("No se pudieron consultar los comentarios del asistente.");
-  const feedback=recentFeedback||[];
+  // An admin's preexisting "viewer" role cannot read user feedback.
+  // Only the specifically allowlisted owner and developers can review it.
+  let feedback:any[]=[];
+  if(actor.role==="owner"||actor.role==="developer"){
+    const {data:recentFeedback,error:feedbackError}=await db.from("nexo_assistant_feedback")
+      .select("response_id,assistant_id,intent_key,rating,comment,question_text,answer_text,context_shared,created_at,updated_at")
+      .order("updated_at",{ascending:false}).limit(150);
+    if(feedbackError)throw new Error("No se pudieron consultar los comentarios del asistente.");
+    feedback=recentFeedback||[];
+  }
   const feedbackTotals={
     total:feedback.length,
     likes:feedback.filter(row=>row.rating==="up").length,
