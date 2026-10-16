@@ -70,6 +70,12 @@ export default function HomeScreen() {
     if(typeof window==='undefined')return;
     const params=new URLSearchParams(window.location.hash.replace(/^#/,''));
     if(params.has('access_token')&&params.has('refresh_token')){
+      // Supabase email confirmation for ordinary Nexo users is NOT
+      // an administrative login. Never redirect them to Nexo Control.
+      if(params.get('type')==='signup'){
+        window.history.replaceState({},'',window.location.pathname+window.location.search);
+        return;
+      }
       const target=window.location.origin+'/nexo-app/nexo-control-panel.html'+window.location.hash;
       window.location.replace(target);
     }
