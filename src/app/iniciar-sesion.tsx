@@ -54,7 +54,7 @@ export default function IniciarSesionScreen() {
       <View style={[styles.notice, { borderColor: palette.cardBorder }]}>
         <Text style={[styles.noticeTitle, { color: palette.title }]}>Tu cuenta Nexo</Text>
         <Text style={[styles.noticeText, { color: palette.text }]}>
-          Entra con tu usuario o correo y tu contraseña. Al acceder vuelves a tu perfil, fotos y contenido guardados en este navegador.
+          En este dispositivo puedes entrar con tu usuario o correo. Para acceder desde otro teléfono, utiliza el correo y la contraseña de tu cuenta de Nexo Central después de verificar el correo.
         </Text>
       </View>
 
@@ -95,7 +95,7 @@ export default function IniciarSesionScreen() {
       </Pressable>
 
       <Text style={[styles.securityNote, { color: palette.muted }]}>
-        🔒 La contraseña no se guarda en texto legible. Esta etapa funciona en este dispositivo; la sincronización entre dispositivos llegará con el backend seguro.
+        🔒 La contraseña no se almacena en texto legible. Los perfiles profesionales solo se sincronizan con el servidor cuando lo autorizas expresamente.
       </Text>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
