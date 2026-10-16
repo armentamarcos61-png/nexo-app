@@ -29,6 +29,9 @@ jobs:
       - name: Instalar dependencias y restaurar modelo masculino
         run: npm ci
 
+      - name: Verificar directorio de usuarios, fotos, CV y control de acceso
+        run: node scripts/verify-nexo-user-directory.cjs
+
       - name: Verificar valoraciones y comentarios privados de Nexo y Nexa
         run: node scripts/verify-assistant-feedback.cjs
 
