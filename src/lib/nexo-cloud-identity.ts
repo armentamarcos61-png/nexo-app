@@ -118,6 +118,27 @@ export async function syncMyProfessionalProfile(profile:ProfessionalProfile){
   body:JSON.stringify(body),
  }));
 }
+/** The owner chooses to import the original local creation date.
+ * Requires a current Supabase Auth session belonging to that same person;
+ * passwords, local password hashes, salts and drafts are never uploaded.
+ * The source date was recorded on the old device, not certified by the server.
+ */
+export async function importHistoricalNexoRegistration(localCreatedAt:string):Promise<void>{
+ const date=new Date(localCreatedAt);
+ if(!Number.isFinite(date.getTime())||date.getTime()>Date.now()||
+  date.getTime()<new Date('2018-01-01T00:00:00Z').getTime())
+  throw Error('No encontramos una fecha histórica válida en este dispositivo.');
+ const {token,userId}=await getCloudAccess();
+ const response=await fetch(BASE+'/rest/v1/nexo_legacy_account_links?on_conflict=user_id',{
+  method:'POST',
+  headers:{...headers,Authorization:'Bearer '+token,
+   Prefer:'resolution=ignore-duplicates,return=minimal'},
+  body:JSON.stringify({
+   user_id:userId,original_registered_at:date.toISOString(),source:'local_v1',
+  }),
+ });
+ await parse(response);
+}
 export async function revokeProfessionalProfileShare(){
  const {token,userId}=await getCloudAccess();
  const resp=await fetch(BASE+'/rest/v1/nexo_professional_profiles?user_id=eq.'+
