@@ -1,5 +1,6 @@
 import { createContext, useContext, useSyncExternalStore, type PropsWithChildren } from 'react';
 import { Platform } from 'react-native';
+import { useAuth } from '@/state/auth';
 
 export type ProfessionalProfile = {
   firstName: string;
@@ -29,10 +30,11 @@ const emptyProfile: ProfessionalProfile = {
   photoDataUrl: '',
 };
 
-const storageKey = 'nexo.professional-profile.v1';
-let profile = { ...emptyProfile };
-let initialized = false;
-const listeners = new Set<() => void>();
+const LEGACY='nexo.professional-profile.v1';
+const PREFIX='nexo.professional-profile.v2.';
+const profiles=new Map<string,ProfessionalProfile>();
+const listeners=new Set<() => void>();
+const key=(userId:string|null)=>PREFIX+(userId||'guest');
 
 function normalizeProfile(value: unknown): ProfessionalProfile | null {
   if (!value || typeof value !== 'object') return null;
@@ -65,48 +67,52 @@ function normalizeProfile(value: unknown): ProfessionalProfile | null {
   };
 }
 
-function loadProfile() {
-  if (initialized) return profile;
-  initialized = true;
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        const normalized = normalizeProfile(parsed);
-        if (normalized) profile = normalized;
-      }
-    } catch {
-      // Storage may be blocked; keep the in-memory profile instead.
+function loadProfile(userId:string|null):ProfessionalProfile{
+ const id=key(userId);
+ const cached=profiles.get(id);
+ if(cached)return cached;
+ let next={...emptyProfile};
+ if(Platform.OS==='web'&&typeof window!=='undefined'){
+  try{
+   const saved=window.localStorage.getItem(id);
+   if(saved)next=normalizeProfile(JSON.parse(saved))||next;
+   else{
+    // A previously written single-account CV belongs to that sole account.
+    // Never automatically assign a shared historical profile when two or
+    // more local users might own it.
+    const rawAccounts=JSON.parse(window.localStorage.getItem('nexo.local-accounts.v1')||'[]');
+    const accounts=Array.isArray(rawAccounts)?rawAccounts:[];
+    let legacy='';
+    if(userId&&accounts.length===1&&accounts[0]?.id===userId){
+     legacy=window.localStorage.getItem(LEGACY)||'';
+    }else if(userId){
+     // Move a pre-registration guest draft only if no other account owned it.
+     legacy=window.localStorage.getItem(PREFIX+'guest')||'';
+    }else if(!accounts.length){
+     legacy=window.localStorage.getItem(LEGACY)||'';
     }
-  }
-  return profile;
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function getSnapshot() {
-  return loadProfile();
-}
-
-function getServerSnapshot() {
-  return emptyProfile;
-}
-
-function persist(next: ProfessionalProfile) {
-  profile = next;
-  initialized = true;
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(next));
-    } catch {
-      // Keep working in-memory when storage is unavailable.
+    if(legacy){
+     next=normalizeProfile(JSON.parse(legacy))||next;
+     window.localStorage.setItem(id,JSON.stringify(next));
+     if(userId)window.localStorage.removeItem(PREFIX+'guest');
     }
-  }
-  listeners.forEach((listener) => listener());
+   }
+  }catch{/* storage blocked or malformed; preserve empty safe profile */}
+ }
+ profiles.set(id,next);
+ return next;
+}
+function subscribe(listener:()=>void){
+ listeners.add(listener);
+ return ()=>listeners.delete(listener);
+}
+function persist(userId:string|null,next:ProfessionalProfile){
+ const id=key(userId);
+ profiles.set(id,next);
+ if(Platform.OS==='web'&&typeof window!=='undefined'){
+  try{window.localStorage.setItem(id,JSON.stringify(next));}catch{}
+ }
+ listeners.forEach(listener=>listener());
 }
 
 type ProfessionalProfileContextValue = {
@@ -118,15 +124,14 @@ type ProfessionalProfileContextValue = {
 const ProfessionalProfileContext = createContext<ProfessionalProfileContextValue | null>(null);
 
 export function ProfessionalProfileProvider({ children }: PropsWithChildren) {
-  const current = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const {user}=useAuth();
+  const userId=user?.id||null;
+  const current=useSyncExternalStore(subscribe,()=>loadProfile(userId),()=>emptyProfile);
 
-  function updateField<K extends keyof ProfessionalProfile>(field: K, value: ProfessionalProfile[K]) {
-    persist({ ...loadProfile(), [field]: value });
+  function updateField<K extends keyof ProfessionalProfile>(field:K,value:ProfessionalProfile[K]){
+    persist(userId,{...loadProfile(userId),[field]:value});
   }
-
-  function resetProfile() {
-    persist({ ...emptyProfile });
-  }
+  function resetProfile(){persist(userId,{...emptyProfile});}
 
   return (
     <ProfessionalProfileContext.Provider value={{ profile: current, updateField, resetProfile }}>
