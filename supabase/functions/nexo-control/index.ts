@@ -183,6 +183,23 @@ Deno.serve(async(req:Request)=>{
       if(req.method==="POST")return reportAgentTask(await req.json().catch(()=>({})));
       return fail(405,"Método no permitido");
     }
+    if(req.method==="GET"&&scope==="users"){
+      const actor=await admin(req);
+      if(!actor||!["owner","developer"].includes(actor.role))
+        return fail(403,"Solo el equipo desarrollador puede consultar usuarios.");
+      const params=new URL(req.url).searchParams;
+      const query=String(params.get("q")||"").slice(0,100);
+      const sort=String(params.get("sort")||"newest");
+      const allowedSort=["az","za","newest","oldest","newest_az","oldest_az"];
+      if(!allowedSort.includes(sort))return fail(400,"Orden no válido.");
+      const page=Math.max(0,Math.min(10000,Math.floor(Number(params.get("page")||0)||0)));
+      const {data,error}=await db.rpc("nexo_admin_user_directory",{
+        p_query:query,p_sort:sort,p_limit:40,p_offset:page*40,
+      });
+      if(error)throw error;
+      return json({total:Number(data?.total||0),users:Array.isArray(data?.users)?data.users:[],
+        page,pageSize:40});
+    }
     if(req.method==="GET"){
       const scope=new URL(req.url).searchParams.get("scope");
       if(scope==="public"){
