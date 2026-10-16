@@ -9,6 +9,8 @@ import type { ProfessionalProfile } from '@/state/professional-profile';
 const BASE='https://wfwyftxbanwvixplzhcd.supabase.co';
 const KEY='sb_publishable_UY_rNqVKNwofYYv-p8lb0w_DvGkQBXi';
 const SESSION='nexo.cloud.identity.v1';
+const signal=(ms:number)=>typeof AbortSignal!=='undefined'&&
+ typeof AbortSignal.timeout==='function'?AbortSignal.timeout(ms):undefined;
 type CloudSession={access_token:string;refresh_token:string;expires_at:number;user_id:string};
 export type CloudUser={id:string;email:string;firstName:string;firstSurname:string;username:string};
 const headers={'apikey':KEY,'content-type':'application/json'};
@@ -55,8 +57,9 @@ function currentCloudUser(json:any):CloudUser|null{
 export async function cloudRegister(input:{
  email:string;password:string;username:string;firstName:string;firstSurname:string;
 }):Promise<{registered:boolean;needsEmailVerification:boolean}>{
- const result=await parse(await fetch(BASE+'/auth/v1/signup',{
-  method:'POST',headers,body:JSON.stringify({
+ const result=await parse(await fetch(BASE+'/auth/v1/signup?redirect_to='+encodeURIComponent(
+   'https://armentamarcos61-png.github.io/nexo-app/'),{
+  method:'POST',headers,signal:signal(8500),body:JSON.stringify({
    email:input.email.trim().toLowerCase(),
    password:input.password,
    data:{firstName:input.firstName.trim().slice(0,40),
@@ -71,7 +74,7 @@ export async function cloudRegister(input:{
 export async function cloudLogin(email:string,password:string):Promise<CloudUser>{
  if(!email.includes('@'))throw Error('Para entrar desde otro dispositivo, escribe tu correo.');
  const json=await parse(await fetch(BASE+'/auth/v1/token?grant_type=password',{
-  method:'POST',headers,body:JSON.stringify({email:email.trim().toLowerCase(),password}),
+  method:'POST',headers,signal:signal(7000),body:JSON.stringify({email:email.trim().toLowerCase(),password}),
  }));
  const user=currentCloudUser(json);
  if(!user||!keep(json))throw Error('La cuenta no devolvió una sesión válida.');
