@@ -5,6 +5,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 import { Platform } from 'react-native';
+import { clearCloudSession, cloudLogin, cloudRegister } from '@/lib/nexo-cloud-identity';
 
 export type NexoUser = {
   id: string;
@@ -229,6 +230,16 @@ async function registerAccount(input: RegisterInput): Promise<AuthResult> {
 
     const user = normalizePublicUser(account);
     persistSession(user);
+    // Register central identity as well as the local account. If email
+    // confirmation is required, the profile will only be synced after login.
+    // Never send the password to the developer directory.
+    try{
+      await cloudRegister({username,email,firstName:input.firstName,
+        firstSurname:input.firstSurname,password:input.password});
+    }catch{
+      // Local accounts remain usable even if the cloud is offline. The
+      // owner can link their account later; never fake a central record.
+    }
     return { ok: true, user };
   } catch (error) {
     return {
@@ -249,13 +260,30 @@ async function signInAccount(identifier: string, password: string): Promise<Auth
   );
 
   if (!account) {
-    const looksLikeEmail = normalized.includes('@');
-    return {
-      ok: false,
-      error: looksLikeEmail
-        ? 'Ese correo no está registrado o no existe.'
-        : 'Ese usuario no existe.',
-    };
+    // Accounts created on other devices are verified directly with Supabase
+    // and imported into this browser only AFTER a successful remote login.
+    if(normalized.includes('@')){
+      try{
+        const remote=await cloudLogin(normalized,password);
+        const saltBytes=new Uint8Array(16);
+        globalThis.crypto.getRandomValues(saltBytes);
+        const passwordSalt=bytesToBase64(saltBytes);
+        const passwordHash=await derivePassword(password,passwordSalt);
+        const imported:StoredAccount={
+          id:remote.id,email:remote.email.toLowerCase(),
+          username:remote.username||remote.email.split('@')[0],
+          firstName:remote.firstName,firstSurname:remote.firstSurname,
+          passwordHash,passwordSalt,createdAt:new Date().toISOString(),
+        };
+        accounts=[...accounts,imported];persistAccounts();
+        const cloudUser=normalizePublicUser(imported);
+        persistSession(cloudUser);
+        return {ok:true,user:cloudUser};
+      }catch{
+        return {ok:false,error:'No se encontró la cuenta local. Si te registraste en otro teléfono, usa el correo y contraseña de tu cuenta verificada.'};
+      }
+    }
+    return {ok:false,error:'Ese usuario no existe en este dispositivo. Para entrar desde otro teléfono, escribe tu correo.'};
   }
 
   try {
@@ -266,6 +294,9 @@ async function signInAccount(identifier: string, password: string): Promise<Auth
 
     const user = normalizePublicUser(account);
     persistSession(user);
+    // Use the same password to refresh the user's OWN Supabase session.
+    // A legacy local account may not exist on the server yet.
+    try{await cloudLogin(account.email,password);}catch{/* legacy or unverified */}
     return { ok: true, user };
   } catch (error) {
     return {
@@ -293,7 +324,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         user,
         register: registerAccount,
         signIn: signInAccount,
-        signOut: () => persistSession(null),
+        signOut: () => {clearCloudSession();persistSession(null);},
       }}
     >
       {children}
