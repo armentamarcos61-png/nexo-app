@@ -104,7 +104,7 @@ export default function RegistrarseScreen() {
       <View style={[styles.notice, { borderColor: palette.cardBorder }]}>
         <Text style={[styles.noticeTitle, { color: palette.title }]}>Cuenta Nexo funcional</Text>
         <Text style={[styles.noticeText, { color: palette.text }]}>
-          Al registrarte quedas conectado de inmediato. Tu nombre, perfil y fotos guardadas en este navegador seguirán disponibles al volver a iniciar sesión.
+          Tu cuenta funcionará en este dispositivo. También intentaremos registrarla de forma segura en Nexo Central para que puedas iniciar sesión desde otros teléfonos. Si recibes un correo de verificación, confírmalo. Tu fotografía y currículum no se compartirán con desarrolladores sin tu autorización.
         </Text>
       </View>
 
@@ -189,7 +189,7 @@ export default function RegistrarseScreen() {
       />
 
       <Text style={[styles.securityNote, { color: palette.muted }]}>
-        🔒 Nexo no guarda la contraseña en texto legible. Esta versión conserva la cuenta en este navegador mientras conectamos el backend seguro para sincronizar entre dispositivos.
+        🔒 Tu contraseña se protege con un hash en este dispositivo y se usa mediante una conexión cifrada para crear tu cuenta en Supabase. Puedes sincronizar tu currículum en Perfil únicamente si das tu autorización.
       </Text>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
