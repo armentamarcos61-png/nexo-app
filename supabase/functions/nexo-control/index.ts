@@ -197,7 +197,8 @@ Deno.serve(async(req:Request)=>{
         p_query:query,p_sort:sort,p_limit:40,p_offset:page*40,
       });
       if(error)throw error;
-      return json({total:Number(data?.total||0),users:Array.isArray(data?.users)?data.users:[],
+      return json({total:Number(data?.total||0),recovered:Number(data?.recovered||0),
+        users:Array.isArray(data?.users)?data.users:[],
         page,pageSize:40});
     }
     if(req.method==="GET"){
