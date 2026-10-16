@@ -29,14 +29,16 @@ export type ControlDashboard={
  feedbackHasMore:boolean;
 };
 export type NexoAdminUser={
- id:string;email:string|null;created_at:string;email_confirmed_at:string|null;
+ id:string;email:string|null;created_at:string;centralized_at?:string;
+ historical_imported_at?:string|null;recovered_from_device?:boolean;
+ email_confirmed_at:string|null;
  first_name:string;first_surname:string;username:string;full_name:string;
  role:string|null;education:string|null;specialty:string|null;
  experience:string|null;availability:string|null;work_mode:string|null;
  skills:string|null;bio:string|null;photo_data_url:string|null;
  profile_updated:string|null;
 };
-export type NexoAdminUserDirectory={total:number;users:NexoAdminUser[];
+export type NexoAdminUserDirectory={total:number;recovered:number;users:NexoAdminUser[];
  page:number;pageSize:number};
 export type NexoUserSort='az'|'za'|'newest'|'oldest'|'newest_az'|'oldest_az';
 export async function loadNexoUserDirectory(
@@ -51,7 +53,7 @@ export async function loadNexoUserDirectory(
  const data=await check(response);
  if(!Array.isArray(data?.users)||!Number.isFinite(Number(data.total)))
   throw new Error('La lista de usuarios no tiene un formato válido.');
- return {total:Number(data.total),users:data.users,
+ return {total:Number(data.total),recovered:Number(data.recovered||0),users:data.users,
   page:Number(data.page)||0,pageSize:Number(data.pageSize)||40};
 }
 type Session={access_token:string;refresh_token:string;expires_at:number};
