@@ -61,7 +61,7 @@ export default function NexoControlScreen(){
  const [userSearch,setUserSearch]=useState('');
  const [userSort,setUserSort]=useState<NexoUserSort>('newest');
  const [userPage,setUserPage]=useState(0);
- const [userDirectory,setUserDirectory]=useState<{total:number;users:NexoAdminUser[];pageSize:number}|null>(null);
+ const [userDirectory,setUserDirectory]=useState<{total:number;recovered:number;users:NexoAdminUser[];pageSize:number}|null>(null);
  const [selectedUser,setSelectedUser]=useState<NexoAdminUser|null>(null);
  const [userBusy,setUserBusy]=useState(false);
  const [userError,setUserError]=useState('');
@@ -414,9 +414,11 @@ export default function NexoControlScreen(){
      {tab==='users'?<>
       <Text style={styles.sectionTitle}>Historial de usuarios registrados</Text>
       <Text style={styles.muted}>
-       Cuentas centralizadas en Nexo. Nombre, fecha y correo se consultan
-       de forma privada; el currículum y la fotografía solo aparecen cuando
-       el usuario autorizó compartir su perfil profesional.
+       Cuentas centralizadas, incluyendo las históricas vinculadas desde su
+       dispositivo original. No podemos leer directamente cuentas guardadas
+       solo en otro teléfono. La fecha recuperada del dispositivo se marca
+       como histórica, no como fecha certificada por el servidor. La foto y
+       el currículum necesitan permiso del usuario.
       </Text>
       <View style={styles.box}>
        <Text style={styles.fieldLabel}>Buscar usuarios</Text>
@@ -445,7 +447,8 @@ export default function NexoControlScreen(){
       {userBusy&&<ActivityIndicator color="#7DEBFF" />}
       {!!userError&&<Text style={styles.warningText}>{userError}</Text>}
       <Text style={styles.muted}>
-       {userDirectory?userDirectory.total+' usuarios encontrados':'Cargando directorio…'}
+       {userDirectory?userDirectory.total+' usuarios encontrados · '+
+        userDirectory.recovered+' cuentas históricas recuperadas':'Cargando directorio…'}
       </Text>
       {(userDirectory?.users||[]).map(item=>{
        const name=item.full_name||item.username||item.email||'Usuario sin nombre';
@@ -469,6 +472,7 @@ export default function NexoControlScreen(){
           <Text style={styles.dimSmall}>
            Registro: {new Date(item.created_at).toLocaleDateString('es-MX')}
            {item.email_confirmed_at?' · Correo verificado':' · Correo pendiente'}
+           {item.recovered_from_device?' · HISTÓRICA':''}
           </Text>
          </View>
          <Text style={styles.topicCount}>{selected?'⌃':'›'}</Text>
@@ -478,7 +482,16 @@ export default function NexoControlScreen(){
          <Text style={styles.muted}>Nombre: {name}</Text>
          <Text style={styles.muted}>Usuario: @{item.username||'—'}</Text>
          <Text style={styles.muted}>Correo: {item.email||'—'}</Text>
-         <Text style={styles.muted}>Registro: {new Date(item.created_at).toLocaleString('es-MX')}</Text>
+         <Text style={styles.muted}>
+           {item.recovered_from_device?'Registro recuperado del dispositivo: ':'Registro en el servidor: '}
+           {new Date(item.created_at).toLocaleString('es-MX')}
+         </Text>
+         {item.recovered_from_device&&<>
+          <Text style={styles.dimSmall}>Esta fecha procede del dispositivo original y no puede verificarse retrospectivamente en el servidor.</Text>
+          {!!item.centralized_at&&<Text style={styles.dimSmall}>
+           Vinculada a Nexo Central: {new Date(item.centralized_at).toLocaleString('es-MX')}
+          </Text>}
+         </>}
          <Text style={styles.heading}>Currículum / Perfil profesional</Text>
          {!item.profile_updated?<Text style={styles.muted}>
            Aún no ha autorizado sincronizar su currículum.
@@ -496,7 +509,7 @@ export default function NexoControlScreen(){
        </View>
       })}
       {userDirectory?.users.length===0&&!userBusy&&
-       <Text style={styles.muted}>No hay usuarios registrados en el servidor que coincidan con tu búsqueda. Las cuentas guardadas solo en dispositivos no están centralizadas.</Text>}
+       <Text style={styles.muted}>Aún no hay coincidencias. Para recuperar una cuenta histórica, su propietario debe abrir Nexo desde el dispositivo original y usar «Recuperar mi cuenta histórica» en Mi espacio.</Text>}
       <View style={styles.buttonRow}>
        <Btn label="← Anterior" disabled={userBusy||userPage===0}
         onPress={()=>void loadUsers(userSearch,userSort,userPage-1)}/>
