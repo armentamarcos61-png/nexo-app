@@ -125,9 +125,11 @@ export default function PerfilScreen() {
             ¿Creaste esta cuenta antes de que Nexo tuviera registro central?
             Puedes vincularla desde el mismo dispositivo o navegador donde
             la registraste. Conservaremos la fecha original guardada aquí.
-            No se enviarán tu contraseña, su hash, fotos ni currículum.
-            Solo tu nombre de cuenta y fecha de registro; el currículum se
-            comparte por separado y únicamente con tu autorización.
+            La contraseña se verifica mediante una conexión cifrada con
+            Supabase Auth, pero nunca se muestra a los desarrolladores ni
+            se copia al directorio. No subiremos tu hash local, fotos ni
+            currículum por este proceso. El currículum solo se comparte
+            por separado, si das tu autorización.
           </Text>
           <Text style={{color:palette.text,fontSize:12,fontWeight:'800'}}>
             Registro guardado aquí: {new Date(localRegistrationDate).toLocaleDateString('es-MX')}
