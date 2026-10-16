@@ -27,7 +27,29 @@ export default function PerfilScreen() {
   const { mode, setMode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { profile, updateField } = useProfessionalProfile();
-  const { user,signIn }=useAuth();
+  const { user,signIn,linkHistoricalAccount,localRegistrationDate }=useAuth();
+  const [legacyPassword,setLegacyPassword]=useState('');
+  const [legacyWorking,setLegacyWorking]=useState(false);
+  const [legacyMessage,setLegacyMessage]=useState('');
+  const [legacyError,setLegacyError]=useState('');
+  const [legacyLinked,setLegacyLinked]=useState(false);
+  async function migrateHistoricalAccount(){
+    if(!user||legacyWorking)return;
+    setLegacyWorking(true);setLegacyError('');setLegacyMessage('');
+    try{
+      const result=await linkHistoricalAccount(legacyPassword);
+      if(!result.ok){setLegacyError(result.error);return;}
+      if(result.needsEmailVerification){
+        setLegacyMessage('Revisa el correo de tu cuenta antigua y confirma el enlace. Después vuelve a abrir Nexo en ESTE dispositivo y repite la vinculación para recuperar la fecha original.');
+      }else{
+        setLegacyLinked(true);
+        setLegacyMessage('Cuenta histórica vinculada. La fecha recuperada de este dispositivo ya aparecerá en el directorio privado del Centro de desarrolladores.');
+      }
+      setLegacyPassword('');
+    }catch(e){
+      setLegacyError(e instanceof Error?e.message:'No se pudo vincular esta cuenta.');
+    }finally{setLegacyWorking(false)}
+  }
   const [shareApproved,setShareApproved]=useState(false);
   const [cloudPassword,setCloudPassword]=useState('');
   const [sharingBusy,setSharingBusy]=useState(false);
@@ -91,6 +113,52 @@ export default function PerfilScreen() {
 
   return (
     <NexoScreen title="Mi espacio">
+      {user&&localRegistrationDate&&(
+        <View style={[styles.section,{
+          borderWidth:1,borderColor:palette.cardBorder,borderRadius:17,
+          padding:15,backgroundColor:'rgba(12,43,69,.75)',gap:9,
+        }]}>
+          <Text style={[styles.sectionTitle,{color:palette.title}]}>
+            Recuperar mi cuenta histórica
+          </Text>
+          <Text style={[styles.sectionText,{color:palette.text}]}>
+            ¿Creaste esta cuenta antes de que Nexo tuviera registro central?
+            Puedes vincularla desde el mismo dispositivo o navegador donde
+            la registraste. Conservaremos la fecha original guardada aquí.
+            No se enviarán tu contraseña, su hash, fotos ni currículum.
+            Solo tu nombre de cuenta y fecha de registro; el currículum se
+            comparte por separado y únicamente con tu autorización.
+          </Text>
+          <Text style={{color:palette.text,fontSize:12,fontWeight:'800'}}>
+            Registro guardado aquí: {new Date(localRegistrationDate).toLocaleDateString('es-MX')}
+          </Text>
+          {!legacyLinked&&(
+            <>
+              <TextInput
+                accessibilityLabel="Confirmar contraseña para recuperar cuenta histórica"
+                autoCapitalize="none" secureTextEntry
+                placeholder="Confirma la contraseña de esta cuenta"
+                placeholderTextColor="#728098"
+                style={{backgroundColor:'#EAF5FF',color:'#102139',
+                  minHeight:48,paddingHorizontal:13,paddingVertical:9,
+                  borderRadius:12,fontWeight:'700'}}
+                value={legacyPassword} onChangeText={setLegacyPassword}
+              />
+              <Action
+                label={legacyWorking?'Verificando…':'Vincular esta cuenta histórica'}
+                disabled={legacyWorking||legacyPassword.length<6}
+                onPress={()=>void migrateHistoricalAccount()}
+              />
+            </>
+          )}
+          {!!legacyMessage&&<Text style={{color:'#81F7C8',fontSize:12,lineHeight:19}}>
+            {legacyMessage}
+          </Text>}
+          {!!legacyError&&<Text style={{color:'#FFB9CA',fontSize:12,lineHeight:19}}>
+            {legacyError}
+          </Text>}
+        </View>
+      )}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: palette.title }]}>Apariencia</Text>
         <Text style={[styles.sectionText, { color: palette.text }]}>
