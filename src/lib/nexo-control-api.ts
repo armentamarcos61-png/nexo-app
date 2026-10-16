@@ -28,6 +28,32 @@ export type ControlDashboard={
  feedbackTotals:{total:number;likes:number;dislikes:number;comments:number};
  feedbackHasMore:boolean;
 };
+export type NexoAdminUser={
+ id:string;email:string|null;created_at:string;email_confirmed_at:string|null;
+ first_name:string;first_surname:string;username:string;full_name:string;
+ role:string|null;education:string|null;specialty:string|null;
+ experience:string|null;availability:string|null;work_mode:string|null;
+ skills:string|null;bio:string|null;photo_data_url:string|null;
+ profile_updated:string|null;
+};
+export type NexoAdminUserDirectory={total:number;users:NexoAdminUser[];
+ page:number;pageSize:number};
+export type NexoUserSort='az'|'za'|'newest'|'oldest'|'newest_az'|'oldest_az';
+export async function loadNexoUserDirectory(
+ query='',sort:NexoUserSort='newest',page=0
+):Promise<NexoAdminUserDirectory>{
+ const token=await sessionToken();
+ const params=new URLSearchParams({scope:'users',q:query.slice(0,100),
+  sort,page:String(Math.max(0,Math.floor(page)))});
+ const response=await fetch(BASE+'/functions/v1/nexo-control?'+params.toString(),{
+  headers:{...headers(),Authorization:'Bearer '+token},cache:'no-store',
+ });
+ const data=await check(response);
+ if(!Array.isArray(data?.users)||!Number.isFinite(Number(data.total)))
+  throw new Error('La lista de usuarios no tiene un formato válido.');
+ return {total:Number(data.total),users:data.users,
+  page:Number(data.page)||0,pageSize:Number(data.pageSize)||40};
+}
 type Session={access_token:string;refresh_token:string;expires_at:number};
 const headers=()=>({'apikey':KEY,'content-type':'application/json'});
 async function check(response:Response){
