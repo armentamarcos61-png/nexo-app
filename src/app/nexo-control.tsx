@@ -3,13 +3,14 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  ActivityIndicator, Linking, Platform, Pressable, ScrollView,
+  ActivityIndicator, Image, Linking, Platform, Pressable, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import {
   acceptControlRedirect, controlApplySettings, controlCreateIdea,
   controlIdeaStatus, controlLogout, hasControlSession, loadControlDashboard,
   loadControlFeedbackPage, controlUpdateFeedbackReview,
+  loadNexoUserDirectory, type NexoAdminUser, type NexoUserSort,
   parseControlCommand, sendControlEmail, verifyControlEmail,
   type ControlDashboard, type ControlIdea, type ControlFeedback, type ParsedControlCommand,
   type RuntimeSettings, type ActionId,
@@ -27,7 +28,7 @@ const phases:ControlIdea['status'][]=['pending','review','approved','implemented
 const improvementStates:ControlFeedback['review_status'][]=['pending','review','implemented','rejected'];
 const improvementLabels={pending:'Pendiente',review:'En revisión',implemented:'Implementada',rejected:'Descartada'};
 const accentHex={cyan:'#54DEFF',violet:'#BC8DFF',orange:'#FFA362',teal:'#56EDC7'};
-type Tab='resumen'|'ordenes'|'ideas'|'feedback'|'versiones';
+type Tab='resumen'|'ordenes'|'ideas'|'feedback'|'users'|'versiones';
 function Btn({label,onPress,disabled=false,primary=false}:{
  label:string;onPress:()=>void;disabled?:boolean;primary?:boolean;
 }){
@@ -57,10 +58,32 @@ export default function NexoControlScreen(){
  const [micStatus,setMicStatus]=useState('');
  const [listening,setListening]=useState(false);
  const [feedbackQuery,setFeedbackQuery]=useState('');
+ const [userSearch,setUserSearch]=useState('');
+ const [userSort,setUserSort]=useState<NexoUserSort>('newest');
+ const [userPage,setUserPage]=useState(0);
+ const [userDirectory,setUserDirectory]=useState<{total:number;users:NexoAdminUser[];pageSize:number}|null>(null);
+ const [selectedUser,setSelectedUser]=useState<NexoAdminUser|null>(null);
+ const [userBusy,setUserBusy]=useState(false);
+ const [userError,setUserError]=useState('');
  const [reviewNotes,setReviewNotes]=useState<Record<string,string>>({});
  const [proposal,setProposal]=useState<ParsedControlCommand|null>(null);
  const [draft,setDraft]=useState<RuntimeSettings|null>(null);
  const recognizer=useRef<{start:()=>void;stop:()=>void}|null>(null);
+ const loadUsers=useCallback(async(search:string,sort:NexoUserSort,page:number)=>{
+  setUserBusy(true);setUserError('');
+  try{
+   const data=await loadNexoUserDirectory(search,sort,page);
+   setUserDirectory(data);setUserPage(data.page);
+  }catch(cause){
+   setUserError(cause instanceof Error?cause.message:'No se pudo cargar el directorio.');
+  }finally{setUserBusy(false)}
+ },[]);
+ useEffect(()=>{
+  if(tab!=='users'||!dashboard)return;
+  void loadUsers(userSearch,userSort,0);
+ // Only refresh on tab activation / sort change; search uses Enter or button.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[tab,userSort,!!dashboard,loadUsers]);
  const settings=draft||dashboard?.settings||{accent:'cyan' as const,
    action_order:['employment','services','products','offer'] as ActionId[]};
  const refresh=useCallback(async()=>{
@@ -239,7 +262,7 @@ export default function NexoControlScreen(){
       <Btn label="Salir" onPress={()=>{controlLogout();setDashboard(null);setSent(false);setNotice('');}}/>
      </View>
      <View style={styles.tabs}>
-      {([['resumen','Resumen'],['ordenes','Órdenes'],['ideas','Ideas'],['feedback','Historial de mejora'],['versiones','Versiones']] as const)
+      {([['resumen','Resumen'],['ordenes','Órdenes'],['ideas','Ideas'],['feedback','Historial de mejora'],['users','Usuarios'],['versiones','Versiones']] as const)
         .map(([key,label])=><Pressable key={key} onPress={()=>setTab(key)} style={[styles.tab,tab===key&&styles.tabActive]}>
          <Text style={[styles.tabText,tab===key&&{color:'#85EDFF'}]}>{label}</Text>
         </Pressable>)}
@@ -388,6 +411,101 @@ export default function NexoControlScreen(){
         onPress={()=>{void moreImprovements();}}/>}
       <Text style={styles.dimSmall}>Marcar Implementada registra el seguimiento; no publica código automáticamente.</Text>
      </>:null}
+     {tab==='users'?<>
+      <Text style={styles.sectionTitle}>Historial de usuarios registrados</Text>
+      <Text style={styles.muted}>
+       Cuentas centralizadas en Nexo. Nombre, fecha y correo se consultan
+       de forma privada; el currículum y la fotografía solo aparecen cuando
+       el usuario autorizó compartir su perfil profesional.
+      </Text>
+      <View style={styles.box}>
+       <Text style={styles.fieldLabel}>Buscar usuarios</Text>
+       <TextInput style={styles.input} value={userSearch}
+        onChangeText={setUserSearch} autoCapitalize="none"
+        placeholder="Nombre, usuario, correo u oficio"
+        placeholderTextColor="#7F93AE"
+        onSubmitEditing={()=>void loadUsers(userSearch,userSort,0)}/>
+       <Btn label={userBusy?'Buscando…':'Buscar usuarios'}
+        disabled={userBusy} onPress={()=>void loadUsers(userSearch,userSort,0)}/>
+       <Text style={styles.fieldLabel}>Ordenar usuarios por</Text>
+       <View style={styles.buttonRow}>
+       {([
+        ['newest','Más recientes'],['oldest','Más antiguos'],
+        ['az','A → Z'],['za','Z → A'],
+        ['newest_az','Fecha ↓ + A–Z'],['oldest_az','Fecha ↑ + A–Z'],
+       ] as [NexoUserSort,string][]).map(([key,label])=>
+        <Pressable key={key} accessibilityRole="button"
+         accessibilityState={{selected:key===userSort}}
+         onPress={()=>{setUserSort(key);setSelectedUser(null);}}
+         style={[styles.smallChip,key===userSort&&styles.chipActive]}>
+         <Text style={styles.chipText}>{label}</Text>
+        </Pressable>)}
+       </View>
+      </View>
+      {userBusy&&<ActivityIndicator color="#7DEBFF" />}
+      {!!userError&&<Text style={styles.warningText}>{userError}</Text>}
+      <Text style={styles.muted}>
+       {userDirectory?userDirectory.total+' usuarios encontrados':'Cargando directorio…'}
+      </Text>
+      {(userDirectory?.users||[]).map(item=>{
+       const name=item.full_name||item.username||item.email||'Usuario sin nombre';
+       const selected=selectedUser?.id===item.id;
+       const image=item.photo_data_url||'';
+       return <View key={item.id} style={styles.box}>
+        <Pressable accessibilityRole="button"
+         accessibilityLabel={'Abrir ficha de '+name}
+         onPress={()=>setSelectedUser(selected?null:item)}
+         style={{flexDirection:'row',alignItems:'center',gap:12}}>
+         <View style={styles.userAvatar}>
+          {image.startsWith('data:image/')&&image.length<140000?
+           <Image source={{uri:image}} style={{width:55,height:55,borderRadius:28}} />:
+           <Text style={{fontWeight:'900',fontSize:21,color:'#DDF7FF'}}>
+            {name.trim().charAt(0).toUpperCase()||'👤'}
+           </Text>}
+         </View>
+         <View style={{flex:1,gap:3}}>
+          <Text style={styles.topicName}>{name}</Text>
+          <Text style={styles.dimSmall}>@{item.username||'sin-usuario'} · {item.role||'Sin profesión registrada'}</Text>
+          <Text style={styles.dimSmall}>
+           Registro: {new Date(item.created_at).toLocaleDateString('es-MX')}
+           {item.email_confirmed_at?' · Correo verificado':' · Correo pendiente'}
+          </Text>
+         </View>
+         <Text style={styles.topicCount}>{selected?'⌃':'›'}</Text>
+        </Pressable>
+        {selected&&<View style={styles.preview}>
+         <Text style={styles.heading}>Ficha de usuario</Text>
+         <Text style={styles.muted}>Nombre: {name}</Text>
+         <Text style={styles.muted}>Usuario: @{item.username||'—'}</Text>
+         <Text style={styles.muted}>Correo: {item.email||'—'}</Text>
+         <Text style={styles.muted}>Registro: {new Date(item.created_at).toLocaleString('es-MX')}</Text>
+         <Text style={styles.heading}>Currículum / Perfil profesional</Text>
+         {!item.profile_updated?<Text style={styles.muted}>
+           Aún no ha autorizado sincronizar su currículum.
+          </Text>:<>
+          <Text style={styles.muted}>Ocupación: {item.role||'—'}</Text>
+          <Text style={styles.muted}>Estudios: {item.education||'—'}</Text>
+          <Text style={styles.muted}>Especialidad: {item.specialty||'—'}</Text>
+          <Text style={styles.muted}>Experiencia: {item.experience||'—'}</Text>
+          <Text style={styles.muted}>Disponibilidad: {item.availability||'—'}</Text>
+          <Text style={styles.muted}>Modalidad: {item.work_mode||'—'}</Text>
+          <Text style={styles.muted}>Habilidades: {item.skills||'—'}</Text>
+          <Text style={styles.muted}>Presentación: {item.bio||'—'}</Text>
+         </>}
+        </View>}
+       </View>
+      })}
+      {userDirectory?.users.length===0&&!userBusy&&
+       <Text style={styles.muted}>No hay usuarios registrados en el servidor que coincidan con tu búsqueda. Las cuentas guardadas solo en dispositivos no están centralizadas.</Text>}
+      <View style={styles.buttonRow}>
+       <Btn label="← Anterior" disabled={userBusy||userPage===0}
+        onPress={()=>void loadUsers(userSearch,userSort,userPage-1)}/>
+       <Text style={styles.muted}>Página {userPage+1}</Text>
+       <Btn label="Siguiente →" disabled={userBusy||!userDirectory||
+        (userPage+1)*userDirectory.pageSize>=userDirectory.total}
+        onPress={()=>void loadUsers(userSearch,userSort,userPage+1)}/>
+      </View>
+     </>:null}
      {tab==='versiones'?<>
       <Text style={styles.sectionTitle}>Ejecuciones y publicaciones</Text>
       <Text style={styles.muted}>Conteo real de ejecuciones de GitHub Actions. No equivale a número de funciones implementadas.</Text>
@@ -431,7 +549,7 @@ const styles=StyleSheet.create({
  disabled:{opacity:0.4},btnText:{color:'#EDF4FF',fontWeight:'800',fontSize:12},
  session:{flexDirection:'row',gap:12,alignItems:'center',borderRadius:17,padding:12,backgroundColor:'#182846'},
  sessionText:{color:'#EDF7FF',fontWeight:'800',fontSize:13},
- tabs:{flexDirection:'row',gap:5,flexWrap:'wrap',borderBottomWidth:1,borderBottomColor:'#38507D',paddingBottom:7},
+ tabs:{flexDirection:'row',flexWrap:'wrap',gap:5,flexWrap:'wrap',borderBottomWidth:1,borderBottomColor:'#38507D',paddingBottom:7},
  tab:{paddingVertical:11,paddingHorizontal:11,flex:1,alignItems:'center',borderRadius:10},
  tabActive:{backgroundColor:'#263B66'},tabText:{fontSize:11,color:'#AFBED8',fontWeight:'800'},
  stats:{flexDirection:'row',flexWrap:'wrap',gap:8},
@@ -456,5 +574,6 @@ const styles=StyleSheet.create({
  warningText:{color:'#FFE3E3',fontSize:12},
  success:{padding:12,backgroundColor:'#174D51',borderRadius:12},
  successText:{color:'#D7FFF9',fontSize:12},
+ userAvatar:{width:56,height:56,borderRadius:28,backgroundColor:'#25486B',borderWidth:1,borderColor:'#64BED7',alignItems:'center',justifyContent:'center',overflow:'hidden'},
  footNote:{color:'#8DA4C5',fontSize:11,lineHeight:17,marginTop:10},
 });
