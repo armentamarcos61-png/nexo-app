@@ -5,7 +5,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 import { Platform } from 'react-native';
-import { clearCloudSession, cloudLogin, cloudRegister } from '@/lib/nexo-cloud-identity';
+import { clearCloudSession, cloudLogin, cloudRegister, importHistoricalNexoRegistration } from '@/lib/nexo-cloud-identity';
 
 export type NexoUser = {
   id: string;
@@ -306,11 +306,57 @@ async function signInAccount(identifier: string, password: string): Promise<Auth
   }
 }
 
+export type HistoricalAccountLinkResult =
+ | {ok:true; needsEmailVerification:boolean; originalCreatedAt:string}
+ | {ok:false;error:string};
+
+/** The original device must still hold the locally created account.
+ * A developer cannot retrieve this record remotely. The account owner
+ * explicitly re-enters their password, proves their local account and
+ * re-authenticates with Supabase before the historic date is uploaded.
+ */
+async function linkMyHistoricalAccount(password:string):Promise<HistoricalAccountLinkResult>{
+ loadState();
+ const me=currentUser;
+ if(!me)return {ok:false,error:'Inicia sesión en la cuenta histórica que quieres recuperar.'};
+ const local=accounts.find(a=>a.id===me.id);
+ if(!local)return {ok:false,error:'No se encontró el registro de esta cuenta en el dispositivo.'};
+ if(!password)return {ok:false,error:'Escribe la contraseña de esta cuenta.'};
+ try{
+  const hash=await derivePassword(password,local.passwordSalt);
+  if(hash!==local.passwordHash)
+   return {ok:false,error:'La contraseña de esta cuenta histórica es incorrecta.'};
+  // Confirm cloud ownership. If this email already belongs to another
+  // Supabase account, signup fails; never overwrite or claim that account.
+  try{
+   const remote=await cloudLogin(local.email,password);
+   if(remote.email.toLowerCase()!==local.email.toLowerCase())
+    return {ok:false,error:'El correo de la cuenta central no coincide.'};
+  }catch{
+   const result=await cloudRegister({email:local.email,password,
+    username:local.username,firstName:local.firstName,firstSurname:local.firstSurname});
+   if(result.needsEmailVerification)
+    return {ok:true,needsEmailVerification:true,originalCreatedAt:local.createdAt};
+  }
+  await importHistoricalNexoRegistration(local.createdAt);
+  return {ok:true,needsEmailVerification:false,originalCreatedAt:local.createdAt};
+ }catch(e){
+  return {ok:false,error:e instanceof Error?e.message:
+   'No se pudo vincular tu cuenta. Comprueba la conexión o verifica tu correo.'};
+ }
+}
+function getMyLocalCreatedAt():string|null{
+ loadState();
+ return accounts.find(a=>a.id===currentUser?.id)?.createdAt||null;
+}
+
 type AuthContextValue = {
   user: NexoUser | null;
   register: (input: RegisterInput) => Promise<AuthResult>;
   signIn: (identifier: string, password: string) => Promise<AuthResult>;
   signOut: () => void;
+  linkHistoricalAccount:(password:string)=>Promise<HistoricalAccountLinkResult>;
+  localRegistrationDate:string|null;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -325,6 +371,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         register: registerAccount,
         signIn: signInAccount,
         signOut: () => {clearCloudSession();persistSession(null);},
+        linkHistoricalAccount:linkMyHistoricalAccount,
+        localRegistrationDate:getMyLocalCreatedAt(),
       }}
     >
       {children}
