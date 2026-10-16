@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 
 type Props = {
@@ -6,7 +6,36 @@ type Props = {
   onChange: (dataUrl: string) => void;
 };
 
-export function ProfilePhotoPicker({ value }: Props) {
+export function ProfilePhotoPicker({ value,onChange }: Props) {
+  async function choosePhoto(){
+    if(Platform.OS!=='web'||typeof document==='undefined')return;
+    const input=document.createElement('input');
+    input.type='file';input.accept='image/png,image/jpeg,image/webp,image/heic';
+    input.onchange=()=>{
+      const file=input.files?.[0];
+      if(!file||!file.type.startsWith('image/')||file.size>12*1024*1024)return;
+      const url=URL.createObjectURL(file);
+      const image=document.createElement('img');
+      image.onload=()=>{
+        try{
+          const size=260;
+          const canvas=document.createElement('canvas');
+          canvas.width=size;canvas.height=size;
+          const ctx=canvas.getContext('2d');
+          if(!ctx)return;
+          const side=Math.min(image.naturalWidth,image.naturalHeight);
+          const sx=(image.naturalWidth-side)/2;
+          const sy=(image.naturalHeight-side)/2;
+          ctx.drawImage(image,sx,sy,side,side,0,0,size,size);
+          const result=canvas.toDataURL('image/jpeg',0.70);
+          if(result.length<135000)onChange(result);
+        }finally{URL.revokeObjectURL(url);}
+      };
+      image.onerror=()=>URL.revokeObjectURL(url);
+      image.src=url;
+    };
+    input.click();
+  }
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
 
@@ -20,7 +49,11 @@ export function ProfilePhotoPicker({ value }: Props) {
         },
       ]}
     >
-      <View
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Cambiar fotografía de perfil"
+        disabled={Platform.OS!=='web'}
+        onPress={()=>void choosePhoto()}
         style={[
           styles.avatar,
           {
@@ -34,12 +67,28 @@ export function ProfilePhotoPicker({ value }: Props) {
         ) : (
           <Text style={styles.placeholder}>👤</Text>
         )}
-      </View>
+      </Pressable>
       <View style={styles.copy}>
         <Text style={[styles.title, { color: palette.title }]}>Foto de perfil</Text>
         <Text style={[styles.text, { color: palette.text }]}>
-          La foto es opcional. La selección desde el dispositivo se habilitará en la versión móvil nativa.
+          {Platform.OS==='web'
+            ?'Toca la foto para elegir una imagen. Se recorta en cuadrado y se guarda en tu dispositivo.'
+            :'La selección de fotos está disponible en la versión web. La aplicación nativa está pendiente.'}
         </Text>
+        {Platform.OS==='web'&&(
+          <View style={{flexDirection:'row',gap:10,marginTop:6}}>
+            <Pressable onPress={()=>void choosePhoto()} style={{padding:8,borderRadius:9,
+              borderWidth:1,borderColor:palette.cardBorder}}>
+              <Text style={{color:palette.title,fontSize:12,fontWeight:'800'}}>
+                {value?'Cambiar foto':'Subir fotografía'}
+              </Text>
+            </Pressable>
+            {!!value&&<Pressable onPress={()=>onChange('')}
+              style={{padding:8,borderRadius:9,borderWidth:1,borderColor:palette.cardBorder}}>
+              <Text style={{color:palette.title,fontSize:12,fontWeight:'700'}}>Quitar</Text>
+            </Pressable>}
+          </View>
+        )}
       </View>
     </View>
   );
