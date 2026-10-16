@@ -27,6 +27,9 @@ jobs:
       - name: Verificar voces gratuitas femenina y masculina
         run: node scripts/verify-assistant-voices.cjs
 
+      - name: Verificar directorio de usuarios, fotos, CV y control de acceso
+        run: node scripts/verify-nexo-user-directory.cjs
+
       - name: Verificar valoraciones y comentarios privados de Nexo y Nexa
         run: node scripts/verify-assistant-feedback.cjs
 
