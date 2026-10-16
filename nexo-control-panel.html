@@ -191,9 +191,11 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
  <section class="panel">
  <h2>Historial de usuarios registrados</h2>
  <p>Consulta cuentas verificadas o pendientes del sistema central de Nexo.
- La foto y el currículum aparecerán solo cuando el usuario haya autorizado
- sincronizar su información profesional. Las cuentas locales de otros
- teléfonos no se pueden recuperar sin que se vinculen al servidor.</p>
+ Las cuentas antiguas se recuperan cuando sus dueños vuelven al dispositivo
+ original y vinculan la cuenta en Mi espacio. No se puede leer a distancia
+ el almacenamiento privado de otros teléfonos. Las fechas históricas
+ proceden del dispositivo original y no son certificadas por el servidor.
+ Foto y currículum solo con autorización.</p>
  <div class="row" style="align-items:end">
   <div style="flex:2;min-width:190px">
    <label for="users-query">Buscar usuario</label>
@@ -568,13 +570,14 @@ async function loadUsers(page=0){
 function drawUsers(){
  const result=userList;
  const list=$('users-list');list.replaceChildren();
- $('users-count').textContent=result.total+' usuarios encontrados en el servidor';
+ $('users-count').textContent=result.total+' usuarios encontrados · '+
+   Number(result.recovered||0)+' cuentas históricas recuperadas';
  $('users-page').textContent='Página '+(result.page+1);
  $('users-prev').disabled=result.page<=0;
  $('users-next').disabled=(result.page+1)*result.pageSize>=result.total;
  if(!result.users.length){
   const p=document.createElement('p');p.className='note';
-  p.textContent='No hay usuarios que coincidan con esta búsqueda. Las cuentas solo guardadas en dispositivos no aparecen todavía.';
+  p.textContent='Sin coincidencias. Las cuentas antiguas se vinculan desde el dispositivo original en Mi espacio → Recuperar mi cuenta histórica.';
   list.append(p);return;
  }
  for(const user of result.users){
@@ -595,7 +598,8 @@ function drawUsers(){
   const strong=document.createElement('strong');strong.textContent=name;
   const detail=document.createElement('div');detail.className='note';
   detail.textContent='@'+(user.username||'sin usuario')+
-   ' · '+(user.role||'Sin ocupación')+' · Registro: '+
+   ' · '+(user.role||'Sin ocupación')+
+   (user.recovered_from_device?' · HISTÓRICA':'')+' · Registro: '+
    new Date(user.created_at).toLocaleDateString('es-MX');
   info.append(strong,detail);head.append(avatar,info);article.append(head);
   const summary=document.createElement('div');
@@ -603,13 +607,21 @@ function drawUsers(){
   const fields=[
    ['Nombre completo',name],['Usuario',user.username],
    ['Correo electrónico',user.email],
-   ['Registro',new Date(user.created_at).toLocaleString('es-MX')],
+   [user.recovered_from_device?'Fecha histórica del dispositivo':'Registro en el servidor',
+    new Date(user.created_at).toLocaleString('es-MX')],
+   ...(user.recovered_from_device?[['Vinculada a Nexo Central',
+    new Date(user.centralized_at).toLocaleString('es-MX')]]:[]),
    ['Verificación',user.email_confirmed_at?'Correo verificado':'Pendiente'],
   ];
   const label=document.createElement('h3');label.textContent='Ficha de usuario';summary.append(label);
   for(const [key,value] of fields){
    const p=document.createElement('p');p.className='note';
    p.textContent=key+': '+(value||'—');summary.append(p);
+  }
+  if(user.recovered_from_device){
+   const note=document.createElement('p');note.className='note';
+   note.textContent='Fecha recuperada del dispositivo original; no está certificada retrospectivamente por el servidor.';
+   summary.append(note);
   }
   const title=document.createElement('h3');title.textContent='Currículum / Perfil profesional';
   summary.append(title);
