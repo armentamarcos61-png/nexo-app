@@ -104,6 +104,7 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
 <button class="tab" aria-selected="false" data-tab="commands">Órdenes</button>
 <button class="tab" aria-selected="false" data-tab="ideas">Ideas</button>
 <button class="tab" aria-selected="false" data-tab="feedback">Historial de mejora</button>
+<button class="tab" aria-selected="false" data-tab="users">Usuarios</button>
 <button class="tab" aria-selected="false" data-tab="versions">Versiones</button>
 </div>
 <div id="summary" data-page="summary">
@@ -186,6 +187,40 @@ footer{font-size:11px;color:#88a0bc;margin-top:25px}
     documenta el seguimiento, no modifica ni publica código automáticamente.</p>
  </section>
 </div>
+<div id="users" data-page="users" class="hidden">
+ <section class="panel">
+ <h2>Historial de usuarios registrados</h2>
+ <p>Consulta cuentas verificadas o pendientes del sistema central de Nexo.
+ La foto y el currículum aparecerán solo cuando el usuario haya autorizado
+ sincronizar su información profesional. Las cuentas locales de otros
+ teléfonos no se pueden recuperar sin que se vinculen al servidor.</p>
+ <div class="row" style="align-items:end">
+  <div style="flex:2;min-width:190px">
+   <label for="users-query">Buscar usuario</label>
+   <input id="users-query" placeholder="Nombre, usuario, correo u oficio">
+  </div>
+  <div style="flex:1;min-width:170px">
+   <label for="users-sort">Ordenar por</label>
+   <select id="users-sort">
+    <option value="newest">Fecha: más recientes</option>
+    <option value="oldest">Fecha: más antiguos</option>
+    <option value="az">Nombre: A a Z</option>
+    <option value="za">Nombre: Z a A</option>
+    <option value="newest_az">Fecha reciente y A–Z</option>
+    <option value="oldest_az">Fecha antigua y A–Z</option>
+   </select>
+  </div>
+  <button class="btn primary" id="users-search">Buscar</button>
+ </div>
+ <p class="note" id="users-count" aria-live="polite">Cargando usuarios…</p>
+ <div id="users-list"></div>
+ <div class="row" style="margin-top:17px">
+  <button class="btn" id="users-prev">← Anterior</button>
+  <span class="chip" id="users-page">Página 1</span>
+  <button class="btn" id="users-next">Siguiente →</button>
+ </div>
+ </section>
+</div>
 <div id="versions" data-page="versions" class="hidden"><section class="panel"><h2>Publicaciones y validaciones</h2>
 <p>Estados obtenidos de GitHub Actions. Una ejecución no equivale a una función terminada.</p><div id="runs"></div>
 <a href="https://github.com/armentamarcos61-png/nexo-app/actions" target="_blank" rel="noopener noreferrer">Ver compilaciones en GitHub ↗</a></section>
@@ -210,6 +245,8 @@ const allowedScreens={
 const supported=['employment','services','products','offer'];
 const statusNames={pending:'Pendiente',review:'Revisión',approved:'Aprobada',implemented:'Implementada',rejected:'Descartada'};
 let dashboard=null,draft=null,proposal=null,busy=false;
+let userList={users:[],total:0,page:0,pageSize:40};
+let userLoaded=false;
 let feedbackHistory=[],feedbackHasMore=false,activeRecognition=null;
 let pendingLinkPassword=null,pendingLinkEmail=null,lastEmailFlow='email';
 const show=(id,visible)=>$(id).classList.toggle('hidden',!visible);
@@ -509,6 +546,91 @@ function drawFeedback(){
   box.append(card);
  }
 }
+async function loadUsers(page=0){
+ const query=$('users-query').value.trim().slice(0,100);
+ const sort=$('users-sort').value;
+ if(!['newest','oldest','az','za','newest_az','oldest_az'].includes(sort))return;
+ $('users-count').textContent='Buscando usuarios…';
+ $('users-search').disabled=true;
+ try{
+  const access=await token();
+  const params=new URLSearchParams({scope:'users',q:query,sort,page:String(page)});
+  const result=await parse(await fetch(API+'?'+params.toString(),{
+   method:'GET',headers:{...headers(),Authorization:'Bearer '+access},
+   cache:'no-store',
+  }));
+  if(!Array.isArray(result.users))throw Error('El directorio devolvió datos inválidos.');
+  userList=result;userLoaded=true;drawUsers();
+ }catch(e){
+  $('users-count').textContent=e.message||'No se pudo consultar el directorio.';
+ }finally{$('users-search').disabled=false;}
+}
+function drawUsers(){
+ const result=userList;
+ const list=$('users-list');list.replaceChildren();
+ $('users-count').textContent=result.total+' usuarios encontrados en el servidor';
+ $('users-page').textContent='Página '+(result.page+1);
+ $('users-prev').disabled=result.page<=0;
+ $('users-next').disabled=(result.page+1)*result.pageSize>=result.total;
+ if(!result.users.length){
+  const p=document.createElement('p');p.className='note';
+  p.textContent='No hay usuarios que coincidan con esta búsqueda. Las cuentas solo guardadas en dispositivos no aparecen todavía.';
+  list.append(p);return;
+ }
+ for(const user of result.users){
+  const name=user.full_name||user.username||user.email||'Sin nombre';
+  const article=document.createElement('details');article.className='idea';
+  const head=document.createElement('summary');
+  head.style.cssText='display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none';
+  const avatar=document.createElement('div');
+  avatar.style.cssText='width:60px;height:60px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#214870;border:1px solid #72C9E6;flex-shrink:0;font-size:23px;font-weight:900';
+  const photo=typeof user.photo_data_url==='string'?user.photo_data_url:'';
+  if(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)&&photo.length<140000){
+   const image=document.createElement('img');
+   image.src=photo;image.alt='Foto de '+name;
+   image.style.cssText='width:100%;height:100%;object-fit:cover';
+   avatar.append(image);
+  }else avatar.textContent=name.trim().charAt(0).toUpperCase()||'👤';
+  const info=document.createElement('div');info.style.flex='1';
+  const strong=document.createElement('strong');strong.textContent=name;
+  const detail=document.createElement('div');detail.className='note';
+  detail.textContent='@'+(user.username||'sin usuario')+
+   ' · '+(user.role||'Sin ocupación')+' · Registro: '+
+   new Date(user.created_at).toLocaleDateString('es-MX');
+  info.append(strong,detail);head.append(avatar,info);article.append(head);
+  const summary=document.createElement('div');
+  summary.style.cssText='margin-top:16px;padding:12px;background:#0d2340;border-radius:12px';
+  const fields=[
+   ['Nombre completo',name],['Usuario',user.username],
+   ['Correo electrónico',user.email],
+   ['Registro',new Date(user.created_at).toLocaleString('es-MX')],
+   ['Verificación',user.email_confirmed_at?'Correo verificado':'Pendiente'],
+  ];
+  const label=document.createElement('h3');label.textContent='Ficha de usuario';summary.append(label);
+  for(const [key,value] of fields){
+   const p=document.createElement('p');p.className='note';
+   p.textContent=key+': '+(value||'—');summary.append(p);
+  }
+  const title=document.createElement('h3');title.textContent='Currículum / Perfil profesional';
+  summary.append(title);
+  if(user.profile_updated){
+   for(const [key,value] of [
+    ['Oficio o puesto',user.role],['Estudios',user.education],
+    ['Especialidad',user.specialty],['Experiencia',user.experience],
+    ['Disponibilidad',user.availability],['Modalidad',user.work_mode],
+    ['Habilidades',user.skills],['Presentación profesional',user.bio],
+   ]){
+    const p=document.createElement('p');p.className='note';
+    p.textContent=key+': '+(value||'—');summary.append(p);
+   }
+  }else{
+   const p=document.createElement('p');p.className='note';
+   p.textContent='Este usuario aún no ha autorizado sincronizar su currículum.';
+   summary.append(p);
+  }
+  article.append(summary);list.append(article);
+ }
+}
 function drawVersions(){
  const parent=$('runs');parent.replaceChildren();
  const workflows=dashboard.metrics.workflows;
@@ -705,9 +827,15 @@ $('feedback-more').addEventListener('click',()=>run(async()=>{
  dashboard.feedbackTotals=page.feedbackTotals||dashboard.feedbackTotals;
  drawFeedback();
 }));
+$('users-search').addEventListener('click',()=>loadUsers(0));
+$('users-query').addEventListener('keydown',e=>{if(e.key==='Enter')loadUsers(0);});
+$('users-sort').addEventListener('change',()=>loadUsers(0));
+$('users-prev').addEventListener('click',()=>loadUsers(Math.max(0,userList.page-1)));
+$('users-next').addEventListener('click',()=>loadUsers(userList.page+1));
 for(const tab of document.querySelectorAll('[data-tab]'))tab.addEventListener('click',()=>{
  for(const b of document.querySelectorAll('[data-tab]'))b.setAttribute('aria-selected',String(tab===b));
  for(const el of document.querySelectorAll('[data-page]'))show(el.id,el.id===tab.dataset.tab);
+ if(tab.dataset.tab==='users'&&!userLoaded)loadUsers(0);
 });
 for(const item of document.querySelectorAll('[data-color]'))item.addEventListener('click',()=>{
  draft.accent=item.dataset.color;drawSettings();
