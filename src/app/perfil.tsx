@@ -27,7 +27,7 @@ export default function PerfilScreen() {
   const { mode, setMode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { profile, updateField } = useProfessionalProfile();
-  const { user }=useAuth();
+  const { user,signIn }=useAuth();
   const [shareApproved,setShareApproved]=useState(false);
   const [cloudPassword,setCloudPassword]=useState('');
   const [sharingBusy,setSharingBusy]=useState(false);
@@ -37,6 +37,8 @@ export default function PerfilScreen() {
     if(!user||!shareApproved||!cloudPassword)return;
     setSharingBusy(true);setSharingNotice('');setSharingError('');
     try{
+      const local=await signIn(user.email,cloudPassword);
+      if(!local.ok)throw Error('La contraseña de tu cuenta no coincide; no se enviará información.');
       // The locally stored v1 account is not proof of remote ownership.
       // Supabase Auth checks the password and (if enabled) verifies email.
       try{await cloudLogin(user.email,cloudPassword);}
