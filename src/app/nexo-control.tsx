@@ -457,7 +457,7 @@ export default function NexoControlScreen(){
          onPress={()=>setSelectedUser(selected?null:item)}
          style={{flexDirection:'row',alignItems:'center',gap:12}}>
          <View style={styles.userAvatar}>
-          {image.startsWith('data:image/')&&image.length<140000?
+          {image.startsWith('data:image/jpeg;base64,')&&image.length<140000?
            <Image source={{uri:image}} style={{width:55,height:55,borderRadius:28}} />:
            <Text style={{fontWeight:'900',fontSize:21,color:'#DDF7FF'}}>
             {name.trim().charAt(0).toUpperCase()||'👤'}
