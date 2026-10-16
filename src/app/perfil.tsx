@@ -1,8 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Switch, Text, View, TextInput } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { ProfilePhotoPicker } from '@/components/profile-photo-picker';
+import { useAuth } from '@/state/auth';
+import {cloudLogin,cloudRegister,syncMyProfessionalProfile,
+ revokeProfessionalProfileShare} from '@/lib/nexo-cloud-identity';
 import { useActivityVisibility } from '@/state/activity-visibility';
 import {
   appearanceOptions,
@@ -23,6 +27,45 @@ export default function PerfilScreen() {
   const { mode, setMode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { profile, updateField } = useProfessionalProfile();
+  const { user }=useAuth();
+  const [shareApproved,setShareApproved]=useState(false);
+  const [cloudPassword,setCloudPassword]=useState('');
+  const [sharingBusy,setSharingBusy]=useState(false);
+  const [sharingNotice,setSharingNotice]=useState('');
+  const [sharingError,setSharingError]=useState('');
+  async function uploadProfile(){
+    if(!user||!shareApproved||!cloudPassword)return;
+    setSharingBusy(true);setSharingNotice('');setSharingError('');
+    try{
+      // The locally stored v1 account is not proof of remote ownership.
+      // Supabase Auth checks the password and (if enabled) verifies email.
+      try{await cloudLogin(user.email,cloudPassword);}
+      catch{
+        const registered=await cloudRegister({email:user.email,
+          password:cloudPassword,firstName:user.firstName,
+          firstSurname:user.firstSurname,username:user.username});
+        if(registered.needsEmailVerification){
+          setSharingNotice('Confirma el correo de Nexo. Luego vuelve a escribir tu contraseña y toca Compartir currículum.');
+          return;
+        }
+      }
+      await syncMyProfessionalProfile(profile);
+      setSharingNotice('Tu fotografía y currículum se sincronizaron de forma privada. Solo los desarrolladores autorizados pueden consultarlos.');
+      setCloudPassword('');
+    }catch(e){
+      setSharingError(e instanceof Error?e.message:'No se pudo sincronizar el perfil. Verifica tu correo.');
+    }finally{setSharingBusy(false);}
+  }
+  async function stopSharing(){
+    setSharingBusy(true);setSharingError('');setSharingNotice('');
+    try{
+      await revokeProfessionalProfileShare();
+      setShareApproved(false);
+      setSharingNotice('Currículum eliminado del directorio central; tu copia local sigue intacta.');
+    }catch(e){
+      setSharingError(e instanceof Error?e.message:'Vuelve a iniciar sesión para quitar el currículum del servidor.');
+    }finally{setSharingBusy(false);}
+  }
   const { showActivity, setShowActivity } = useActivityVisibility();
 
   const displayName = getDisplayName(profile);
@@ -182,6 +225,51 @@ export default function PerfilScreen() {
           value={profile.photoDataUrl}
           onChange={(value) => updateField('photoDataUrl', value)}
         />
+        {user&&<View style={{
+          borderRadius:17,borderWidth:1,borderColor:palette.cardBorder,
+          backgroundColor:'rgba(14,42,67,.64)',padding:14,gap:10,
+        }}>
+          <Text style={{fontSize:16,fontWeight:'900',color:palette.title}}>
+            Compartir currículum con el equipo Nexo
+          </Text>
+          <Text style={{fontSize:12,lineHeight:19,color:palette.text}}>
+            Este perfil aún se guarda en tu dispositivo. Si autorizas,
+            puedes sincronizar tu fotografía, oficio, estudios, experiencia,
+            habilidades y presentación en la cuenta central. Solo las cuentas
+            de desarrollador verificadas pueden ver esa información. No
+            compartiremos contraseña, fecha de nacimiento ni datos bancarios.
+          </Text>
+          <Pressable accessibilityRole="checkbox"
+           accessibilityState={{checked:shareApproved}}
+           onPress={()=>setShareApproved(value=>!value)}
+           style={{flexDirection:'row',gap:9,alignItems:'center',paddingVertical:7}}>
+            <Text style={{fontSize:19,color:'#8CE8FA'}}>{shareApproved?'☑':'☐'}</Text>
+            <Text style={{color:palette.title,flex:1,fontSize:12,fontWeight:'800'}}>
+              Autorizo sincronizar mi currículum y foto con los desarrolladores.
+            </Text>
+          </Pressable>
+          {shareApproved&&<>
+            <Text style={{fontSize:12,fontWeight:'800',color:palette.title}}>
+              Confirma la contraseña de tu cuenta Nexo
+            </Text>
+            <TextInput secureTextEntry value={cloudPassword} onChangeText={setCloudPassword}
+             placeholder="Contraseña para verificar tu cuenta"
+             placeholderTextColor="#5A7691"
+             style={{backgroundColor:'#E8F5FF',color:'#07182F',borderRadius:12,
+               padding:12,fontWeight:'700',fontSize:15}}/>
+            <Action label={sharingBusy?'Verificando…':'Sincronizar mi currículum y foto'}
+             disabled={sharingBusy||cloudPassword.length<6}
+             onPress={()=>void uploadProfile()}/>
+          </>}
+          <Pressable onPress={()=>void stopSharing()}
+            disabled={sharingBusy} style={{paddingVertical:8,alignSelf:'flex-start'}}>
+            <Text style={{color:'#B8D9EF',fontSize:11,fontWeight:'800'}}>
+              Eliminar mi currículum sincronizado
+            </Text>
+          </Pressable>
+          {!!sharingNotice&&<Text style={{fontSize:12,color:'#84F2C7'}}>{sharingNotice}</Text>}
+          {!!sharingError&&<Text style={{fontSize:12,color:'#FFB4C2'}}>{sharingError}</Text>}
+        </View>}
 
         <View
           style={[
