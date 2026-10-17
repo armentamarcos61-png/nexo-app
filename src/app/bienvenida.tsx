@@ -8,6 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { completeNexoOnboarding, nexoOnboardingSlides } from '@/lib/nexo-onboarding';
 import { NEXA_IMAGE_DATA } from '@/components/assistant-media/nexa-image';
+import { NexoInstallBanner } from '@/components/nexo-install-banner';
 import { NEXO_IMAGE_DATA } from '@/components/assistant-media/nexo-image';
 
 const palette=[
@@ -215,6 +216,7 @@ export default function BienvenidaScreen(){
      <Text style={styles.skipText}>Omitir</Text>
     </Pressable>
    </View>
+   <NexoInstallBanner compact/>
    <ScrollView ref={pager} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
     bounces={false} scrollEventThrottle={16}
     accessibilityLabel="Presentación deslizable de Nexo"
