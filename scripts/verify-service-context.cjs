@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+const source = fs.readFileSync('src/lib/service-context.ts', 'utf8');
+const mod = {};
+new Function('exports', ts.transpileModule(source, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText)(mod);
+const check = mod.getServiceContext;
+const nutrition = check('Nutriólogo');
+assert.equal(nutrition.family, 'nutrition');
+assert.equal(nutrition.category, 'Nutrición');
+assert.deepEqual(nutrition.scales.slice(0, 3).map(s => s.label), ['Consulta inicial', 'Seguimiento', 'Plan integral']);
+assert(nutrition.scales.every(s => !/piezas|materiales|construcci/i.test(s.text)));
+assert(nutrition.payOptions.includes('Por consulta'));
+const lawyer = check('Necesito un abogado');
+assert.equal(lawyer.family, 'legal');
+assert.equal(lawyer.scales[2].label, 'Representación');
+assert(!lawyer.scales.some(s => /piezas/.test(s.text)));
+const carpenter = check('Carpintero');
+assert.equal(carpenter.family, 'physical');
+assert.equal(carpenter.scales[0].label, 'Chico');
+assert(/piezas/.test(carpenter.scales[0].text));
+assert.equal(check('Psicólogo').family, 'psychology');
+assert.equal(check('Tutorías').family, 'education');
+assert.equal(check('Contador').family, 'accounting');
+const newSpecialty = check('Podólogo', '', { name: 'Podología', family: 'health' });
+assert.equal(newSpecialty.family, 'health');
+assert.equal(newSpecialty.category, 'Podología');
+const explore = fs.readFileSync('src/app/explorar.tsx', 'utf8');
+const resolver = fs.readFileSync('src/app/resolver.tsx', 'utf8');
+const api = fs.readFileSync('src/lib/service-catalog-api.ts', 'utf8');
+const edge = fs.readFileSync('supabase/functions/nexo-service-catalog/index.ts', 'utf8');
+assert(explore.includes('serviceContext.scales.map'));
+assert(explore.includes('serviceContext.detailLabel'));
+assert(explore.includes('serviceContext.payOptions.map'));
+assert(explore.includes('discoverServiceCategory(query.trim())'));
+assert(explore.includes('detalleServicio:'));
+assert(resolver.includes('params.detalleServicio') && resolver.includes('params.modalidadServicio'));
+assert(api.includes('nexo-service-catalog'));
+assert(edge.includes('wbsearchentities') && edge.includes('not_verified'));
+console.log('PASS: servicios contextualizados, categorías verificables y traspaso de criterios');

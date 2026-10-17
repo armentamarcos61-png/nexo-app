@@ -1,8 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
+import { getServiceContext } from '@/lib/service-context';
 
 type Stage = 'brief' | 'matching' | 'quote' | 'paid' | 'done';
 
@@ -27,8 +28,13 @@ export default function ResolverScreen() {
     rangoMax?: string;
     escala?: string;
     cantidad?: string;
+    detalleServicio?: string;
+    modalidadServicio?: string;
+    familiaServicio?: string;
   }>();
   const tipo = params.tipo || 'contratar';
+  const serviceContext = getServiceContext(params.q || '', params.categoria || '');
+  const contextFamily = params.familiaServicio || serviceContext.family;
   const initialNeed = params.q?.trim() || 'Necesito resolver esta solicitud';
   const [need, setNeed] = useState(initialNeed);
   const [location, setLocation] = useState('');
@@ -36,7 +42,7 @@ export default function ResolverScreen() {
   const [notes, setNotes] = useState('');
   const [stage, setStage] = useState<Stage>('brief');
 
-  const demo = useMemo(() => {
+  const demo = (() => {
     if (tipo === 'comprar') {
       return {
         title: 'Compra coordinada por Nexo',
@@ -64,17 +70,28 @@ export default function ResolverScreen() {
       };
     }
 
+    // En una consulta no inventamos un carpintero ni cobramos transporte de herramientas.
+    if (contextFamily !== 'physical') {
+      const isConsult = ['nutrition', 'legal', 'psychology', 'health', 'accounting'].includes(contextFamily);
+      return {
+        title: 'Servicio profesional · Simulación',
+        providerLabel: 'Especialista por confirmar · Demo',
+        providerName: 'Aún sin profesional asignado',
+        detail: 'Ejemplo ilustrativo: todavía no se ha comprobado la disponibilidad ni el precio real.',
+        lines: [{ label: isConsult ? 'Consulta o asesoría (importe ejemplo)' : 'Servicio solicitado (importe ejemplo)', value: 1000 }],
+      };
+    }
     return {
       title: 'Servicio coordinado por Nexo',
-      providerLabel: 'Profesional verificado · Demo',
-      providerName: 'Raúl Juan Medina Arriola',
-      detail: 'Disponibilidad confirmada para esta solicitud.',
+      providerLabel: 'Profesional pendiente de confirmar · Demo',
+      providerName: 'Profesional pendiente de asignación',
+      detail: 'Disponibilidad y precio pendientes de confirmación; los importes mostrados son solo ejemplos.',
       lines: [
-        { label: 'Servicio solicitado', value: 1500 },
-        { label: 'Transporte de herramientas', value: 100 },
+        { label: 'Servicio solicitado (importe ejemplo)', value: 1500 },
+        { label: 'Traslado (importe ejemplo)', value: 100 },
       ],
     };
-  }, [tipo]);
+  })();
 
   const total = demo.lines.reduce((sum, item) => sum + item.value, 0);
   const capabilityLabel: Record<string, string> = {
@@ -83,17 +100,16 @@ export default function ResolverScreen() {
     especializado: 'Especializado',
     encargado: 'Encargado',
   };
-  const scaleLabel: Record<string, string> = {
-    chico: 'Proyecto chico',
-    mediano: 'Proyecto mediano',
-    grande: 'Proyecto grande',
-    flexible: 'Escala por definir',
-  };
+  const scaleLabel: Record<string, string> = Object.fromEntries(
+    serviceContext.scales.map((item) => [item.key, item.label])
+  );
   const rangeText = params.rangoMin || params.rangoMax
     ? `${params.rangoMin ? `${params.rangoMin}` : 'Sin mínimo'} – ${params.rangoMax ? `${params.rangoMax}` : 'Sin máximo'} MXN`
     : '';
   const criteria = [
     params.escala ? scaleLabel[params.escala] ?? params.escala : '',
+    params.detalleServicio ? `Necesidad: ${params.detalleServicio}` : '',
+    params.modalidadServicio ? `Atención: ${params.modalidadServicio}` : '',
     params.capacidad ? `Nivel: ${capabilityLabel[params.capacidad] ?? params.capacidad}` : '',
     params.experiencia ? `Experiencia: ${params.experiencia}` : '',
     params.disponibilidad ? `Modalidad: ${params.disponibilidad}` : '',
@@ -158,7 +174,7 @@ export default function ResolverScreen() {
         label="Detalles importantes"
         value={notes}
         onChangeText={setNotes}
-        placeholder="Cantidad, medidas, marca, acceso, presupuesto, etc."
+        placeholder={tipo === 'contratar' ? serviceContext.detailPlaceholder : 'Cantidad, medidas, marca, acceso, presupuesto, etc.'}
         multiline
       />
 

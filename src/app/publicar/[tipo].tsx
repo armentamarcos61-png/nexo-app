@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
+import { loadServiceCategories, type VerifiedServiceCategory } from '@/lib/service-catalog-api';
 import { storageNotice, tipos, useDrafts, type Tipo } from '@/state/drafts';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { MultiImagePicker } from '@/components/multi-image-picker';
@@ -29,6 +30,7 @@ function Formulario({ tipo }: { tipo: Tipo }) {
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [serviceCategories, setServiceCategories] = useState<VerifiedServiceCategory[]>([]);
   const [ubicacion, setUbicacion] = useState('');
   const [importe, setImporte] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -37,6 +39,18 @@ function Formulario({ tipo }: { tipo: Tipo }) {
   const [preview, setPreview] = useState(false);
   const id = useRef<string | null>(null);
   const proposal = tipo === 'categoria';
+  const categoryChoices = (tipo === 'servicio' || tipo === 'necesidad')
+    ? Array.from(new Set([...categorias, ...serviceCategories.map((item) => item.name)]))
+    : categorias;
+
+  useEffect(() => {
+    if (tipo !== 'servicio' && tipo !== 'necesidad') return;
+    let alive = true;
+    void loadServiceCategories().then((entries) => {
+      if (alive) setServiceCategories(entries);
+    }).catch(() => { /* El catálogo local sigue disponible. */ });
+    return () => { alive = false; };
+  }, [tipo]);
 
   function revisar() {
     if (!titulo.trim() || !descripcion.trim() || (!proposal && (!categoria || !ubicacion.trim()))) {
@@ -122,7 +136,7 @@ function Formulario({ tipo }: { tipo: Tipo }) {
       <Field label={proposal ? '¿Qué significa o qué actividad realiza? *' : 'Descripción *'} value={descripcion} onChangeText={setDescripcion} multiline maxLength={3000} placeholder="Describe los detalles" />
       {!proposal && <>
         <Text style={[ui.label, { color: palette.title }]}>Categoría *</Text>
-        <View style={ui.row}>{[...categorias, 'Otra'].map(item => <Action key={item} label={`${categoria === item ? '✓ ' : ''}${item}`} secondary={categoria !== item} onPress={() => setCategoria(item)} />)}</View>
+        <View style={ui.row}>{[...categoryChoices, 'Otra'].map(item => <Action key={item} label={`${categoria === item ? '✓ ' : ''}${item}`} secondary={categoria !== item} onPress={() => setCategoria(item)} />)}</View>
         <Field label="Ciudad o zona de atención *" value={ubicacion} onChangeText={setUbicacion} maxLength={150} placeholder="Ej. Guadalajara, Jalisco / En línea" />
         <Field label={tipo === 'necesidad' ? 'Presupuesto en MXN (opcional)' : 'Precio en MXN (opcional)'} value={importe} onChangeText={setImporte} keyboardType="decimal-pad" maxLength={12} placeholder="Por acordar" />
         {tipo === 'producto' && (

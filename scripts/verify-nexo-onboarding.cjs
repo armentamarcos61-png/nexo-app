@@ -7,15 +7,15 @@ const stage=fs.readFileSync('src/app/bienvenida.tsx','utf8');
 const root=fs.readFileSync('src/app/index.tsx','utf8');
 const login=fs.readFileSync('src/app/iniciar-sesion.tsx','utf8');
 const source=fs.readFileSync('src/lib/nexo-onboarding.ts','utf8');
-const exports={};
+const onboardingExports={};
 new Function('exports','require',
  ts.transpileModule(source,{compilerOptions:{
   module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020
- }}).outputText)(exports,module=>{
+ }}).outputText)(onboardingExports,module=>{
  if(module==='react-native')return {Platform:{OS:'web'}};
  throw Error('Unexpected dependency '+module);
 });
-const slides=exports.nexoOnboardingSlides;
+const slides=onboardingExports.nexoOnboardingSlides;
 assert.equal(slides.length,6,'a complete first-visit walk-through requires six slides');
 assert(slides.every(x=>x.title&&x.subtitle&&x.key&&x.eyebrow));
 assert.equal(slides[0].key,'welcome');
@@ -44,9 +44,9 @@ global.window={localStorage:{
  getItem:key=>saved.get(key)||null,
  setItem:(key,value)=>saved.set(key,value),
 }};
-assert.equal(exports.hasSeenNexoOnboarding(),false);
-exports.completeNexoOnboarding();
-assert.equal(exports.hasSeenNexoOnboarding(),true,
+assert.equal(onboardingExports.hasSeenNexoOnboarding(),false);
+onboardingExports.completeNexoOnboarding();
+assert.equal(onboardingExports.hasSeenNexoOnboarding(),true,
  'completed intro must not repeat on every page load');
 assert(fs.existsSync('src/app/registrarse.tsx')&&
  fs.existsSync('src/app/iniciar-sesion.tsx')&&login.includes('signIn'),

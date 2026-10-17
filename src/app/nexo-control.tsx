@@ -562,7 +562,7 @@ const styles=StyleSheet.create({
  disabled:{opacity:0.4},btnText:{color:'#EDF4FF',fontWeight:'800',fontSize:12},
  session:{flexDirection:'row',gap:12,alignItems:'center',borderRadius:17,padding:12,backgroundColor:'#182846'},
  sessionText:{color:'#EDF7FF',fontWeight:'800',fontSize:13},
- tabs:{flexDirection:'row',flexWrap:'wrap',gap:5,flexWrap:'wrap',borderBottomWidth:1,borderBottomColor:'#38507D',paddingBottom:7},
+ tabs:{flexDirection:'row',flexWrap:'wrap',gap:5,borderBottomWidth:1,borderBottomColor:'#38507D',paddingBottom:7},
  tab:{paddingVertical:11,paddingHorizontal:11,flex:1,alignItems:'center',borderRadius:10},
  tabActive:{backgroundColor:'#263B66'},tabText:{fontSize:11,color:'#AFBED8',fontWeight:'800'},
  stats:{flexDirection:'row',flexWrap:'wrap',gap:8},
