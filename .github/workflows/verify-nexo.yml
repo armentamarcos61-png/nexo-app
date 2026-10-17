@@ -24,6 +24,12 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Crear ícono oficial instalable de Nexo para Android
+        run: node scripts/build-nexo-pwa-icons.cjs
+
+      - name: Verificar PWA e instalación en pantalla principal
+        run: node scripts/verify-nexo-pwa.cjs
+
       - name: Verificar voces gratuitas femenina y masculina
         run: node scripts/verify-assistant-voices.cjs
 
