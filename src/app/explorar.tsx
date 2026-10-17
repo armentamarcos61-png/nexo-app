@@ -1,10 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
 import { countNexoSearch } from '@/lib/nexo-control-api';
+import { discoverServiceCategory, loadServiceCategories, type VerifiedServiceCategory } from '@/lib/service-catalog-api';
+import { getServiceContext, normalizeServiceTerm } from '@/lib/service-context';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { getDisplayName, useProfessionalProfile } from '@/state/professional-profile';
 
@@ -56,7 +58,7 @@ const intents = [
 const workerOptions = [
   'Abogado', 'Administrador', 'Albañil', 'Arquitecto', 'Barbero', 'Bodeguero', 'Carpintero', 'Cargador',
   'Chofer', 'Cocinero', 'Contador', 'Costurero', 'Diseñador', 'Electricista', 'Enfermero', 'Fotógrafo',
-  'Herrero', 'Ingeniero', 'Instalador', 'Jardinero', 'Lavador', 'Mecánico', 'Mensajero', 'Mesero',
+  'Herrero', 'Ingeniero', 'Instalador', 'Jardinero', 'Lavador', 'Mecánico', 'Mensajero', 'Mesero', 'Nutriólogo', 'Psicólogo',
   'Montacarguista', 'Operador', 'Pintor', 'Plomero', 'Programador', 'Repartidor', 'Soldador',
   'Supervisor', 'Tapicero', 'Técnico', 'Tornero', 'Vendedor', 'Velador', 'Yesero',
 ] as const;
@@ -73,18 +75,11 @@ const experienceOptions = [
 const availabilityOptions = ['Tiempo completo', 'Medio tiempo', 'Por proyecto', 'Fines de semana', 'Flexible'];
 const workHoursOptions = ['Hasta 20 h/semana', '21–30 h/semana', '31–40 h/semana', '40+ h/semana', 'Flexible'];
 const payBasisOptions = ['Por hora', 'Por día', 'Por semana', 'Por mes', 'Por proyecto', 'Por acordar'];
-const servicePayOptions = ['Por visita', 'Por hora', 'Por día', 'Por proyecto', 'Por acordar'];
 const capabilityOptions = [
   { key: 'apoyo', label: 'Apoyo', text: 'Tareas sencillas o con supervisión.' },
   { key: 'operativo', label: 'Operativo', text: 'Trabaja de forma autónoma en tareas habituales.' },
   { key: 'especializado', label: 'Especializado', text: 'Domina técnica, herramienta o equipo específico.' },
   { key: 'encargado', label: 'Encargado', text: 'Puede coordinar personas, tiempos o un frente de trabajo.' },
-] as const;
-const projectScaleOptions = [
-  { key: 'chico', label: 'Chico', text: 'Trabajo puntual, una tarea o pocas piezas.' },
-  { key: 'mediano', label: 'Mediano', text: 'Varias tareas, varios días o coordinación moderada.' },
-  { key: 'grande', label: 'Grande', text: 'Proyecto amplio, varias etapas o varias personas.' },
-  { key: 'flexible', label: 'No estoy seguro', text: 'Nexo puede ayudarte a estimarlo.' },
 ] as const;
 const productModes = ['Cualquiera', 'Nuevo', 'Usado', 'Hecho a medida', 'Mayoreo'];
 const quantityOptions = ['1 unidad', '2–5 unidades', '6–20 unidades', '21–100 unidades', '100+ unidades', 'Por definir'];
@@ -115,6 +110,11 @@ export default function ExplorarScreen() {
   const [capability, setCapability] = useState('');
   const [projectScale, setProjectScale] = useState('');
   const [servicePayBasis, setServicePayBasis] = useState('');
+  const [serviceDetails, setServiceDetails] = useState('');
+  const [serviceMode, setServiceMode] = useState('');
+  const [catalogCategories, setCatalogCategories] = useState<VerifiedServiceCategory[]>([]);
+  const [discoveredService, setDiscoveredService] = useState<{ term: string; entry: VerifiedServiceCategory } | null>(null);
+  const [catalogStatus, setCatalogStatus] = useState<'idle' | 'checking' | 'unverified' | 'offline'>('idle');
   const [budgetMin, setBudgetMin] = useState('');
   const [budgetMax, setBudgetMax] = useState('');
   const [productMode, setProductMode] = useState('Cualquiera');
@@ -126,6 +126,41 @@ export default function ExplorarScreen() {
   const selectedIntentData = intents.find((item) => item.key === selectedIntent);
   const activeCategory = params.categoria || 'Todas';
   const shouldShowIntents = showIntents || !!params.q || !!params.categoria || !!selectedIntent;
+  const isServiceSearch = selectedIntent === 'contratar' || selectedIntent === 'ofrecer';
+  const matchedDiscovery = discoveredService?.term === normalizeServiceTerm(query)
+    ? discoveredService.entry : null;
+  const serviceContext = getServiceContext(query, activeCategory, matchedDiscovery);
+  const categoryOptions = Array.from(new Set([...categorias, ...catalogCategories.map((item) => item.name)]));
+  const effectiveCategory = activeCategory === 'Todas' && isServiceSearch ? serviceContext.category : activeCategory;
+
+  useEffect(() => {
+    let alive = true;
+    void loadServiceCategories().then((items) => {
+      if (alive) setCatalogCategories(items);
+    }).catch(() => { /* La búsqueda local sigue funcionando sin conexión. */ });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!isServiceSearch || query.trim().length < 3) {
+      setCatalogStatus('idle');
+      return;
+    }
+    let alive = true;
+    setCatalogStatus('checking');
+    const timer = setTimeout(() => {
+      void discoverServiceCategory(query.trim()).then((entry) => {
+        if (!alive) return;
+        setDiscoveredService(entry ? { term: normalizeServiceTerm(query), entry } : null);
+        setCatalogStatus(entry ? 'idle' : 'unverified');
+        if (entry) setCatalogCategories((previous) =>
+          previous.some((item) => item.name === entry.name) ? previous : [...previous, entry]);
+      }).catch(() => {
+        if (alive) setCatalogStatus('offline');
+      });
+    }, 700);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [query, isServiceSearch]);
   const filteredWorkers = workerOptions.filter((item) =>
     item.toLowerCase().includes(roleQuery.trim().toLowerCase())
   );
@@ -148,11 +183,17 @@ export default function ExplorarScreen() {
   }
 
   function chooseCategory(item: string) {
+    setProjectScale('');
+    setServicePayBasis('');
+    setServiceMode('');
     router.setParams({ categoria: item === 'Todas' ? '' : item });
     setShowIntents(true);
   }
 
   function chooseIntent(intent: IntentKey) {
+    setProjectScale('');
+    setServicePayBasis('');
+    setServiceMode('');
     router.setParams({ intencion: intent });
     setShowIntents(true);
   }
@@ -174,7 +215,7 @@ export default function ExplorarScreen() {
         <Text style={[styles.filterTitle, { color: palette.title }]}>Categoría</Text>
         <Text style={[styles.filterText, { color: palette.muted }]}>Puedes elegir una antes o después de escribir tu búsqueda.</Text>
         <View style={ui.row}>
-          {['Todas', ...categorias].map((item) => (
+          {['Todas', ...categoryOptions].map((item) => (
             <Action
               key={item}
               label={item}
@@ -484,14 +525,24 @@ export default function ExplorarScreen() {
             colors={['rgba(61,39,96,0.98)', 'rgba(42,49,103,0.98)', 'rgba(15,79,87,0.96)']}
             style={styles.smartPanelGradient}
           />
-          <Text style={styles.smartEyebrow}>ESCALA DEL PROYECTO</Text>
-          <Text style={styles.smartTitle}>Que el tamaño y el presupuesto sí tengan sentido</Text>
-          <Text style={styles.smartText}>
-            Elige una escala aproximada. No cambia el precio automáticamente: sirve para comparar profesionales y propuestas equivalentes.
+          <Text style={styles.smartEyebrow}>{serviceContext.eyebrow}</Text>
+          <Text style={styles.smartTitle}>
+            {serviceContext.family === 'physical' ? 'Que el tamaño y el presupuesto sí tengan sentido' : 'Define el alcance del servicio que necesitas'}
           </Text>
+          <Text style={styles.smartText}>{serviceContext.intro}</Text>
+          {matchedDiscovery && (
+            <Text style={styles.smartText}>
+              Especialidad en catálogo: {matchedDiscovery.name} · {matchedDiscovery.parent}
+            </Text>
+          )}
+          {catalogStatus === 'checking' && <Text style={styles.smartText}>Comprobando la especialidad en el catálogo y en fuentes externas…</Text>}
+          {catalogStatus === 'offline' && <Text style={styles.smartText}>Sin conexión con el catálogo. Puedes continuar con los filtros adaptados.</Text>}
+          {catalogStatus === 'unverified' && !matchedDiscovery && (
+            <Text style={styles.smartText}>Esta especialidad todavía no se pudo verificar; no se agregará sin una fuente fiable.</Text>
+          )}
 
           <View style={styles.scaleGrid}>
-            {projectScaleOptions.map((item) => (
+            {serviceContext.scales.map((item) => (
               <Pressable
                 key={item.key}
                 onPress={() => setProjectScale(item.key)}
@@ -499,6 +550,26 @@ export default function ExplorarScreen() {
               >
                 <Text style={styles.scaleTitle}>{item.label}</Text>
                 <Text style={styles.scaleText}>{item.text}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Field
+            label={serviceContext.detailLabel}
+            value={serviceDetails}
+            onChangeText={setServiceDetails}
+            placeholder={serviceContext.detailPlaceholder}
+            multiline
+          />
+          <Text style={styles.choiceLabel}>{serviceContext.modeLabel}</Text>
+          <View style={styles.chipWrap}>
+            {serviceContext.modes.map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setServiceMode(item)}
+                style={[styles.chip, serviceMode === item && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, serviceMode === item && styles.chipTextSelected]}>{item}</Text>
               </Pressable>
             ))}
           </View>
@@ -527,7 +598,7 @@ export default function ExplorarScreen() {
 
           <Text style={styles.choiceLabel}>¿Cómo esperas que se cotice?</Text>
           <View style={styles.chipWrap}>
-            {servicePayOptions.map((item) => (
+            {serviceContext.payOptions.map((item) => (
               <Pressable
                 key={item}
                 onPress={() => setServicePayBasis(item)}
@@ -641,7 +712,7 @@ export default function ExplorarScreen() {
         <Text style={styles.resultEyebrow}>RESULTADOS NEXO</Text>
         <Text style={styles.resultTitle}>
           {selectedIntentData?.title ?? 'Elige qué tipo de resultado quieres ver'}
-          {activeCategory !== 'Todas' ? ` · ${activeCategory}` : ''}
+          {effectiveCategory !== 'Todas' ? ` · ${effectiveCategory}` : ''}
         </Text>
 
         <Text style={styles.resultText}>
@@ -666,7 +737,10 @@ export default function ExplorarScreen() {
                 params: {
                   q: query.trim(),
                   tipo: selectedIntent,
-                  categoria: activeCategory === 'Todas' ? '' : activeCategory,
+                  categoria: effectiveCategory === 'Todas' ? '' : effectiveCategory,
+                  familiaServicio: selectedIntent === 'contratar' ? serviceContext.family : '',
+                  detalleServicio: selectedIntent === 'contratar' ? serviceDetails.trim() : '',
+                  modalidadServicio: selectedIntent === 'contratar' ? serviceMode : '',
                   experiencia: experience,
                   disponibilidad: availability,
                   horas: workHours,
