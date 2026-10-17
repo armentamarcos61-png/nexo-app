@@ -45,10 +45,10 @@ assert(native.includes('userDirectory.recovered')&&
 const script=panel.match(/<script>([\s\S]*?)<\/script>/);
 assert(script);
 new Function(script[1]);
-const module={};
+const cloudExports={};
 const transpiled=ts.transpileModule(cloud,{compilerOptions:{
  module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
-new Function('exports','require',transpiled)(module,()=>{throw Error('unexpected require')});
+new Function('exports','require',transpiled)(cloudExports,()=>{throw Error('unexpected require')});
 const storage=new Map();
 global.window={sessionStorage:{
  setItem(key,value){storage.set(key,value)},
@@ -68,8 +68,8 @@ global.fetch=async(url,opts)=>{
  return {ok:true,async json(){return {}}};
 };
 (async()=>{
- await module.cloudLogin('historico@example.invalid','password-for-test');
- await module.importHistoricalNexoRegistration('2025-06-09T12:00:00.000Z');
+ await cloudExports.cloudLogin('historico@example.invalid','password-for-test');
+ await cloudExports.importHistoricalNexoRegistration('2025-06-09T12:00:00.000Z');
  const inserted=calls.find(x=>x.url.includes('nexo_legacy_account_links'));
  assert(inserted,'must import original date to private owner table');
  assert.equal(inserted.payload.original_registered_at,'2025-06-09T12:00:00.000Z');
