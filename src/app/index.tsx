@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { categorias } from '@/constants/categories';
 import { countNexoSearch, defaultNexoSettings, loadNexoPublicSettings, type ActionId, type RuntimeSettings } from '@/lib/nexo-control-api';
 import { AssistantAvatar } from '@/components/assistant-avatar';
+import {NexoInstallBanner} from '@/components/nexo-install-banner';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useAuth } from '@/state/auth';
 import { useProfessionalProfile } from '@/state/professional-profile';
@@ -248,6 +249,8 @@ export default function HomeScreen() {
             </>
           )}
         </View>
+
+        <NexoInstallBanner />
 
         <Pressable accessibilityRole="button"
           accessibilityLabel="Ver de nuevo la introducción visual de Nexo"
