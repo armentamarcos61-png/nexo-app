@@ -1,0 +1,32 @@
+name: Verificar servicios contextuales
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Probar adaptación de consultas y catálogo
+        run: node scripts/verify-service-context.cjs
+      - name: Verificar TypeScript
+        run: npx tsc --noEmit
+      - name: Revisar archivos modificados con ESLint
+        run: npx eslint src/app/explorar.tsx src/app/resolver.tsx src/app/publicar/'[tipo].tsx' src/lib/service-context.ts src/lib/service-catalog-api.ts
+      - name: Compilar aplicación web
+        env:
+          EXPO_NO_BUNDLE_SPLITTING: '1'
+        run: npm run build:web
+      - name: Empaquetar Android
+        env:
+          EXPO_NO_BUNDLE_SPLITTING: '1'
+        run: npx expo export --platform android
