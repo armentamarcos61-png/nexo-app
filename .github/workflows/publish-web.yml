@@ -29,6 +29,12 @@ jobs:
       - name: Instalar dependencias y restaurar modelo masculino
         run: npm ci
 
+      - name: Crear ícono oficial instalable de Nexo para Android
+        run: node scripts/build-nexo-pwa-icons.cjs
+
+      - name: Verificar PWA e instalación en pantalla principal
+        run: node scripts/verify-nexo-pwa.cjs
+
       - name: Verificar recuperación segura de cuentas históricas desde otros dispositivos
         run: node scripts/verify-nexo-legacy-accounts.cjs
 
@@ -81,6 +87,17 @@ jobs:
           EXPO_NO_BUNDLE_SPLITTING: '1'
         run: npm run build:web
 
+      - name: Incluir manifiesto, íconos y servicio de instalación
+        run: |
+          set -euo pipefail
+          mkdir -p dist/icons
+          cp public/icons/nexo-192.png dist/icons/nexo-192.png
+          cp public/icons/nexo-512.png dist/icons/nexo-512.png
+          cp public/icons/nexo-maskable-512.png dist/icons/nexo-maskable-512.png
+          cp public/manifest.webmanifest dist/manifest.webmanifest
+          cp public/sw.js dist/sw.js
+          node scripts/verify-nexo-pwa.cjs --dist
+
       - name: Conservar el panel de control privado
         run: |
           set -euo pipefail
@@ -115,6 +132,11 @@ jobs:
           test -s dist/models/Nexo_FacialReady_v1.glb
           test -s dist/knowledge/nexo-capabilities.json
           test -s dist/nexo-control-panel.html
+          test -s dist/manifest.webmanifest
+          test -s dist/icons/nexo-192.png
+          test -s dist/icons/nexo-512.png
+          test -s dist/icons/nexo-maskable-512.png
+          test -s dist/sw.js
           find dist/_expo/static/js/web -name '*.js' -size +0c | grep -q .
 
       - name: Publicar aplicación
