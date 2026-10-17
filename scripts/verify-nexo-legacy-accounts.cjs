@@ -76,7 +76,7 @@ global.fetch=async(url,opts)=>{
  assert.equal(inserted.payload.user_id,'6ca4e5b5-4e7a-410f-85d8-b45dc3c68b51');
  assert(!JSON.stringify(inserted).includes('password-for-test'),
   'import must not send the credential');
- await assert.rejects(()=>module.importHistoricalNexoRegistration(
+ await assert.rejects(()=>cloudExports.importHistoricalNexoRegistration(
   '2035-01-01T00:00:00Z'),/fecha histórica/i);
  console.log('PASS: owner re-authentication, historic date import, RLS, admin source label, no password transfer');
 })().catch(e=>{console.error(e);process.exitCode=1;});
