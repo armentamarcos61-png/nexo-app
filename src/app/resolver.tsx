@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { getServiceContext } from '@/lib/service-context';
@@ -42,7 +42,7 @@ export default function ResolverScreen() {
   const [notes, setNotes] = useState('');
   const [stage, setStage] = useState<Stage>('brief');
 
-  const demo = useMemo(() => {
+  const demo = (() => {
     if (tipo === 'comprar') {
       return {
         title: 'Compra coordinada por Nexo',
@@ -91,7 +91,7 @@ export default function ResolverScreen() {
         { label: 'Traslado (importe ejemplo)', value: 100 },
       ],
     };
-  }, [tipo, contextFamily]);
+  })();
 
   const total = demo.lines.reduce((sum, item) => sum + item.value, 0);
   const capabilityLabel: Record<string, string> = {
