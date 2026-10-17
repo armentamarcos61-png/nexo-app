@@ -115,6 +115,7 @@ export default function ExplorarScreen() {
   const [catalogCategories, setCatalogCategories] = useState<VerifiedServiceCategory[]>([]);
   const [discoveredService, setDiscoveredService] = useState<{ term: string; entry: VerifiedServiceCategory } | null>(null);
   const [catalogStatus, setCatalogStatus] = useState<'idle' | 'checking' | 'unverified' | 'offline'>('idle');
+  const [checkedTerm, setCheckedTerm] = useState('');
   const [budgetMin, setBudgetMin] = useState('');
   const [budgetMax, setBudgetMax] = useState('');
   const [productMode, setProductMode] = useState('Cualquiera');
@@ -127,6 +128,7 @@ export default function ExplorarScreen() {
   const activeCategory = params.categoria || 'Todas';
   const shouldShowIntents = showIntents || !!params.q || !!params.categoria || !!selectedIntent;
   const isServiceSearch = selectedIntent === 'contratar' || selectedIntent === 'ofrecer';
+  const visibleCatalogStatus = checkedTerm === normalizeServiceTerm(query) && isServiceSearch ? catalogStatus : 'idle';
   const matchedDiscovery = discoveredService?.term === normalizeServiceTerm(query)
     ? discoveredService.entry : null;
   const serviceContext = getServiceContext(query, activeCategory, matchedDiscovery);
@@ -142,13 +144,12 @@ export default function ExplorarScreen() {
   }, []);
 
   useEffect(() => {
-    if (!isServiceSearch || query.trim().length < 3) {
-      setCatalogStatus('idle');
-      return;
-    }
+    if (!isServiceSearch || query.trim().length < 3) return;
     let alive = true;
-    setCatalogStatus('checking');
     const timer = setTimeout(() => {
+      if (!alive) return;
+      setCheckedTerm(normalizeServiceTerm(query));
+      setCatalogStatus('checking');
       void discoverServiceCategory(query.trim()).then((entry) => {
         if (!alive) return;
         setDiscoveredService(entry ? { term: normalizeServiceTerm(query), entry } : null);
@@ -545,9 +546,9 @@ export default function ExplorarScreen() {
               Especialidad en catálogo: {matchedDiscovery.name} · {matchedDiscovery.parent}
             </Text>
           )}
-          {catalogStatus === 'checking' && <Text style={styles.smartText}>Comprobando la especialidad en el catálogo y en fuentes externas…</Text>}
-          {catalogStatus === 'offline' && <Text style={styles.smartText}>Sin conexión con el catálogo. Puedes continuar con los filtros adaptados.</Text>}
-          {catalogStatus === 'unverified' && !matchedDiscovery && (
+          {visibleCatalogStatus === 'checking' && <Text style={styles.smartText}>Comprobando la especialidad en el catálogo y en fuentes externas…</Text>}
+          {visibleCatalogStatus === 'offline' && <Text style={styles.smartText}>Sin conexión con el catálogo. Puedes continuar con los filtros adaptados.</Text>}
+          {visibleCatalogStatus === 'unverified' && !matchedDiscovery && (
             <Text style={styles.smartText}>Esta especialidad todavía no se pudo verificar; no se agregará sin una fuente fiable.</Text>
           )}
 
