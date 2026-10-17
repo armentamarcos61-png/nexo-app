@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {Platform,Pressable,StyleSheet,Text,View} from 'react-native';
+import {Image,Platform,Pressable,StyleSheet,Text,View} from 'react-native';
 
 type InstallPromptEvent=Event&{
  prompt:()=>Promise<void>;
@@ -74,7 +74,11 @@ export function NexoInstallBanner({compact=false}:{compact?:boolean}){
  return (
   <View style={[styles.card,compact&&styles.compact]}>
    <View style={styles.row}>
-    <View style={styles.icon}><Text style={styles.iconText}>N</Text></View>
+    <View style={styles.icon}>
+     <Image source={require('../../assets/images/nexo-logo.png')}
+      accessibilityLabel="Ícono oficial de Nexo"
+      style={{width:34,height:34,borderRadius:8}} resizeMode="contain"/>
+    </View>
     <View style={styles.copy}>
      <Text style={styles.title}>Nexo en tu pantalla principal</Text>
      <Text style={styles.description}>
