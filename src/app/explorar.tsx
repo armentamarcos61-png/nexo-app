@@ -131,7 +131,7 @@ export default function ExplorarScreen() {
     ? discoveredService.entry : null;
   const serviceContext = getServiceContext(query, activeCategory, matchedDiscovery);
   const categoryOptions = Array.from(new Set([...categorias, ...catalogCategories.map((item) => item.name)]));
-  const effectiveCategory = activeCategory === 'Todas' && isServiceSearch ? serviceContext.category : activeCategory;
+  const effectiveCategory = activeCategory === 'Todas' && isServiceSearch && query.trim() ? serviceContext.category : activeCategory;
 
   useEffect(() => {
     let alive = true;
@@ -182,6 +182,16 @@ export default function ExplorarScreen() {
     setShowIntents(true);
   }
 
+  function updateSearchQuery(next: string) {
+    if (isServiceSearch && getServiceContext(next, activeCategory).family !== getServiceContext(query, activeCategory).family) {
+      setProjectScale('');
+      setServicePayBasis('');
+      setServiceMode('');
+      setServiceDetails('');
+    }
+    setQuery(next);
+  }
+
   function chooseCategory(item: string) {
     setProjectScale('');
     setServicePayBasis('');
@@ -203,7 +213,7 @@ export default function ExplorarScreen() {
       <Field
         label="¿Qué necesitas?"
         value={query}
-        onChangeText={setQuery}
+        onChangeText={updateSearchQuery}
         placeholder="Ej. Carpintero, empleo, mesa, plomero..."
         returnKeyType="search"
         onSubmitEditing={buscar}
