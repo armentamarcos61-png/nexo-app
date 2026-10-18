@@ -26,6 +26,7 @@ type AuthResult =
   | { ok: false; error: string };
 
 type RegisterInput = {
+  shareProfessionalProfile?: boolean;
   username: string;
   email: string;
   firstName: string;
@@ -235,7 +236,8 @@ async function registerAccount(input: RegisterInput): Promise<AuthResult> {
     // Never send the password to the developer directory.
     try{
       await cloudRegister({username,email,firstName:input.firstName,
-        firstSurname:input.firstSurname,password:input.password});
+        firstSurname:input.firstSurname,password:input.password,
+        profileReviewConsent:input.shareProfessionalProfile===true});
     }catch{
       // Local accounts remain usable even if the cloud is offline. The
       // owner can link their account later; never fake a central record.

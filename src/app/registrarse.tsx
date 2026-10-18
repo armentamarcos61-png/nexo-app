@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { useAuth } from '@/state/auth';
@@ -43,6 +43,7 @@ export default function RegistrarseScreen() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [shareProfessionalProfile, setShareProfessionalProfile] = useState(false);
 
   async function submit() {
     setError('');
@@ -84,6 +85,7 @@ export default function RegistrarseScreen() {
       firstName,
       firstSurname,
       password,
+      shareProfessionalProfile,
     });
     setLoading(false);
 
@@ -104,7 +106,7 @@ export default function RegistrarseScreen() {
       <View style={[styles.notice, { borderColor: palette.cardBorder }]}>
         <Text style={[styles.noticeTitle, { color: palette.title }]}>Cuenta Nexo funcional</Text>
         <Text style={[styles.noticeText, { color: palette.text }]}>
-          Tu cuenta funcionará en este dispositivo. También intentaremos registrarla de forma segura en Nexo Central para que puedas iniciar sesión desde otros teléfonos. Si recibes un correo de verificación, confírmalo. Tu fotografía y currículum no se compartirán con desarrolladores sin tu autorización.
+          Tu cuenta funcionará en este dispositivo. También intentaremos registrarla de forma segura en Nexo Central para que puedas iniciar sesión desde otros teléfonos. Si recibes un correo de verificación, confírmalo. Nexo puede revisar información profesional para hacer cumplir sus reglas. Tu foto y currículum solo se sincronizarán si lo autorizas abajo. El acceso es privado y puedes solicitar su eliminación.
         </Text>
       </View>
 
@@ -189,8 +191,29 @@ export default function RegistrarseScreen() {
       />
 
       <Text style={[styles.securityNote, { color: palette.muted }]}>
-        🔒 Tu contraseña se protege con un hash en este dispositivo y se usa mediante una conexión cifrada para crear tu cuenta en Supabase. Puedes sincronizar tu currículum en Perfil únicamente si das tu autorización.
+        🔒 Tu contraseña se protege con un hash en este dispositivo y se usa mediante una conexión cifrada para crear tu cuenta en Supabase. La contraseña y la fecha de nacimiento no forman parte del currículum que ve el equipo Nexo.
       </Text>
+
+      <View style={[styles.notice, { borderColor: palette.cardBorder }]}>
+        <Text style={[styles.noticeTitle, { color: palette.title }]}>Privacidad del perfil profesional</Text>
+        <Text style={[styles.noticeText, { color: palette.text }]}>
+          Si lo autorizas, tu currículum y fotografía se guardarán en Nexo Central y se actualizarán cuando los modifiques, para revisar cumplimiento de las reglas, seguridad y calidad del marketplace. Solo los responsables de Nexo con permisos de administrador podrán consultarlos. Puedes retirar esta autorización y borrar la copia sincronizada desde Mi espacio.
+        </Text>
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: shareProfessionalProfile }}
+          onPress={() => setShareProfessionalProfile((value) => !value)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 }}
+        >
+          <Text style={{ color: '#72DFF7', fontSize: 22 }}>{shareProfessionalProfile ? '☑' : '☐'}</Text>
+          <Text style={[styles.noticeText, { color: palette.title, flex: 1, fontWeight: '800' }]}>
+            Autorizo compartir mi currículum y foto con el equipo autorizado de Nexo.
+          </Text>
+        </Pressable>
+        <Text style={[styles.noticeText, { color: palette.text }]}>
+          Es opcional: puedes crear tu cuenta sin compartir tu currículum.
+        </Text>
+      </View>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 

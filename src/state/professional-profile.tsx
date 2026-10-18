@@ -1,4 +1,5 @@
-import { createContext, useContext, useSyncExternalStore, type PropsWithChildren } from 'react';
+import { createContext, useContext, useEffect, useSyncExternalStore, type PropsWithChildren } from 'react';
+import { canSyncMyProfessionalProfile, syncMyProfessionalProfile } from '@/lib/nexo-cloud-identity';
 import { Platform } from 'react-native';
 import { useAuth } from '@/state/auth';
 
@@ -34,6 +35,18 @@ const LEGACY='nexo.professional-profile.v1';
 const PREFIX='nexo.professional-profile.v2.';
 const profiles=new Map<string,ProfessionalProfile>();
 const listeners=new Set<() => void>();
+let pendingSync: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleProfileSync(email: string, profile: ProfessionalProfile) {
+  if (!canSyncMyProfessionalProfile(email)) return;
+  if (pendingSync) clearTimeout(pendingSync);
+  pendingSync = setTimeout(() => {
+    pendingSync = null;
+    if (!canSyncMyProfessionalProfile(email)) return;
+    // Network failures leave the local profile intact and never bypass consent.
+    void syncMyProfessionalProfile(profile).catch(() => {});
+  }, 1400);
+}
 const key=(userId:string|null)=>PREFIX+(userId||'guest');
 
 function normalizeProfile(value: unknown): ProfessionalProfile | null {
@@ -127,9 +140,14 @@ export function ProfessionalProfileProvider({ children }: PropsWithChildren) {
   const {user}=useAuth();
   const userId=user?.id||null;
   const current=useSyncExternalStore(subscribe,()=>loadProfile(userId),()=>emptyProfile);
+  useEffect(() => () => {
+    if (pendingSync) { clearTimeout(pendingSync); pendingSync = null; }
+  }, [userId]);
 
   function updateField<K extends keyof ProfessionalProfile>(field:K,value:ProfessionalProfile[K]){
-    persist(userId,{...loadProfile(userId),[field]:value});
+    const next = {...loadProfile(userId), [field]:value};
+    persist(userId,next);
+    if (user?.email) scheduleProfileSync(user.email,next);
   }
   function resetProfile(){persist(userId,{...emptyProfile});}
 

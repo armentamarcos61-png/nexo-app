@@ -1,0 +1,26 @@
+name: Verificar privacidad y currículum de Nexo
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verificar consentimiento y directorio privado
+        run: node scripts/verify-nexo-user-directory.cjs
+      - name: Comprobar TypeScript
+        run: npx tsc --noEmit
+      - name: Comprobar estilo de archivos modificados
+        run: npx eslint src/app/perfil.tsx src/app/registrarse.tsx src/lib/nexo-cloud-identity.ts src/state/auth.tsx src/state/professional-profile.tsx
+      - name: Compilar Nexo web
+        env:
+          EXPO_NO_BUNDLE_SPLITTING: '1'
+        run: npm run build:web

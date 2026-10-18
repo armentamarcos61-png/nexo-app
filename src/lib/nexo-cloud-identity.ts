@@ -11,7 +11,7 @@ const KEY='sb_publishable_UY_rNqVKNwofYYv-p8lb0w_DvGkQBXi';
 const SESSION='nexo.cloud.identity.v1';
 const signal=(ms:number)=>typeof AbortSignal!=='undefined'&&
  typeof AbortSignal.timeout==='function'?AbortSignal.timeout(ms):undefined;
-type CloudSession={access_token:string;refresh_token:string;expires_at:number;user_id:string};
+type CloudSession={access_token:string;refresh_token:string;expires_at:number;user_id:string;email:string;profileReviewConsent:boolean};
 export type CloudUser={id:string;email:string;firstName:string;firstSurname:string;username:string};
 const headers={'apikey':KEY,'content-type':'application/json'};
 function storage(){
@@ -33,9 +33,16 @@ function keep(json:any):boolean{
  if(typeof access_token!=='string'||typeof refresh_token!=='string'||
    typeof user_id!=='string')return false;
  const session:CloudSession={access_token,refresh_token,user_id,
-  expires_at:Math.floor(Date.now()/1000)+(Number(json.expires_in)||3600)};
+  expires_at:Math.floor(Date.now()/1000)+(Number(json.expires_in)||3600),
+  email:String(json?.user?.email||'').toLowerCase(),
+  profileReviewConsent:json?.user?.user_metadata?.profileReviewConsent===true};
  try{storage()?.setItem(SESSION,JSON.stringify(session));}catch{/* private mode */}
  return true;
+}
+/** Requires an owner-verified cloud session with explicit prior authorization. */
+export function canSyncMyProfessionalProfile(email:string):boolean{
+ const session=read();
+ return !!session?.profileReviewConsent && session.email===email.trim().toLowerCase();
 }
 export function clearCloudSession(){
  try{storage()?.removeItem(SESSION);}catch{/* inaccessible */}
@@ -56,6 +63,7 @@ function currentCloudUser(json:any):CloudUser|null{
 }
 export async function cloudRegister(input:{
  email:string;password:string;username:string;firstName:string;firstSurname:string;
+ profileReviewConsent?:boolean;
 }):Promise<{registered:boolean;needsEmailVerification:boolean}>{
  const result=await parse(await fetch(BASE+'/auth/v1/signup?redirect_to='+encodeURIComponent(
    'https://armentamarcos61-png.github.io/nexo-app/'),{
@@ -64,7 +72,8 @@ export async function cloudRegister(input:{
    password:input.password,
    data:{firstName:input.firstName.trim().slice(0,40),
     firstSurname:input.firstSurname.trim().slice(0,50),
-    username:input.username.trim().toLowerCase().slice(0,24)},
+    username:input.username.trim().toLowerCase().slice(0,24),
+    profileReviewConsent:input.profileReviewConsent===true},
   }),
  }));
  if(!result?.user?.id)throw Error('No se pudo crear la cuenta central.');
@@ -93,11 +102,14 @@ export async function getCloudAccess():Promise<{token:string;userId:string}>{
  if(!next)throw Error('La sesión no está disponible.');
  return {token:next.access_token,userId:next.user_id};
 }
-/** User-initiated sharing. RLS lets only this logged-in user update their own CV.
- * Never upload unconsented local profile information automatically.
+/** Consent is recorded at registration in verified account metadata.
+ * RLS lets only the owner update the private profile.
  */
 export async function syncMyProfessionalProfile(profile:ProfessionalProfile){
  const {token,userId}=await getCloudAccess();
+ const session=read();
+ if(!session?.profileReviewConsent || session.user_id!==userId)
+  throw Error('Tu cuenta no ha autorizado sincronizar los datos del currículum.');
  const body={
   user_id:userId,role:profile.role.slice(0,100),
   education:profile.education.slice(0,100),
@@ -141,8 +153,16 @@ export async function importHistoricalNexoRegistration(localCreatedAt:string):Pr
 }
 export async function revokeProfessionalProfileShare(){
  const {token,userId}=await getCloudAccess();
+ // Withdraw consent before deleting; the next edit must not recreate the CV.
+ const update=await fetch(BASE+'/auth/v1/user',{
+  method:'PUT',headers:{...headers,Authorization:'Bearer '+token},
+  body:JSON.stringify({data:{profileReviewConsent:false}}),
+ });
+ await parse(update);
+ const session=read();
+ if(session){session.profileReviewConsent=false;try{storage()?.setItem(SESSION,JSON.stringify(session));}catch{}}
  const resp=await fetch(BASE+'/rest/v1/nexo_professional_profiles?user_id=eq.'+
   encodeURIComponent(userId),{method:'DELETE',
   headers:{...headers,Authorization:'Bearer '+token}});
- if(!resp.ok)throw Error('No se pudo desactivar la sincronización.');
+ await parse(resp);
 }
