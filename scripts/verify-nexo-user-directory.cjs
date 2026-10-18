@@ -7,6 +7,8 @@ const read=p=>fs.readFileSync(p,'utf8');
 const cloud=read('src/lib/nexo-cloud-identity.ts');
 const auth=read('src/state/auth.tsx');
 const profile=read('src/app/perfil.tsx');
+const registration=read('src/app/registrarse.tsx');
+const professional=read('src/state/professional-profile.tsx');
 const picker=read('src/components/profile-photo-picker.tsx');
 const api=read('src/lib/nexo-control-api.ts');
 const mobilePanel=read('src/app/nexo-control.tsx');
@@ -49,11 +51,20 @@ assert(auth.includes('await cloudRegister(')&&auth.includes('await cloudLogin(')
 assert(cloud.includes('share_with_developers:true')&&
  cloud.includes('Authorization:')&&
  cloud.includes('getCloudAccess()'));
-assert(profile.includes('Autorizo sincronizar mi currículum')&&
- profile.includes('revokeProfessionalProfileShare()'));
+assert(!profile.includes('Autorizo sincronizar mi currículum')&&
+ profile.includes('revokeProfessionalProfileShare()'),
+ 'profile must not repeat the opt-in control, but keep deletion available');
+assert(registration.includes('Autorizo compartir mi currículum y foto')&&
+ registration.includes('setShareProfessionalProfile')&&
+ registration.includes('Es opcional:'),
+ 'registration must explicitly disclose optional professional information sharing');
+assert(cloud.includes('profileReviewConsent')&&
+ cloud.includes('if(!session?.profileReviewConsent')&&
+ professional.includes('canSyncMyProfessionalProfile(email)'),
+ 'automatic syncing must require a verified explicit consent signal');
 assert(picker.includes("input.type='file'")&&picker.includes('toDataURL'),
  'photo control must be usable and not merely decorative');
 const script=webPanel.match(/<script>([\s\S]*?)<\/script>/);
 assert(script,'web control requires inline JS');
 new Function(script[1]);
-console.log('PASS: private user directory, real profile photographs, CV consent, pagination, name/date sorting and React/Web syntax');
+console.log('PASS: private user directory, explicit signup consent, automatic opt-in-only CV updates, withdrawal and React/Web syntax');
