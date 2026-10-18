@@ -1,28 +1,28 @@
 {
-  "generatedAt": "2026-10-17T07:30:56.112Z",
+  "generatedAt": "2026-10-18T08:27:37.562Z",
   "definition": "Lineas fisicas incluidas en Git: TS/TSX/JS/JSX/MJS/CJS/PY/CSS/SCSS/HTML/SQL/SH; excluye dependencias, medios, modelos y archivos de compilacion.",
-  "files": 144,
-  "totalLines": 35338,
-  "codeLines": 22337,
-  "configurationLines": 13001,
+  "files": 145,
+  "totalLines": 35375,
+  "codeLines": 22348,
+  "configurationLines": 13027,
   "codeFiles": 130,
   "byFolder": {
     ".devcontainer": 15,
-    ".github": 467,
+    ".github": 493,
     "app.json": 38,
     "docs": 36,
     "eslint.config.js": 10,
     "package-lock.json": 12175,
     "package.json": 53,
     "public": 1217,
-    "scripts": 2812,
+    "scripts": 2823,
     "src": 17741,
     "supabase": 737,
     "tsconfig.json": 23,
     "vercel.json": 14
   },
   "byExtension": {
-    ".cjs": 2267,
+    ".cjs": 2278,
     ".css": 105,
     ".html": 974,
     ".js": 187,
@@ -31,8 +31,8 @@
     ".py": 248,
     ".sh": 43,
     ".sql": 250,
-    ".ts": 5078,
-    ".tsx": 13045,
-    ".yml": 467
+    ".ts": 5098,
+    ".tsx": 13025,
+    ".yml": 493
   }
 }

@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "revision": "f95f926076317783b1518cb8",
-  "reviewedAt": "2026-10-17T07:29:57.420Z",
+  "revision": "fe532796a971e5b9bbd0aa9b",
+  "reviewedAt": "2026-10-18T08:26:41.255Z",
   "definition": "Preguntas sintéticas sobre el código de Nexo, probadas para ambos asistentes. No contiene conversaciones privadas.",
   "assistants": [
     "nexo",
