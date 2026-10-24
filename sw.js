@@ -28,7 +28,8 @@ self.addEventListener('fetch',event=>{
  const request=event.request;
  if(request.method!=='GET')return;
  const url=new URL(request.url);
- if(url.origin!==self.location.origin||!url.pathname.startsWith(ROOT))return;
+ if(url.origin!==self.location.origin||!url.pathname.startsWith(ROOT)||
+    url.pathname.startsWith(ROOT+'desarrollador/'))return;
  if(url.pathname.includes('nexo-control')||url.pathname.includes('/auth/')||
     url.pathname.includes('/api/')||url.pathname.includes('/knowledge/')||
     url.searchParams.has('access_token')||url.searchParams.has('code'))return;

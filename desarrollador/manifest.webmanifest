@@ -1,0 +1,42 @@
+{
+  "name": "Nexo Desarrollador",
+  "short_name": "Nexo Desarrollador",
+  "description": "Aplicación independiente y privada para administrar Nexo con una cuenta de desarrollador verificada.",
+  "lang": "es-MX",
+  "id": "/nexo-app/desarrollador/",
+  "start_url": "/nexo-app/desarrollador/",
+  "scope": "/nexo-app/desarrollador/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#061321",
+  "theme_color": "#07182c",
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "/nexo-app/desarrollador/icons/nexo-desarrollador-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/nexo-app/desarrollador/icons/nexo-desarrollador-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/nexo-app/desarrollador/icons/nexo-desarrollador-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
