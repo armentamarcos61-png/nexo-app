@@ -1,0 +1,83 @@
+name: APK de Nexo Desarrollador
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android-desarrollador/**'
+      - 'scripts/build-nexo-developer-pwa.cjs'
+      - '.github/workflows/nexo-desarrollador-apk.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'android-desarrollador/**'
+      - 'scripts/build-nexo-developer-pwa.cjs'
+      - '.github/workflows/nexo-desarrollador-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17 para Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Preparar SDK de Android 35 en runner
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "${GITHUB_ENV}"
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+      - name: Instalar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Node para preparar el icono
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias para el icono
+        run: npm ci
+      - name: Preparar ícono de Nexo Desarrollador
+        run: |
+          node scripts/build-nexo-pwa-icons.cjs
+          node scripts/build-nexo-developer-pwa.cjs public
+          mkdir -p android-desarrollador/app/src/main/res/drawable
+          cp public/desarrollador/icons/nexo-desarrollador-512.png android-desarrollador/app/src/main/res/drawable/developer_icon.png
+      - name: Compilar APK descargable para Android
+        run: gradle --no-daemon -p android-desarrollador assembleDebug
+      - name: Verificar paquete
+        run: |
+          set -euo pipefail
+          test -s android-desarrollador/app/build/outputs/apk/debug/app-debug.apk
+          cp android-desarrollador/app/build/outputs/apk/debug/app-debug.apk nexo-desarrollador-android.apk
+          ls -lh nexo-desarrollador-android.apk
+      - name: Conservar APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nexo-Desarrollador-APK
+          path: nexo-desarrollador-android.apk
+          retention-days: 30
+      - name: Publicar APK para descarga directa
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="nexo-desarrollador-apk-v0.1.0"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" nexo-desarrollador-android.apk --clobber
+          else
+            gh release create "$TAG" nexo-desarrollador-android.apk \
+              --title "Nexo Desarrollador · APK para Android" \
+              --notes "APK de prueba independiente de Nexo. Requiere internet y acceso de desarrollador aprobado en Supabase. La PWA instalable es la versión recomendada para actualizaciones continuas. APK debug firmado con clave temporal; para actualizar puede requerirse desinstalar una versión anterior." \
+              --prerelease
+          fi

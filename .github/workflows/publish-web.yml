@@ -35,6 +35,11 @@ jobs:
       - name: Verificar PWA e instalación en pantalla principal
         run: node scripts/verify-nexo-pwa.cjs
 
+      - name: Generar app instalable Nexo Desarrollador
+        run: |
+          node scripts/build-nexo-developer-pwa.cjs public
+          node scripts/verify-nexo-developer-pwa.cjs public
+
       # Functional, security and historical-account tests run in Verificar Nexo.
       # An unrelated test regression must not prevent shipping the installable PWA.
       - name: Restaurar Nexa nueva desde archivos de respaldo
@@ -85,6 +90,11 @@ jobs:
           cp public/sw.js dist/sw.js
           node scripts/verify-nexo-pwa.cjs --dist
 
+      - name: Preparar app independiente Nexo Desarrollador
+        run: |
+          node scripts/build-nexo-developer-pwa.cjs dist
+          node scripts/verify-nexo-developer-pwa.cjs dist
+
       - name: Conservar el panel de control privado
         run: |
           set -euo pipefail
@@ -119,6 +129,9 @@ jobs:
           test -s dist/models/Nexo_FacialReady_v1.glb
           test -s dist/knowledge/nexo-capabilities.json
           test -s dist/nexo-control-panel.html
+          test -s dist/desarrollador/index.html
+          test -s dist/desarrollador/manifest.webmanifest
+          test -s dist/desarrollador/icons/nexo-desarrollador-512.png
           test -s dist/manifest.webmanifest
           test -s dist/icons/nexo-192.png
           test -s dist/icons/nexo-512.png

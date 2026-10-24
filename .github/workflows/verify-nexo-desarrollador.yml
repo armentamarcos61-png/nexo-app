@@ -1,0 +1,31 @@
+name: Verificar Nexo Desarrollador
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify-developer-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Crear íconos originales de Nexo
+        run: node scripts/build-nexo-pwa-icons.cjs
+      - name: Generar Nexo Desarrollador
+        run: node scripts/build-nexo-developer-pwa.cjs public
+      - name: Verificar instalaciones independientes y acceso privado
+        run: node scripts/verify-nexo-developer-pwa.cjs public
+      - name: Verificar lógica de administración ya existente
+        run: node scripts/verify-nexo-control.cjs
+      - name: Comprobar TypeScript
+        run: npx tsc --noEmit
