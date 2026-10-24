@@ -29,8 +29,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Preparar SDK de Android 35 en runner
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_SDK_ROOT}" >> "${GITHUB_ENV}"
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
       - name: Instalar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
