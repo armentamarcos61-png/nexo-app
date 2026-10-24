@@ -22,9 +22,12 @@ public final class MainActivity extends Activity {
  private WebView browser;
  private PermissionRequest audioRequest;
 
- private static boolean isTrusted(Uri uri) {
+ private static boolean isTrustedOrigin(Uri uri) {
   return "https".equalsIgnoreCase(uri.getScheme())
-    && HOST.equalsIgnoreCase(uri.getHost())
+    && HOST.equalsIgnoreCase(uri.getHost());
+ }
+ private static boolean isTrusted(Uri uri) {
+  return isTrustedOrigin(uri)
     && uri.getPath()!=null && uri.getPath().startsWith(PATH);
  }
  private void openExternally(Uri uri) {
@@ -57,7 +60,7 @@ public final class MainActivity extends Activity {
    @Override public void onPermissionRequest(final PermissionRequest request){
     runOnUiThread(()->{
      Uri origin=request.getOrigin();
-     if(!isTrusted(origin)){request.deny();return;}
+     if(!isTrustedOrigin(origin)){request.deny();return;}
      boolean audio=false;
      for(String resource:request.getResources())
       if(PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource))audio=true;
