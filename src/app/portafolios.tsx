@@ -251,7 +251,7 @@ export default function PortafoliosScreen() {
 
       {!!error && !creating && <Text style={styles.error}>{error}</Text>}
       {!!offersError && <Text accessibilityRole="alert" style={styles.error}>No se pudieron actualizar los contadores: {offersError}</Text>}
-      {!offersReady && offersLoading && <Text style={[styles.counter,{color:palette.muted}]}>Revisando ofertas disponibles…</Text>}}
+      {!offersReady && offersLoading && <Text style={[styles.counter,{color:palette.muted}]}>Revisando ofertas disponibles…</Text>}
 
       {!portfolios.length ? (
         <View style={[styles.empty, { borderColor: palette.cardBorder, backgroundColor: mode === 'claro' ? 'rgba(255,255,255,0.88)' : 'rgba(18,31,53,0.78)' }]}>
