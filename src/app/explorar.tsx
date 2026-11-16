@@ -1,8 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
+import { EmploymentResults } from '@/components/employment-results';
+import { filterEmploymentPosts, listEmploymentPosts, publishEmploymentPost, type EmploymentPost, type EmploymentKind } from '@/lib/nexo-employment-api';
+import { useAuth } from '@/state/auth';
 import { categorias } from '@/constants/categories';
 import { countNexoSearch } from '@/lib/nexo-control-api';
 import { discoverServiceCategory, loadServiceCategories, type VerifiedServiceCategory } from '@/lib/service-catalog-api';
@@ -95,6 +98,8 @@ export default function ExplorarScreen() {
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const { profile } = useProfessionalProfile();
+  const { user } = useAuth();
+  const searchCounter = useRef(0);
   const displayName = getDisplayName(profile);
   const employmentSeed = params.intencion === 'empleo';
   const [query, setQuery] = useState(params.q ?? '');
@@ -122,12 +127,27 @@ export default function ExplorarScreen() {
   const [quantityRange, setQuantityRange] = useState('');
   const [productHow, setProductHow] = useState('');
   const [productPurpose, setProductPurpose] = useState('');
+  const [employmentPosts, setEmploymentPosts] = useState<EmploymentPost[]>([]);
+  const [employmentSearched, setEmploymentSearched] = useState(false);
+  const [employmentLoading, setEmploymentLoading] = useState(false);
+  const [employmentError, setEmploymentError] = useState('');
+  const [employmentQuery, setEmploymentQuery] = useState('');
+  const [publicationDetails, setPublicationDetails] = useState('');
+  const [publicationLocation, setPublicationLocation] = useState('');
+  const [publishingEmployment, setPublishingEmployment] = useState(false);
+  const [employmentPublishNotice, setEmploymentPublishNotice] = useState('');
+  const [employmentPublishError, setEmploymentPublishError] = useState('');
 
   const selectedIntent = isIntent(params.intencion) ? params.intencion : undefined;
   const selectedIntentData = intents.find((item) => item.key === selectedIntent);
   const activeCategory = params.categoria || 'Todas';
   const shouldShowIntents = showIntents || !!params.q || !!params.categoria || !!selectedIntent;
   const isServiceSearch = selectedIntent === 'contratar' || selectedIntent === 'ofrecer';
+  const isEmploymentSelection = selectedIntent === 'empleo' || selectedIntent === 'trabajadores';
+  const matchingEmployment = filterEmploymentPosts(
+    employmentPosts, employmentQuery, activeCategory,
+    selectedIntent === 'empleo' ? 'vacancy' : selectedIntent === 'trabajadores' ? 'seeking_job' : undefined,
+  );
   const visibleCatalogStatus = checkedTerm === normalizeServiceTerm(query) && isServiceSearch ? catalogStatus : 'idle';
   const matchedDiscovery = discoveredService?.term === normalizeServiceTerm(query)
     ? discoveredService.entry : null;
@@ -172,15 +192,71 @@ export default function ExplorarScreen() {
   const rangeInvalid = !!activeRangeMin.trim() && !!activeRangeMax.trim()
     && Number.isFinite(parsedMin) && Number.isFinite(parsedMax) && parsedMin > parsedMax;
 
+  async function runEmploymentSearch(term: string) {
+    const order = ++searchCounter.current;
+    setEmploymentSearched(true);
+    setEmploymentQuery(term);
+    setEmploymentLoading(true);
+    setEmploymentError('');
+    try {
+      const records = await listEmploymentPosts();
+      if (order !== searchCounter.current) return;
+      setEmploymentPosts(records);
+    } catch (cause) {
+      if (order !== searchCounter.current) return;
+      setEmploymentError(cause instanceof Error ? cause.message : 'No se pudieron consultar las publicaciones.');
+    } finally {
+      if (order === searchCounter.current) setEmploymentLoading(false);
+    }
+  }
+
   function buscar() {
-    if(query.trim()){
+    const term = query.trim() || (isEmploymentSelection ? roleQuery.trim() : '');
+    if (term) {
       const category=selectedIntent==='empleo'||selectedIntent==='trabajadores'?'employment':
         selectedIntent==='contratar'||selectedIntent==='ofrecer'?'services':
         selectedIntent==='comprar'||selectedIntent==='vender'?'products':'general';
       void countNexoSearch('marketplace',category);
     }
-    router.setParams({ q: query.trim() });
+    router.setParams({ q: term });
     setShowIntents(true);
+    if (!selectedIntent || isEmploymentSelection) void runEmploymentSearch(term);
+  }
+
+  async function publicarEmpleo() {
+    if (!isEmploymentSelection || publishingEmployment || rangeInvalid) return;
+    const oficio = (query.trim() || roleQuery.trim()).slice(0, 74);
+    if (oficio.length < 3) {
+      setEmploymentPublishError('Escribe primero el puesto u oficio que quieres publicar.');
+      return;
+    }
+    setPublishingEmployment(true);setEmploymentPublishError('');setEmploymentPublishNotice('');
+    try {
+      if (!user) throw new Error('Inicia sesión para publicar tu solicitud en Nexo.');
+      const seeking = selectedIntent === 'empleo';
+      const kind:EmploymentKind = seeking?'seeking_job':'vacancy';
+      const title = seeking?'Busco empleo como '+oficio:'Vacante para '+oficio;
+      const description = publicationDetails.trim() || (seeking
+        ? 'Busco oportunidades de empleo como '+oficio+'. Me interesa conversar sobre las condiciones del puesto.'
+        : 'Buscamos una persona para el puesto de '+oficio+'. Nos interesa conocer experiencia y disponibilidad.');
+      const category = activeCategory !== 'Todas' ? activeCategory :
+        /ebanist|carpinter|muebl/i.test(oficio) ? 'Carpintería' : '';
+      const record = await publishEmploymentPost({
+        kind,title,description,category,
+        location:publicationLocation.trim(),
+        author_name:user.username||'Usuario Nexo',
+        experience,availability,hours:workHours,payment_unit:payBasis,
+        payment_min:payMin.trim()?Number(payMin.replace(',','.')):null,
+        payment_max:payMax.trim()?Number(payMax.replace(',','.')):null,
+      });
+      setEmploymentPosts(previous=>[record,...previous.filter(p=>p.id!==record.id)]);
+      setEmploymentSearched(true);
+      setEmploymentQuery(oficio);
+      setEmploymentPublishNotice(seeking?'✓ Solicitud de empleo publicada en Nexo Central.':'✓ Vacante publicada en Nexo Central.');
+      setPublicationDetails('');
+    }catch(cause){
+      setEmploymentPublishError(cause instanceof Error?cause.message:'No se pudo publicar tu solicitud.');
+    }finally{setPublishingEmployment(false);}
   }
 
   function updateSearchQuery(next: string) {
@@ -199,6 +275,7 @@ export default function ExplorarScreen() {
     setServiceMode('');
     router.setParams({ categoria: item === 'Todas' ? '' : item });
     setShowIntents(true);
+    if (employmentSearched && (!selectedIntent || isEmploymentSelection)) void runEmploymentSearch(query.trim());
   }
 
   function chooseIntent(intent: IntentKey) {
@@ -207,6 +284,7 @@ export default function ExplorarScreen() {
     setServiceMode('');
     router.setParams({ intencion: intent });
     setShowIntents(true);
+    if (intent === 'empleo' || intent === 'trabajadores') void runEmploymentSearch(query.trim());
   }
 
   return (
@@ -221,6 +299,67 @@ export default function ExplorarScreen() {
       />
 
       <Action label="Buscar" onPress={buscar} />
+
+      {employmentSearched && (!selectedIntent || isEmploymentSelection) && (
+        <EmploymentResults
+          posts={matchingEmployment}
+          loading={employmentLoading}
+          error={employmentError}
+          searched={employmentSearched}
+          onRetry={()=>void runEmploymentSearch(query.trim())}
+        />
+      )}
+
+      {employmentSearched && !selectedIntent && (
+        <View style={styles.employmentPublishCard}>
+          <Text style={styles.employmentEyebrow}>¿QUIERES QUE TE ENCUENTREN?</Text>
+          <Text style={styles.employmentPublishTitle}>Publica tu propuesta de trabajo</Text>
+          <Text style={styles.employmentPublishText}>
+            Si eres quien busca empleo, publica tu oficio para que otras personas vean tu propuesta.
+            Si buscas contratar, anuncia tu vacante.
+          </Text>
+          <Action label="Quiero publicar que busco empleo" onPress={()=>chooseIntent('empleo')}/>
+          <Action label="Quiero publicar una vacante" secondary onPress={()=>chooseIntent('trabajadores')}/>
+        </View>
+      )}
+
+      {isEmploymentSelection && employmentSearched && (
+        <View style={styles.employmentPublishCard}>
+          <Text style={styles.employmentEyebrow}>PUBLICAR EN NEXO CENTRAL</Text>
+          <Text style={styles.employmentPublishTitle}>
+            {selectedIntent==='empleo'?'Haz visible tu solicitud de empleo':'Publica una vacante para encontrar trabajadores'}
+          </Text>
+          <Text style={styles.employmentPublishText}>
+            Buscar solo muestra coincidencias. Esta acción publica una propuesta real, visible desde otros dispositivos.
+          </Text>
+          <Field
+            label="Descripción de tu propuesta (opcional)"
+            value={publicationDetails}
+            onChangeText={setPublicationDetails}
+            multiline
+            maxLength={1400}
+            placeholder={selectedIntent==='empleo'
+              ?'Ej. Soy ebanista, tengo experiencia en cocinas y busco trabajo en mi zona.'
+              :'Ej. Solicitamos ebanista con experiencia, horario y prestaciones...'}
+          />
+          <Field label="Ciudad o zona (opcional)" value={publicationLocation}
+            onChangeText={setPublicationLocation} maxLength={120}
+            placeholder="Ej. Guadalajara, Jalisco"/>
+          <Action
+            label={publishingEmployment?'Publicando…':selectedIntent==='empleo'
+              ?'Publicar mi solicitud de empleo':'Publicar mi vacante'}
+            disabled={publishingEmployment||rangeInvalid}
+            onPress={()=>void publicarEmpleo()}
+          />
+          {!!employmentPublishNotice&&(
+            <Text accessibilityRole="alert" style={styles.employmentPublishSuccess}>{employmentPublishNotice}</Text>
+          )}
+          {!!employmentPublishError&&(
+            <Text accessibilityRole="alert" style={styles.employmentPublishError}>{employmentPublishError}</Text>
+          )}
+          <Action label="Ver mis solicitudes y mensajes" secondary onPress={()=>router.push('/mis-solicitudes')}/>
+        </View>
+      )}
 
       <View style={styles.filterBlock}>
         <Text style={[styles.filterTitle, { color: palette.title }]}>Categoría</Text>
@@ -727,8 +866,10 @@ export default function ExplorarScreen() {
         </Text>
 
         <Text style={styles.resultText}>
-          {selectedIntentData
-            ? 'Nexo ya puede usar esta intención para organizar la necesidad, comparar opciones y preparar una solución completa de prueba.'
+          {isEmploymentSelection
+            ? 'Consulta las propuestas reales de arriba o publica tu solicitud. Cada interés se envía al autor y queda disponible en Mis solicitudes.'
+            : selectedIntentData
+            ? 'Nexo puede usar esta intención para organizar la necesidad, comparar opciones y preparar una solución completa de prueba.'
             : 'Selecciona una de las opciones de arriba para que Nexo sepa exactamente qué mostrarte.'}
         </Text>
 
@@ -785,6 +926,12 @@ export default function ExplorarScreen() {
 }
 
 const styles = StyleSheet.create({
+  employmentPublishCard:{gap:12,padding:18,borderRadius:20,borderWidth:1,borderColor:'#548CAB',backgroundColor:'#152B47'},
+  employmentEyebrow:{fontSize:10,color:'#94E8FC',letterSpacing:1.2,fontWeight:'900'},
+  employmentPublishTitle:{fontSize:18,lineHeight:24,fontWeight:'900',color:'#FFFFFF'},
+  employmentPublishText:{fontSize:12,lineHeight:19,color:'#BFD5E9'},
+  employmentPublishSuccess:{fontSize:13,lineHeight:20,fontWeight:'900',color:'#8DF4CE'},
+  employmentPublishError:{fontSize:13,lineHeight:20,fontWeight:'800',color:'#FFC1CA'},
   filterBlock: {
     gap: 8,
     paddingTop: 2,
