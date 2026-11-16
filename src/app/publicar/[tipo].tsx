@@ -4,6 +4,8 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen, ui } from '@/components/nexo-screen';
 import { categorias } from '@/constants/categories';
 import { loadServiceCategories, type VerifiedServiceCategory } from '@/lib/service-catalog-api';
+import { publishServiceRequest } from '@/lib/nexo-portfolio-opportunities';
+import { formatMxnAmount, parseMxnAmount } from '@/lib/nexo-money';
 import { storageNotice, tipos, useDrafts, type Tipo } from '@/state/drafts';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { MultiImagePicker } from '@/components/multi-image-picker';
@@ -37,6 +39,8 @@ function Formulario({ tipo }: { tipo: Tipo }) {
   const [videos, setVideos] = useState<StoredVideoRef[]>([]);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState(false);
+  const [publishingNeed, setPublishingNeed] = useState(false);
+  const [publishedNeed, setPublishedNeed] = useState(false);
   const id = useRef<string | null>(null);
   const proposal = tipo === 'categoria';
   const categoryChoices = (tipo === 'servicio' || tipo === 'necesidad')
@@ -56,16 +60,35 @@ function Formulario({ tipo }: { tipo: Tipo }) {
     if (!titulo.trim() || !descripcion.trim() || (!proposal && (!categoria || !ubicacion.trim()))) {
       setError('Completa los campos obligatorios marcados con *.'); return;
     }
-    if (importe.trim() && (!/^\d+(?:[.,]\d{1,2})?$/.test(importe.trim()) || Number(importe.replace(',', '.')) <= 0)) {
-      setError('Escribe un importe mayor que cero, con hasta dos decimales, o déjalo vacío.'); return;
+    try { parseMxnAmount(importe); }
+    catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Escribe un importe válido.'); return;
+    }
+    if(tipo==='necesidad'&&descripcion.trim().length<10){
+      setError('Describe qué trabajo necesitas en al menos 10 caracteres.');return;
     }
     setError(''); setPreview(true);
+  }
+
+  async function publicarNecesidad() {
+    if (tipo!=='necesidad' || publishingNeed || publishedNeed) return;
+    setError('');
+    setPublishingNeed(true);
+    try {
+      await publishServiceRequest({
+        title:titulo.trim(),description:descripcion.trim(),category:categoria,
+        location:ubicacion.trim(),budget_mxn:parseMxnAmount(importe),
+      });
+      setPublishedNeed(true);
+    }catch(cause){
+      setError(cause instanceof Error?cause.message:'No se pudo publicar la solicitud.');
+    }finally{setPublishingNeed(false);}
   }
 
   function guardar() {
     try {
       id.current ??= `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      save({ id: id.current, tipo, titulo: titulo.trim(), descripcion: descripcion.trim(), categoria, ubicacion: ubicacion.trim(), importe: importe.trim().replace(',', '.') });
+      save({ id: id.current, tipo, titulo: titulo.trim(), descripcion: descripcion.trim(), categoria, ubicacion: ubicacion.trim(), importe: parseMxnAmount(importe)?.toString()??'' });
       router.replace('/borradores');
     } catch { setError('No se pudo guardar. Revisa que tu navegador permita el almacenamiento y vuelve a intentarlo. Tus datos siguen en el formulario.'); }
   }
@@ -85,7 +108,7 @@ function Formulario({ tipo }: { tipo: Tipo }) {
         description: descripcion.trim(),
         category: categoria,
         location: ubicacion.trim(),
-        price: importe.trim().replace(',', '.'),
+        price: parseMxnAmount(importe)?.toString()??'',
         images,
         videos,
         createdAt: new Date().toISOString(),
@@ -97,13 +120,13 @@ function Formulario({ tipo }: { tipo: Tipo }) {
   }
 
   return <NexoScreen title={preview ? 'Vista previa' : tipos[tipo]}>
-    <Text style={[ui.text, { color: palette.text }]}>{storageNotice}</Text>
+    <Text style={[ui.text, { color: palette.text }]}>{tipo==='necesidad'?'Puedes guardar un borrador local o publicar tu solicitud en Nexo Central para que los profesionales la encuentren.':storageNotice}</Text>
     {preview ? <>
       <View style={ui.card}>
-        <Text style={ui.link}>{tipos[tipo]} · Borrador</Text>
+        <Text style={ui.link}>{tipos[tipo]} · {publishedNeed?'Publicado':'Vista previa'}</Text>
         <Text style={[ui.title, { color: palette.title }]}>{titulo.trim()}</Text>
         <Text style={[ui.text, { color: palette.text }]}>{descripcion.trim()}</Text>
-        {!proposal && <><Text style={[ui.text, { color: palette.text }]}>{categoria} · {ubicacion.trim()}</Text><Text style={[ui.label, { color: palette.title }]}>{importe.trim() ? `${importe.trim()} MXN` : 'Importe por acordar'}</Text></>}
+        {!proposal && <><Text style={[ui.text, { color: palette.text }]}>{categoria} · {ubicacion.trim()}</Text><Text style={[ui.label, { color: palette.title }]}>{formatMxnAmount(parseMxnAmount(importe))}</Text></>}
         {tipo === 'producto' && (!!images.length || !!videos.length) && (
           <View style={styles.previewMedia}>
             {!!images.length && (
@@ -129,8 +152,19 @@ function Formulario({ tipo }: { tipo: Tipo }) {
         )}
       </View>
       {tipo === 'producto' && <Action label="Publicar en Marketplace" onPress={publicarProducto} />}
-      <Action label="Guardar borrador" disabled={!ready} onPress={guardar} />
-      <Action label="Seguir editando" secondary onPress={() => { setPreview(false); setError(''); }} />
+      {tipo === 'necesidad' && !publishedNeed && (
+        <Action label={publishingNeed?'Publicando solicitud…':'Publicar mi solicitud de servicio'}
+          disabled={publishingNeed} onPress={()=>void publicarNecesidad()}/>
+      )}
+      {tipo === 'necesidad' && publishedNeed && (
+        <View style={styles.publishedCard}>
+          <Text accessibilityRole="alert" style={styles.publishedTitle}>✓ Solicitud de servicio publicada en Nexo Central</Text>
+          <Text style={styles.publishedText}>Los profesionales que tengan portafolios relacionados podrán verla y enviarte sus propuestas.</Text>
+          <Action label="Ver mis solicitudes" onPress={()=>router.push('/mis-solicitudes')}/>
+        </View>
+      )}
+      {!publishedNeed && <Action label="Guardar borrador" disabled={!ready} onPress={guardar} />}
+      {!publishedNeed && <Action label="Seguir editando" secondary onPress={() => { setPreview(false); setError(''); }} />}
     </> : <>
       <Field label={proposal ? 'Nombre de la nueva categoría *' : 'Título *'} value={titulo} onChangeText={setTitulo} maxLength={100} placeholder={tipo === 'necesidad' ? 'Ej. Necesito reparar un sillón' : tipo === 'servicio' ? 'Ej. Fabricación de muebles a medida' : tipo === 'producto' ? 'Ej. Mesa de comedor de madera' : 'Ej. Edición de video'} />
       <Field label={proposal ? '¿Qué significa o qué actividad realiza? *' : 'Descripción *'} value={descripcion} onChangeText={setDescripcion} multiline maxLength={3000} placeholder="Describe los detalles" />
@@ -179,6 +213,9 @@ function Formulario({ tipo }: { tipo: Tipo }) {
 
 
 const styles = StyleSheet.create({
+  publishedCard:{padding:15,gap:10,borderRadius:16,backgroundColor:'#163F42',borderWidth:1,borderColor:'#57BEA3'},
+  publishedTitle:{fontSize:16,fontWeight:'900',color:'#9FF8CF'},
+  publishedText:{fontSize:12,lineHeight:19,color:'#DBF3ED'},
   previewMedia: {
     gap: 10,
   },
