@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Field, NexoScreen } from '@/components/nexo-screen';
 import { MultiImagePicker } from '@/components/multi-image-picker';
@@ -8,12 +8,21 @@ import { StoredVideo } from '@/components/stored-video';
 import { getAppearancePalette, useAppearance } from '@/state/appearance';
 import { deleteVideoBlob, type StoredVideoRef } from '@/state/media-store';
 import { usePortfolios } from '@/state/portfolios';
+import { PortfolioOffers } from '@/components/portfolio-offers';
+import { listEmploymentPosts, type EmploymentPost } from '@/lib/nexo-employment-api';
+import { findPortfolioOpportunities, listServiceRequests, type ServiceRequest } from '@/lib/nexo-portfolio-opportunities';
 
 export default function PortafoliosScreen() {
   const { portfolios, save, remove } = usePortfolios();
   const { mode } = useAppearance();
   const palette = getAppearancePalette(mode);
   const [creating, setCreating] = useState(false);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [vacancies, setVacancies] = useState<EmploymentPost[]>([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offersReady, setOffersReady] = useState(false);
+  const [offersError, setOffersError] = useState('');
   const [title, setTitle] = useState('');
   const [service, setService] = useState('');
   const [description, setDescription] = useState('');
@@ -25,6 +34,27 @@ export default function PortafoliosScreen() {
   const [viewerMessage, setViewerMessage] = useState('');
   const [videoMenu, setVideoMenu] = useState<{ portfolioId: string; videoIndex: number } | null>(null);
   const idRef = useRef<string | null>(null);
+
+  const selectedPortfolio = selectedPortfolioId ? portfolios.find(p=>p.id===selectedPortfolioId) : undefined;
+  const displayedPortfolios = selectedPortfolio ? [selectedPortfolio] : portfolios;
+
+  const refreshOffers = useCallback(async () => {
+    setOffersLoading(true);
+    setOffersError('');
+    try {
+      const [requestsFound, vacanciesFound] = await Promise.all([listServiceRequests(),listEmploymentPosts()]);
+      setRequests(requestsFound);
+      setVacancies(vacanciesFound);
+      setOffersReady(true);
+    }catch(cause){
+      setOffersError(cause instanceof Error ? cause.message : 'No pudimos consultar las ofertas.');
+      setOffersReady(false);
+    }finally{setOffersLoading(false);}
+  }, []);
+  useEffect(()=>{
+    const timer=setTimeout(()=>{void refreshOffers();},0);
+    return ()=>clearTimeout(timer);
+  },[refreshOffers]);
 
   const activePortfolio = viewer
     ? portfolios.find((portfolio) => portfolio.id === viewer.portfolioId)
@@ -115,6 +145,7 @@ export default function PortafoliosScreen() {
         videos,
         createdAt: new Date().toISOString(),
       });
+      setSelectedPortfolioId(idRef.current);
       resetForm();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo guardar el portafolio.');
@@ -207,13 +238,20 @@ export default function PortafoliosScreen() {
       )}
 
       <View style={styles.headingRow}>
-        <Text style={[styles.sectionTitle, { color: palette.title }]}>Tus portafolios</Text>
+        {!!selectedPortfolio && (
+          <Pressable accessibilityRole="button" onPress={()=>setSelectedPortfolioId(null)} style={styles.backPortfolio}>
+            <Text style={styles.backPortfolioText}>‹ Todos los portafolios</Text>
+          </Pressable>
+        )}
+        <Text style={[styles.sectionTitle, { color: palette.title }]}>{selectedPortfolio?'Portafolio abierto':'Tus portafolios'}</Text>
         <Text style={[styles.counter, { color: palette.muted }]}>
           {portfolios.length} {portfolios.length === 1 ? 'galería' : 'galerías'}
         </Text>
       </View>
 
       {!!error && !creating && <Text style={styles.error}>{error}</Text>}
+      {!!offersError && <Text accessibilityRole="alert" style={styles.error}>No se pudieron actualizar los contadores: {offersError}</Text>}
+      {!offersReady && offersLoading && <Text style={[styles.counter,{color:palette.muted}]}>Revisando ofertas disponibles…</Text>}}
 
       {!portfolios.length ? (
         <View style={[styles.empty, { borderColor: palette.cardBorder, backgroundColor: mode === 'claro' ? 'rgba(255,255,255,0.88)' : 'rgba(18,31,53,0.78)' }]}>
@@ -225,8 +263,10 @@ export default function PortafoliosScreen() {
         </View>
       ) : (
         <View style={styles.grid}>
-          {portfolios.map((portfolio) => {
+          {displayedPortfolios.map((portfolio) => {
             const mediaCount = portfolio.images.length + portfolio.videos.length;
+            const isOpen = selectedPortfolioId === portfolio.id;
+            const offers = offersReady && !offersError ? findPortfolioOpportunities(portfolio, requests, vacancies) : [];
             return (
               <View
                 key={portfolio.id}
@@ -242,7 +282,7 @@ export default function PortafoliosScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Abrir portada de ${portfolio.title}`}
-                    onPress={() => openImage(portfolio.id, 0)}
+                    onPress={() => setSelectedPortfolioId(portfolio.id)}
                     style={({ pressed }) => [styles.coverShell, pressed && styles.pressed]}
                   >
                     <Image source={{ uri: portfolio.images[0] }} style={styles.cover} resizeMode="cover" />
@@ -261,12 +301,22 @@ export default function PortafoliosScreen() {
 
                 <View style={styles.body}>
                   <Text style={styles.serviceBadge}>{portfolio.service}</Text>
-                  <Text style={[styles.cardTitle, { color: palette.title }]}>{portfolio.title}</Text>
-                  {!!portfolio.description && (
+                  <Pressable accessibilityRole="button" accessibilityLabel={'Abrir '+portfolio.title+' y sus ofertas'} onPress={() => setSelectedPortfolioId(portfolio.id)} style={styles.titleRow}>
+                    <Text style={[styles.cardTitle, { color: palette.title }]}>{portfolio.title}</Text>
+                    <View style={styles.offerBadge}>
+                      <Text style={styles.offerBadgeNumber}>{offersReady && !offersError ? offers.length : '–'}</Text>
+                    </View>
+                  </Pressable>
+                  <Text style={[styles.mediaCountText,{color:palette.muted}]}>
+                    {offersReady && !offersError ? offers.length === 1 ? '1 oferta relacionada' : offers.length+' ofertas relacionadas' : 'Ofertas pendientes de actualización'}
+                  </Text>
+                  {!isOpen && <Action label="Abrir portafolio y ver ofertas" secondary onPress={() => setSelectedPortfolioId(portfolio.id)}/>}
+
+                  {isOpen && !!portfolio.description && (
                     <Text style={[styles.cardText, { color: palette.text }]} numberOfLines={3}>{portfolio.description}</Text>
                   )}
 
-                  {!!portfolio.images.length && (
+                  {isOpen && !!portfolio.images.length && (
                     <View style={styles.thumbRow}>
                       {portfolio.images.slice(0, 4).map((uri, index) => (
                         <Pressable
@@ -282,7 +332,7 @@ export default function PortafoliosScreen() {
                     </View>
                   )}
 
-                  {!!portfolio.videos.length && (
+                  {isOpen && !!portfolio.videos.length && (
                     <View style={styles.savedVideos}>
                       <Text style={[styles.savedVideosTitle, { color: palette.title }]}>
                         Videos · {portfolio.videos.length}
@@ -321,13 +371,15 @@ export default function PortafoliosScreen() {
                     </View>
                   )}
 
-                  <Text style={[styles.mediaCountText, { color: palette.muted }]}>
+                  {isOpen && <Text style={[styles.mediaCountText, { color: palette.muted }]}>
                     {portfolio.images.length} {portfolio.images.length === 1 ? 'foto' : 'fotos'} · {portfolio.videos.length} {portfolio.videos.length === 1 ? 'video' : 'videos'}
-                  </Text>
+                  </Text>}
 
-                  <Pressable onPress={() => remove(portfolio.id)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                  {isOpen && <PortfolioOffers portfolio={portfolio} offers={offers} loading={offersLoading} error={offersError} onRefresh={()=>void refreshOffers()}/>}
+
+                  {isOpen && <Pressable onPress={() => {remove(portfolio.id);setSelectedPortfolioId(null);}} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
                     <Text style={styles.deleteText}>Eliminar portafolio</Text>
-                  </Pressable>
+                  </Pressable>}
                 </View>
               </View>
             );
@@ -400,6 +452,11 @@ export default function PortafoliosScreen() {
 }
 
 const styles = StyleSheet.create({
+  backPortfolio:{paddingHorizontal:10,paddingVertical:7,alignSelf:'flex-start',borderRadius:12,backgroundColor:'#1F3859'},
+  backPortfolioText:{fontSize:12,fontWeight:'900',color:'#99E4FF'},
+  titleRow:{flexDirection:'row',alignItems:'center',gap:8,justifyContent:'space-between',flexWrap:'wrap'},
+  offerBadge:{minWidth:28,height:28,borderRadius:14,paddingHorizontal:8,backgroundColor:'#37C9ED',alignItems:'center',justifyContent:'center'},
+  offerBadgeNumber:{fontWeight:'900',color:'#092239',fontSize:13},
   intro: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   introCopy: { flexGrow: 1, flexBasis: 220, gap: 5 },
   title: { fontSize: 21, lineHeight: 27, fontWeight: '900' },
