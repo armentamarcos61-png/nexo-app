@@ -33,7 +33,10 @@ export default function MisSolicitudesScreen() {
       setError(cause instanceof Error?cause.message:'No se pudo consultar Nexo Central.');
     }finally{setBusy(false);}
   },[user]);
-  useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{
+    const handle = setTimeout(()=>{void refresh();},0);
+    return ()=>clearTimeout(handle);
+  },[refresh]);
 
   async function answer(item: EmploymentInterest) {
     if (writing) return;
