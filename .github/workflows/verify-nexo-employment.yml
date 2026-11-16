@@ -1,0 +1,26 @@
+name: Verificar bolsa de empleo Nexo
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  empleo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Probar publicaciones, coincidencias y privacidad
+        run: node scripts/verify-nexo-employment.cjs
+      - name: Comprobar TypeScript
+        run: npx tsc --noEmit
+      - name: Comprobar estilo de archivos nuevos
+        run: npx eslint src/app/explorar.tsx src/app/mis-solicitudes.tsx src/components/employment-results.tsx src/lib/nexo-employment-api.ts
+      - name: Compilar Nexo web
+        env:
+          EXPO_NO_BUNDLE_SPLITTING: '1'
+        run: npm run build:web
