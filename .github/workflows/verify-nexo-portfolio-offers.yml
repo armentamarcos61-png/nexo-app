@@ -1,0 +1,26 @@
+name: Verificar portafolios y ofertas Nexo
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  portfolio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Probar ofertas, contadores y formatos MXN
+        run: node scripts/verify-nexo-portfolio-offers.cjs
+      - name: Verificar TypeScript
+        run: npx tsc --noEmit
+      - name: Revisar archivos con ESLint
+        run: npx eslint src/app/portafolios.tsx src/app/publicar/'[tipo].tsx' src/app/mis-solicitudes.tsx src/components/portfolio-offers.tsx src/lib/nexo-portfolio-opportunities.ts src/lib/nexo-money.ts
+      - name: Compilar Nexo web
+        env:
+          EXPO_NO_BUNDLE_SPLITTING: '1'
+        run: npm run build:web
