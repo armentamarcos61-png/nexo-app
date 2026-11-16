@@ -310,6 +310,19 @@ export default function ExplorarScreen() {
         />
       )}
 
+      {employmentSearched && !selectedIntent && (
+        <View style={styles.employmentPublishCard}>
+          <Text style={styles.employmentEyebrow}>¿QUIERES QUE TE ENCUENTREN?</Text>
+          <Text style={styles.employmentPublishTitle}>Publica tu propuesta de trabajo</Text>
+          <Text style={styles.employmentPublishText}>
+            Si eres quien busca empleo, publica tu oficio para que otras personas vean tu propuesta.
+            Si buscas contratar, anuncia tu vacante.
+          </Text>
+          <Action label="Quiero publicar que busco empleo" onPress={()=>chooseIntent('empleo')}/>
+          <Action label="Quiero publicar una vacante" secondary onPress={()=>chooseIntent('trabajadores')}/>
+        </View>
+      )}
+
       {isEmploymentSelection && employmentSearched && (
         <View style={styles.employmentPublishCard}>
           <Text style={styles.employmentEyebrow}>PUBLICAR EN NEXO CENTRAL</Text>
