@@ -72,8 +72,8 @@ export function PortfolioOffers({portfolio,offers,loading,error,onRefresh}:Props
        </View>
        <Text style={styles.title}>{request.title}</Text>
        <Text style={styles.meta}>{request.category||'Sin categoría'}{request.location?' · '+request.location:''}</Text>
-       {offer.type==='service' && request.budget_mxn!=null &&
-         <Text style={styles.budget}>Presupuesto: {request.budget_mxn.toLocaleString('es-MX',{style:'currency',currency:'MXN'})}</Text>}
+       {offer.type==='service' && offer.item.budget_mxn!=null &&
+         <Text style={styles.budget}>Presupuesto: {offer.item.budget_mxn.toLocaleString('es-MX',{style:'currency',currency:'MXN'})}</Text>}
        <Text style={styles.description} numberOfLines={selected?undefined:2}>{request.description}</Text>
        <Text style={styles.openText}>{selected?'Ocultar oferta':'Ver oferta y enviar propuesta'}</Text>
       </Pressable>
