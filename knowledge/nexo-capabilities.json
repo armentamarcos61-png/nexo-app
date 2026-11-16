@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "revision": "542f32c4e240de3d62389306",
-  "generatedAt": "2026-10-24T04:48:11.053Z",
+  "revision": "fffa50a412437472f6dccad5",
+  "generatedAt": "2026-11-16T03:59:30.998Z",
   "capabilities": {
     "home": {
       "status": "available",
@@ -115,6 +115,11 @@
       "route": "/explore",
       "title": "explore",
       "evidence": "src/app/explore.tsx"
+    },
+    {
+      "route": "/mis-solicitudes",
+      "title": "Mis solicitudes",
+      "evidence": "src/app/mis-solicitudes.tsx"
     },
     {
       "route": "/perfil",

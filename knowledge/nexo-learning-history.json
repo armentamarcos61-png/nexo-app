@@ -28,11 +28,12 @@
     "note": "Revisión automática de código y pantallas. No incorpora respuestas de usuarios sin verificación."
   },
   {
-    "revision": "542f32c4e240de3d62389306",
-    "reviewedAt": "2026-10-24T04:48:11.053Z",
+    "revision": "fffa50a412437472f6dccad5",
+    "reviewedAt": "2026-11-16T03:59:30.998Z",
     "statusChanges": [],
     "newScreens": [
-      "/bienvenida"
+      "/bienvenida",
+      "/mis-solicitudes"
     ],
     "missingScreens": [],
     "note": "Revisión automática de código y pantallas. No incorpora respuestas de usuarios sin verificación."

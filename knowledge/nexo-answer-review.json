@@ -1,17 +1,17 @@
 {
   "schema": 1,
-  "revision": "b9c5f2bc84ffad07843b3b1f",
-  "reviewedAt": "2026-10-24T04:48:11.391Z",
+  "revision": "a48f59e16e0e7ced288c79a3",
+  "reviewedAt": "2026-11-16T03:59:31.276Z",
   "definition": "Preguntas sintéticas sobre el código de Nexo, probadas para ambos asistentes. No contiene conversaciones privadas.",
   "assistants": [
     "nexo",
     "nexa"
   ],
-  "questionsChecked": 66,
-  "scenariosCreatedAutomatically": 20,
+  "questionsChecked": 68,
+  "scenariosCreatedAutomatically": 22,
   "passed": 50,
-  "failed": 16,
-  "averageScore": 77,
+  "failed": 18,
+  "averageScore": 75.4,
   "topicsNeedingImprovement": [
     {
       "assistant": "nexo",
@@ -56,6 +56,14 @@
     {
       "assistant": "nexo",
       "question": "¿Dónde encuentro la pantalla explore de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexo",
+      "question": "¿Dónde encuentro la pantalla Mis solicitudes de Nexo?",
       "expected": "available public screen",
       "actual": "other.unknown_nexo",
       "expectedStatus": "available",
@@ -120,6 +128,14 @@
     {
       "assistant": "nexa",
       "question": "¿Dónde encuentro la pantalla explore de Nexo?",
+      "expected": "available public screen",
+      "actual": "other.unknown_nexo",
+      "expectedStatus": "available",
+      "status": "unverified"
+    },
+    {
+      "assistant": "nexa",
+      "question": "¿Dónde encuentro la pantalla Mis solicitudes de Nexo?",
       "expected": "available public screen",
       "actual": "other.unknown_nexo",
       "expectedStatus": "available",
